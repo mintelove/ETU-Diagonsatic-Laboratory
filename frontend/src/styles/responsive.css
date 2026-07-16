@@ -78,7 +78,68 @@
   .page {
     padding: 1.2rem 1rem !important;
   }
+
+  .sidebar-mobile-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .mobile-tool-btn,
+  .mobile-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    color: #bad8e4;
+    text-decoration: none;
+    padding: 0.7rem 0.8rem;
+    border-radius: 7px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    width: 100%;
+    text-align: left;
+    transition: background 0.2s, transform 0.2s;
+  }
+  
+  .mobile-tool-btn:hover {
+    background: #126e98;
+    color: #fff;
+    transform: translateX(2px);
+  }
+
+  .mobile-logout-btn {
+    color: #ef7f75;
+  }
+
+  .mobile-logout-btn:hover {
+    background: rgba(239, 127, 117, 0.2);
+    color: #fff;
+    transform: translateX(2px);
+  }
 }
+
+/* Hide mobile-only controls on desktop */
+.sidebar-mobile-tools {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .sidebar-mobile-tools {
+    display: flex;
+  }
+
+  .sidebar {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 
 /* ── General Elements & Grid Wrapping ──────────────────── */
 @media (max-width: 1024px) {

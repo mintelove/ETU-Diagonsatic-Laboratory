@@ -70,6 +70,19 @@ export default function AppLayout(){
             <Item to="/settings" name="Settings" kind="settings"/>
           </>}
         </nav>
+
+        <div className="sidebar-mobile-tools">
+          <button className="mobile-tool-btn" title={t('language')} onClick={()=>updatePreferences({language:preferences.language==='en'?'am':'en'})}>
+            🌐 <span>{preferences.language==='en'?'English (EN)':'አማርኛ (አማ)'}</span>
+          </button>
+          <button className="mobile-tool-btn" title={t('theme')} onClick={()=>updatePreferences({theme:preferences.theme==='light'?'dark':'light'})}>
+            <span>{preferences.theme==='light'?'◐ Dark Theme':'☀ Light Theme'}</span>
+          </button>
+          <button className="mobile-logout-btn" onClick={logout}>
+            <span>Log out</span>
+          </button>
+        </div>
+
         <div className="user-card">
           <strong>{user.fullName}</strong>
           <span>{user.role}</span>
