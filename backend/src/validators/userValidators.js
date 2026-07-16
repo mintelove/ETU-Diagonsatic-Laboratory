@@ -1,0 +1,11 @@
+import { z } from 'zod';
+import { ROLE_VALUES } from '../constants/roles.js';
+const phone = z.string().trim().regex(/^\+?[0-9]{7,15}$/, 'Provide a valid phone number.');
+const password = z.string().min(10, 'Password must have at least 10 characters.').max(128).regex(/[A-Z]/, 'Password must contain an uppercase letter.').regex(/[a-z]/, 'Password must contain a lowercase letter.').regex(/[0-9]/, 'Password must contain a number.');
+const email = z.string().trim().toLowerCase().email('Provide a valid email address.').max(255).optional().or(z.literal(''));
+const base = { fullName: z.string().trim().min(2).max(100), username: z.string().trim().toLowerCase().min(3).max(30).regex(/^[a-z0-9._-]+$/, 'Username may contain lowercase letters, numbers, dots, hyphens and underscores only.'), phone, email, role: z.enum(ROLE_VALUES) };
+export const loginSchema = z.object({ username: z.string().trim().toLowerCase().min(1), password: z.string().min(1) });
+export const createUserSchema = z.object({ ...base, password });
+export const updateUserSchema = z.object(base);
+export const resetPasswordSchema = z.object({ password });
+export const statusSchema = z.object({ status: z.enum(['Active', 'Inactive']) });

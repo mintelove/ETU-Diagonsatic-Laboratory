@@ -1,0 +1,160 @@
+/* ============================================================
+   ETU Diagnostic Laboratory — Reusable Component Styles
+   ============================================================ */
+
+/* ── Loading Spinner ─────────────────────────────────── */
+.loading-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-spinner__ring {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.loading-spinner--sm .loading-spinner__ring {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.loading-spinner--lg .loading-spinner__ring {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+
+.loading-spinner--xl .loading-spinner__ring {
+  width: 40px;
+  height: 40px;
+  border-width: 3.5px;
+}
+
+.loading-spinner--primary {
+  color: var(--color-primary);
+}
+
+.loading-spinner--primary .loading-spinner__ring {
+  border-color: var(--color-primary-container);
+  border-top-color: var(--color-primary);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Full-Page Loading ───────────────────────────────── */
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: var(--space-4);
+  background: var(--color-surface);
+}
+
+.page-loading__text {
+  font-size: var(--text-sm);
+  color: var(--color-on-surface-variant);
+  letter-spacing: var(--tracking-wide);
+  animation: pulse-text 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Alert Messages ──────────────────────────────────── */
+.alert-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  animation: alert-enter 0.3s ease-out;
+}
+
+.alert-message--error {
+  background: var(--color-error-container);
+  color: var(--color-error);
+  border: 1px solid rgba(186, 26, 26, 0.15);
+}
+
+.alert-message--success {
+  background: var(--color-success-container);
+  color: var(--color-success);
+  border: 1px solid rgba(26, 125, 54, 0.15);
+}
+
+.alert-message--warning {
+  background: var(--color-warning-container);
+  color: var(--color-warning);
+  border: 1px solid rgba(124, 88, 0, 0.15);
+}
+
+.alert-message__icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+.alert-message__content {
+  flex: 1;
+  font-weight: 500;
+}
+
+@keyframes alert-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Fade In Animation ───────────────────────────────── */
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Skeleton Loading ────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-container) 25%,
+    var(--color-surface-container-high) 37%,
+    var(--color-surface-container) 63%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

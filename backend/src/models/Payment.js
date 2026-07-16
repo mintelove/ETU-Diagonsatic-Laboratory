@@ -1,0 +1,3 @@
+import mongoose from 'mongoose';
+const schema=new mongoose.Schema({patient:{type:mongoose.Schema.Types.ObjectId,ref:'Patient',required:true,index:true},receiptNumber:{type:String,required:true,unique:true,index:true},amount:{type:Number,required:true,min:0},method:{type:String,enum:['Cash','Card','Mobile Payment'],required:true},receivedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},paidAt:{type:Date,required:true,index:true}},{timestamps:{createdAt:'createdDate',updatedAt:false},versionKey:false});
+schema.index({patient:1,paidAt:-1});export default mongoose.model('Payment',schema);

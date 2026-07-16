@@ -1,0 +1,126 @@
+/* ============================================================
+   ETU Diagnostic Laboratory — Design Tokens
+   Material Design 3 · Healthcare Blue/White Theme
+   ============================================================ */
+
+:root {
+  /* ── Primary Palette ────────────────────────────────── */
+  --md-primary-10: #001c38;
+  --md-primary-20: #003060;
+  --md-primary-30: #00468a;
+  --md-primary-40: #005db6;
+  --md-primary-50: #1a75d2;
+  --md-primary-60: #4a90e2;
+  --md-primary-70: #7aadee;
+  --md-primary-80: #a8c8f8;
+  --md-primary-90: #d3e4fc;
+  --md-primary-95: #eaf1fe;
+  --md-primary-99: #f8faff;
+
+  /* ── Semantic Colors ────────────────────────────────── */
+  --color-primary: #0b6bcb;
+  --color-primary-hover: #0959a5;
+  --color-primary-active: #074985;
+  --color-primary-light: #e3effb;
+  --color-primary-container: #d3e4fc;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #001c38;
+
+  /* ── Surface / Background ──────────────────────────── */
+  --color-surface: #f6fafd;
+  --color-surface-dim: #e8eef3;
+  --color-surface-bright: #ffffff;
+  --color-surface-container: #eef4f8;
+  --color-surface-container-low: #f2f7fb;
+  --color-surface-container-high: #e4ecf2;
+  --color-on-surface: #171c20;
+  --color-on-surface-variant: #40484f;
+  --color-outline: #70787f;
+  --color-outline-variant: #c0c8cf;
+
+  /* ── Status Colors ─────────────────────────────────── */
+  --color-success: #1a7d36;
+  --color-success-container: #d6f5dd;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad5;
+  --color-on-error: #ffffff;
+  --color-warning: #7c5800;
+  --color-warning-container: #ffdea6;
+
+  /* ── Glassmorphism ─────────────────────────────────── */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-blur: 20px;
+  --glass-blur-strong: 32px;
+
+  /* ── Elevation / Shadows ───────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 40, 80, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 40, 80, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 40, 80, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 40, 80, 0.10);
+  --shadow-xl: 0 16px 48px rgba(0, 40, 80, 0.12);
+  --shadow-2xl: 0 24px 64px rgba(0, 40, 80, 0.16);
+  --shadow-primary: 0 4px 20px rgba(11, 107, 203, 0.25);
+  --shadow-primary-lg: 0 8px 32px rgba(11, 107, 203, 0.30);
+
+  /* ── Border Radius ─────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+  --radius-full: 9999px;
+
+  /* ── Typography ────────────────────────────────────── */
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.8125rem;   /* 13px */
+  --text-base: 0.875rem;  /* 14px */
+  --text-md: 0.9375rem;   /* 15px */
+  --text-lg: 1.0625rem;   /* 17px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.06em;
+  --tracking-widest: 0.1em;
+
+  /* ── Spacing ───────────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── Transitions ───────────────────────────────────── */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* ── Z-Index Scale ─────────────────────────────────── */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}

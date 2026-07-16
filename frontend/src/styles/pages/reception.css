@@ -1,0 +1,296 @@
+/* ============================================================
+   ETU Diagnostic Laboratory — Reception Redesigned Styles
+   Modern Healthcare Theme with Glassmorphism and Thermal Print
+   ============================================================ */
+
+.reception-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.reception-stats .stat-card {
+  position: relative;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  color: #ffffff;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  animation: card-enter 0.4s ease-out both;
+}
+
+.reception-stats .stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.reception-stats .stat-card.blue { background: linear-gradient(135deg, #0b6bcb, #1976d2); }
+.reception-stats .stat-card.teal { background: linear-gradient(135deg, #00796b, #00897b); }
+.reception-stats .stat-card.green { background: linear-gradient(135deg, #2e7d32, #43a047); }
+.reception-stats .stat-card.orange { background: linear-gradient(135deg, #e65100, #f57c00); }
+.reception-stats .stat-card.purple { background: linear-gradient(135deg, #6a1b9a, #8e24aa); }
+.reception-stats .stat-card.indigo { background: linear-gradient(135deg, #1a237e, #3f51b5); }
+
+.reception-stats .stat-card small {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  opacity: 0.85;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.reception-stats .stat-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+/* ── Wizard Layout ───────────────────────────────────── */
+.registration-wizard {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.wizard-step-panel {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-6);
+}
+
+.wizard-step-panel h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary-light);
+  padding-bottom: var(--space-2);
+}
+
+/* ── Sample selection grid ───────────────────────────── */
+.sample-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.sample-selection-card {
+  background: var(--color-surface-bright);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: var(--shadow-xs);
+}
+
+.sample-selection-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-primary);
+}
+
+.sample-selection-card.selected {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.sample-selection-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.sample-selection-card .sample-name {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  margin-bottom: 4px;
+}
+
+.sample-selection-card .sample-price {
+  font-size: var(--text-md);
+  font-weight: 800;
+  color: var(--color-primary);
+  margin-top: auto;
+}
+.sample-selection-card .sample-description{color:var(--color-on-surface-variant);font-size:var(--text-xs);line-height:1.35;margin-bottom:8px}.sample-selection-card.selected:after{content:'Selected';position:absolute;right:12px;bottom:10px;font-size:10px;font-weight:700;color:var(--color-primary)}
+
+/* ── Bill Summary Card ───────────────────────────────── */
+.bill-summary-card {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: var(--space-6);
+}
+
+.bill-summary-card h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+}
+
+.bill-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: var(--space-4);
+}
+
+.bill-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--color-on-surface-variant);
+}
+
+.bill-item.total {
+  font-size: var(--text-md);
+  font-weight: 800;
+  color: var(--color-on-surface);
+  border-top: 1px dashed var(--color-outline-variant);
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* ── POS 80mm Thermal Receipt Layout ────────────────── */
+.thermal-receipt-modal {
+  background: rgba(0, 0, 0, 0.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+
+.thermal-receipt {
+  background: #ffffff;
+  width: 80mm;
+  padding: 5mm;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #000000;
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-xs);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.thermal-receipt .receipt-title {
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.thermal-receipt .receipt-subtitle {
+  text-align: center;
+  font-size: 10px;
+  margin-bottom: 8px;
+}
+
+.thermal-receipt hr {
+  border: none;
+  border-top: 1px dashed #000000;
+  margin: 6px 0;
+}
+
+.thermal-receipt .item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.thermal-receipt .total-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.thermal-receipt .receipt-footer {
+  text-align: center;
+  font-size: 10px;
+  margin-top: 12px;
+  font-style: italic;
+}
+
+/* ── Media print styles ──────────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .thermal-receipt-modal, .thermal-receipt-modal * {
+    visibility: visible;
+  }
+  .thermal-receipt-modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: transparent;
+    width: 80mm;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  .thermal-receipt {
+    width: 80mm;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ── Responsive breakpoints ──────────────────────────── */
+@media (max-width: 1100px) {
+  .reception-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 960px) {
+  .registration-wizard {
+    grid-template-columns: 1fr;
+  }
+  .bill-summary-card {
+    position: static;
+  }
+}
+
+@media (max-width: 600px) {
+  .reception-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
