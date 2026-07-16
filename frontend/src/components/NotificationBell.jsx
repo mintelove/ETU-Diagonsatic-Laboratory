@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 
 export default function NotificationBell() {
   const { token, user } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState({ notifications: [], unreadCount: 0 });
   const requestInFlight = useRef(false);
@@ -28,6 +30,12 @@ export default function NotificationBell() {
     const id = setInterval(() => load(controller.signal), 15000);
     return () => { controller.abort(); clearInterval(id); };
   }, [load]);
+
+  useEffect(() => {
+    const cb = () => load();
+    subscribe('notifications:change', cb);
+    return () => unsubscribe('notifications:change', cb);
+  }, [subscribe, unsubscribe, load]);
 
   const read = async notification => {
     try {

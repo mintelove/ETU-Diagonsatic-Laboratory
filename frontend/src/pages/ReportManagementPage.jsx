@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {api} from '../api/client.js';
 import {useAuth} from '../context/AuthContext.jsx';
+import {useRealtime} from '../context/RealtimeContext.jsx';
 import {printLabReport} from '../utils/printLabReport.js';
 
 const date=value=>value?new Date(value).toLocaleString():'—';
@@ -9,9 +10,10 @@ const statusOf=report=>report.status==='Submitted'||report.status==='Pending'?'P
 const progress=report=>{const total=report.results?.length||0,complete=report.results?.filter(row=>String(row.result||'').trim()).length||0;return total?`${complete} of ${total} results entered`:'No results entered'};
 function Card({label,value,tone}){return <article className={`enterprise-card ${tone}`}><small>{label}</small><strong>{value}</strong></article>}
 export default function ReportManagementPage(){
- const {token,user}=useAuth(),go=useNavigate(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const {token,user}=useAuth(),go=useNavigate(),{subscribe,unsubscribe}=useRealtime(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[message,setMessage]=useState(''),[error,setError]=useState('');
  const load=async()=>{try{const data=await api('/collection/reports',{token});setReports(data.reports)}catch(e){setError(e.message)}};
  useEffect(()=>{load()},[token]);
+ useEffect(()=>{subscribe('reports:change',load);return()=>unsubscribe('reports:change',load)},[subscribe,unsubscribe]);
  const counts=useMemo(()=>({Draft:reports.filter(r=>r.status==='Draft').length,Pending:reports.filter(r=>['Submitted','Pending'].includes(r.status)).length,Approved:reports.filter(r=>['Approved','Ready for Printing'].includes(r.status)).length,Rejected:reports.filter(r=>r.status==='Rejected').length,today:reports.filter(r=>new Date(r.createdDate).toDateString()===new Date().toDateString()).length}),[reports]);
  const filtered=useMemo(()=>reports.filter(r=>{const bucket=tab==='Pending'?['Submitted','Pending'].includes(r.status):tab==='Approved'?['Approved','Ready for Printing'].includes(r.status):r.status===tab;if(!bucket)return false;const text=`${r.patient?.name||''} ${r.patient?.patientId||''} ${r.patient?.barcode||''} ${(r.patient?.sampleTypes||[]).map(x=>x.name).join(' ')}`.toLowerCase();if(q&&!text.includes(q.toLowerCase()))return false;const d=new Date(r.submittedAt||r.createdDate),now=new Date();if(range==='Today')return d.toDateString()===now.toDateString();if(range==='This Week'){const start=new Date(now);start.setDate(now.getDate()-7);return d>=start}return true}),[reports,tab,q,range]);
  const remove=async r=>{if(!window.confirm(`Delete the draft for ${r.patient?.name}?`))return;try{await api(`/collection/reports/${r._id}`,{token,method:'DELETE'});setMessage('Draft deleted.');load()}catch(e){setError(e.message)}};

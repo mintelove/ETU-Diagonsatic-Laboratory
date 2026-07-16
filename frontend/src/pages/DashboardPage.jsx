@@ -9,6 +9,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import { getDashboardData, globalSearch } from '../services/dashboardService.js';
 import {
   ResponsiveContainer,
@@ -117,6 +118,7 @@ function exportPDF() {
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { subscribe, unsubscribe } = useRealtime();
 
   /* ── State ─────────────────────────────────────────── */
   const [data, setData] = useState(null);
@@ -150,6 +152,14 @@ export default function DashboardPage() {
     const interval = setInterval(() => loadDashboard(), 60000);
     return () => clearInterval(interval);
   }, [loadDashboard]);
+
+  /* ── Real-time sync subscription ────────────────────── */
+  useEffect(() => {
+    const refresh = () => loadDashboard();
+    const events = ['stock:change', 'reception:change', 'reports:change', 'collection:change'];
+    events.forEach((e) => subscribe(e, refresh));
+    return () => events.forEach((e) => unsubscribe(e, refresh));
+  }, [subscribe, unsubscribe, loadDashboard]);
 
   /* ── Live clock ────────────────────────────────────── */
   useEffect(() => {

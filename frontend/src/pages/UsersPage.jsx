@@ -8,6 +8,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import UserForm from '../components/UserForm.jsx';
 import {
   getUsers,
@@ -73,6 +74,7 @@ function formatLastLogin(dateStr) {
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
 
   // Data state
   const [users, setUsers] = useState([]);
@@ -129,6 +131,12 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  // Real-time sync
+  useEffect(() => {
+    subscribe('users:change', loadUsers);
+    return () => unsubscribe('users:change', loadUsers);
+  }, [subscribe, unsubscribe, loadUsers]);
 
   // Stats
   const stats = useMemo(() => {

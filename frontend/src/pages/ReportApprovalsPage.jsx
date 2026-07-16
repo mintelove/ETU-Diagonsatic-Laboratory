@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 
 function ReportPreview({ report }) {
@@ -16,11 +17,13 @@ function ReportPreview({ report }) {
 
 export default function ReportApprovalsPage() {
   const { token, user } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
   const [reports, setReports] = useState([]); const [history, setHistory] = useState([]);
   const [tab, setTab] = useState('pending'); const [selected, setSelected] = useState(null);
   const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const load = async () => { try { const [pending, prior] = await Promise.all([api('/report-approvals/pending', { token }), api('/report-approvals/history', { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { setError(e.message); } };
   useEffect(() => { load(); }, [token]);
+  useEffect(() => { subscribe('reports:change', load); return () => unsubscribe('reports:change', load); }, [subscribe, unsubscribe]);
   const decide = async status => {
     if (!selected || busy) return;
     if (status === 'Rejected' && !reason.trim()) { setError('A reason for rejection is required.'); return; }

@@ -3,6 +3,7 @@ import { BarChart, Bar, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieCh
 import { api } from '../api/client.js';
 import { download } from '../api/download.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import '../styles/pages/patientManagement.css';
 
 const money = value => `${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
@@ -12,11 +13,21 @@ function Toast({ notice }) { return notice ? <div className={`pm-toast ${notice.
 function Chart({ title, children }) { return <section className="pm-chart"><h3>{title}</h3><div className="pm-chart-space">{children}</div></section>; }
 
 export default function PatientManagementPage() {
-  const { token } = useAuth(); const [dashboard,setDashboard]=useState(null),[patients,setPatients]=useState([]),[pagination,setPagination]=useState({}),[hospitals,setHospitals]=useState([]),[samples,setSamples]=useState([]),[users,setUsers]=useState([]),[loading,setLoading]=useState(true),[notice,setNotice]=useState(null),[profile,setProfile]=useState(null),[hospitalForm,setHospitalForm]=useState(null),[filters,setFilters]=useState({q:'',period:'',patientType:'',paymentStatus:'',reportStatus:'',sampleType:'',referralHospital:'',receptionist:'',sort:'registrationDate',order:'desc'}),[page,setPage]=useState(1);
+  const { token } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
+  const [dashboard,setDashboard]=useState(null),[patients,setPatients]=useState([]),[pagination,setPagination]=useState({}),[hospitals,setHospitals]=useState([]),[samples,setSamples]=useState([]),[users,setUsers]=useState([]),[loading,setLoading]=useState(true),[notice,setNotice]=useState(null),[profile,setProfile]=useState(null),[hospitalForm,setHospitalForm]=useState(null),[filters,setFilters]=useState({q:'',period:'',patientType:'',paymentStatus:'',reportStatus:'',sampleType:'',referralHospital:'',receptionist:'',sort:'registrationDate',order:'desc'}),[page,setPage]=useState(1);
   const notify=(text,error=false)=>{setNotice({text,error});setTimeout(()=>setNotice(null),3500)};
   const query=useMemo(()=>new URLSearchParams(Object.entries({...filters,page,limit:15}).filter(([,v])=>v!=='' )).toString(),[filters,page]);
   const load = useCallback(async()=>{setLoading(true);try{const [d,p,h,s,u]=await Promise.all([api('/patient-management/dashboard',{token}),api(`/patient-management/patients?${query}`,{token}),api('/patient-management/hospitals',{token}),api('/reception/sample-types',{token}),api('/users',{token})]);setDashboard(d);setPatients(p.patients);setPagination(p.pagination);setHospitals(h.hospitals);setSamples(s.sampleTypes);setUsers(u.users.filter(user=>user.role==='Reception'));}catch(e){notify(e.message,true)}finally{setLoading(false)}},[token,query]);
   useEffect(()=>{load()},[load]);
+  useEffect(() => {
+    subscribe('patients:change', load);
+    subscribe('reception:change', load);
+    return () => {
+      unsubscribe('patients:change', load);
+      unsubscribe('reception:change', load);
+    };
+  }, [subscribe, unsubscribe, load]);
   const change=(key,value)=>{setFilters(old=>({...old,[key]:value}));setPage(1)};
   const showProfile=async id=>{try{setProfile(await api(`/patient-management/patients/${id}`,{token}))}catch(e){notify(e.message,true)}};
   const saveHospital=async event=>{event.preventDefault();try{const method=hospitalForm._id?'PUT':'POST',url=hospitalForm._id?`/patient-management/hospitals/${hospitalForm._id}`:'/patient-management/hospitals';await api(url,{token,method,body:JSON.stringify(hospitalForm)});setHospitalForm(null);notify('Referral hospital saved.');load()}catch(e){notify(e.message,true)}};

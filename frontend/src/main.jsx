@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { PreferencesProvider } from './context/PreferencesContext.jsx';
+import { RealtimeProvider } from './context/RealtimeContext.jsx';
 
 // Styling Architecture
 import './styles/variables.css';
@@ -20,12 +21,15 @@ import './styles/pages/navigation.css';
 import './styles/pages/phase17.css';
 import './styles/theme.css';
 import './styles.css'; // Legacy/existing app page styles
+import './styles/responsive.css'; // Responsive layout additions
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <PreferencesProvider><App /></PreferencesProvider>
+        <RealtimeProvider>
+          <PreferencesProvider><App /></PreferencesProvider>
+        </RealtimeProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

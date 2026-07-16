@@ -1,4 +1,5 @@
-import Notification from '../models/Notification.js'; import { AppError } from '../utils/appError.js';
+import Notification from '../models/Notification.js'; import { AppError } from '../utils/appError.js'; import { emit } from '../services/sseService.js';
 export async function listNotifications(req,res,next){try{const filter={recipient:req.user.id};const [notifications,unreadCount]=await Promise.all([Notification.find(filter).select('item entity entityType type message read createdDate').populate('item','itemName itemCode currentQuantity usedQuantity').sort({createdDate:-1}).limit(30).lean(),Notification.countDocuments({...filter,read:false})]);res.json({notifications,unreadCount});}catch(e){next(e)}}
-export async function markRead(req,res,next){try{const notification=await Notification.findOneAndUpdate({_id:req.params.id,recipient:req.user.id},{read:true},{new:true});if(!notification)throw new AppError('Notification not found.',404);res.json({notification});}catch(e){next(e)}}
-export async function markAllRead(req,res,next){try{await Notification.updateMany({recipient:req.user.id,read:false},{read:true});res.status(204).send();}catch(e){next(e)}}
+export async function markRead(req,res,next){try{const notification=await Notification.findOneAndUpdate({_id:req.params.id,recipient:req.user.id},{read:true},{new:true});if(!notification)throw new AppError('Notification not found.',404);res.json({notification});emit('notifications:change',{action:'read'});}catch(e){next(e)}}
+export async function markAllRead(req,res,next){try{await Notification.updateMany({recipient:req.user.id,read:false},{read:true});res.status(204).send();emit('notifications:change',{action:'readAll'});}catch(e){next(e)}}
+

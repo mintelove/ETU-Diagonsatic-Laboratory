@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 
 const blank = { chiefComplaint:'', symptoms:'', observations:'', adviceGiven:'', recommendedTests:'', recommendedDoctorVisit:false, followUp:'', additionalNotes:'', durationMinutes:'' };
 export default function CounsellingPage(){
- const {token,user}=useAuth(),[queue,setQueue]=useState([]),[history,setHistory]=useState([]),[tab,setTab]=useState(user.role==='Sample Collector'?'queue':'history'),[q,setQ]=useState(''),[selected,setSelected]=useState(),[form,setForm]=useState(blank),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const {token,user}=useAuth(),{subscribe,unsubscribe}=useRealtime(),[queue,setQueue]=useState([]),[history,setHistory]=useState([]),[tab,setTab]=useState(user.role==='Sample Collector'?'queue':'history'),[q,setQ]=useState(''),[selected,setSelected]=useState(),[form,setForm]=useState(blank),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
  const load=async()=>{try{const [a,b]=await Promise.all([api(`/counselling/queue?q=${encodeURIComponent(q)}`,{token}),api(`/counselling/history?q=${encodeURIComponent(q)}`,{token})]);setQueue(a.records);setHistory(b.records)}catch(e){setError(e.message)}};
  useEffect(()=>{load()},[token,q]);
+ useEffect(() => {
+    subscribe('counselling:change', load);
+    return () => unsubscribe('counselling:change', load);
+  }, [subscribe, unsubscribe]);
  const stats=useMemo(()=>({waiting:queue.filter(x=>x.status==='Waiting for Counseling').length,inProgress:queue.filter(x=>x.status==='In Progress').length,completedToday:history.filter(x=>new Date(x.completedAt).toDateString()===new Date().toDateString()).length}),[queue,history]);
  const open=record=>{setSelected(record);setForm({...blank,...record,durationMinutes:record.durationMinutes??''});};
  const save=async complete=>{if(!selected)return;setBusy(true);setError('');try{await api(complete?`/counselling/${selected._id}/complete`:`/counselling/${selected._id}`,{token,method:complete?'POST':'PUT',body:JSON.stringify(form)});setMessage(complete?'Counseling completed and saved to history.':'Counseling progress saved.');if(complete)setSelected(null);load()}catch(e){setError(e.message)}finally{setBusy(false)}};

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 
 const today = value => new Date(value).toDateString() === new Date().toDateString();
@@ -9,11 +10,17 @@ function ReportPreview({ report }) { const p = report.patient || {}; return <sec
 
 export default function ExtraRequestsPage() {
   const { token, user } = useAuth(); const isAdmin = user.role === 'Admin';
+  const { subscribe, unsubscribe } = useRealtime();
   const [requests, setRequests] = useState([]); const [reports, setReports] = useState([]); const [reportHistory, setReportHistory] = useState([]);
   const [tab, setTab] = useState('stock'); const [stockStatus, setStockStatus] = useState('Pending'); const [reportStatus, setReportStatus] = useState('Pending'); const [query, setQuery] = useState('');
   const [comments, setComments] = useState({}); const [selected, setSelected] = useState(null); const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const load = async () => { try { const calls = [api('/extra-requests', { token })]; if (isAdmin) calls.push(api('/report-approvals/pending', { token }), api('/report-approvals/history', { token })); const [stock, pending = { reports: [] }, history = { reports: [] }] = await Promise.all(calls); setRequests(stock.requests); setReports(pending.reports); setReportHistory(history.reports); } catch (e) { setError(e.message); } };
   useEffect(() => { load(); }, [token, isAdmin]);
+  useEffect(() => {
+    subscribe('extraRequests:change', load);
+    subscribe('reports:change', load);
+    return () => { unsubscribe('extraRequests:change', load); unsubscribe('reports:change', load); };
+  }, [subscribe, unsubscribe]);
   const reviewStock = async (id, decision) => { setBusy(true); setError(''); try { const result = await api(`/extra-requests/${id}/review`, { token, method: 'PATCH', body: JSON.stringify({ status: decision, comments: comments[id] || '' }) }); setMessage(result.message); load(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
   const decideReport = async status => { if (!selected || busy) return; if (status === 'Rejected' && !reason.trim()) { setError('A reason for rejection is required.'); return; } setBusy(true); setError(''); try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
   const visibleStock = requests.filter(r => !stockStatus || r.status === stockStatus);

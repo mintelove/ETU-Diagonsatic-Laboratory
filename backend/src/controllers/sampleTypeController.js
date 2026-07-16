@@ -9,6 +9,7 @@ import SampleType from '../models/SampleType.js';
 import Patient from '../models/Patient.js';
 import { AppError } from '../utils/appError.js';
 import { recordActivity } from '../services/activityService.js';
+import { emit } from '../services/sseService.js';
 
 /**
  * GET /api/sample-types
@@ -140,6 +141,7 @@ export async function createSampleType(req, res, next) {
     );
 
     res.status(201).json({ sampleType });
+    emit('sampleTypes:change', { action: 'created' });
   } catch (error) {
     next(error);
   }
@@ -180,15 +182,11 @@ export async function updateSampleType(req, res, next) {
     );
 
     res.json({ sampleType });
+    emit('sampleTypes:change', { action: 'updated' });
   } catch (error) {
     next(error);
   }
 }
-
-/**
- * PATCH /api/sample-types/:id/status
- * Activates or deactivates a sample type. Admin only.
- */
 export async function updateSampleTypeStatus(req, res, next) {
   try {
     const { status } = req.body;
@@ -209,6 +207,7 @@ export async function updateSampleTypeStatus(req, res, next) {
     );
 
     res.json({ sampleType });
+    emit('sampleTypes:change', { action: 'status' });
   } catch (error) {
     next(error);
   }
@@ -241,6 +240,7 @@ export async function deleteSampleType(req, res, next) {
     );
 
     res.status(204).end();
+    emit('sampleTypes:change', { action: 'deleted' });
   } catch (error) {
     next(error);
   }

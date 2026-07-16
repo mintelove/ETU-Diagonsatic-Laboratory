@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import {
   getCategories,
   createCategory,
@@ -35,6 +36,7 @@ const initialFormState = {
 
 export default function CategoriesPage() {
   const { user: currentUser } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
 
   // Data states
   const [categories, setCategories] = useState([]);
@@ -88,6 +90,12 @@ export default function CategoriesPage() {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  // Real-time sync
+  useEffect(() => {
+    subscribe('categories:change', loadCategories);
+    return () => unsubscribe('categories:change', loadCategories);
+  }, [subscribe, unsubscribe, loadCategories]);
 
   // Calculate high-level stats from category list
   const stats = useMemo(() => {

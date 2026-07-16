@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import {
   getSampleTypes,
   createSampleType,
@@ -50,6 +51,7 @@ const initialFormState = {
 export default function SampleTypesPage() {
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'Admin';
+  const { subscribe, unsubscribe } = useRealtime();
 
   // Data states
   const [sampleTypes, setSampleTypes] = useState([]);
@@ -107,6 +109,12 @@ export default function SampleTypesPage() {
   useEffect(() => {
     loadSampleTypes();
   }, [loadSampleTypes]);
+
+  // Real-time sync
+  useEffect(() => {
+    subscribe('sampleTypes:change', loadSampleTypes);
+    return () => unsubscribe('sampleTypes:change', loadSampleTypes);
+  }, [subscribe, unsubscribe, loadSampleTypes]);
 
   // Open modal to add sample type
   const openAddModal = () => {

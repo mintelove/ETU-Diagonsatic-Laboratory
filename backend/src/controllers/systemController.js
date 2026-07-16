@@ -9,6 +9,7 @@ import ActivityLog from '../models/ActivityLog.js';
 import StockItem from '../models/StockItem.js';
 import SystemSetting from '../models/SystemSetting.js';
 import { AppError } from '../utils/appError.js';
+import { emit } from '../services/sseService.js';
 
 const choices = { stock:'Reset Stock Quantities Only', patients:'Delete Patient History', counselling:'Delete Counseling History', reports:'Delete Laboratory Report History', drafts:'Delete Sample Collector Draft Reports', extraRequests:'Delete Extra Stock Requests', approvalRequests:'Delete Report Approval Requests', transactions:'Delete Financial Transactions', notifications:'Delete Notification History' };
 const clean = input => [...new Set((Array.isArray(input) ? input : []).filter(key => choices[key]))];
@@ -32,6 +33,7 @@ export async function setTheme(req, res, next) {
       return res.json({ theme:colors, scope });
     }
     const setting = await SystemSetting.findOneAndUpdate({ key:'theme' }, { $set:{ value:colors, updatedBy:req.user.id } }, { new:true, upsert:true });
+    emit('system:change', { action: 'theme' });
     res.json({ theme:setting.value, scope });
   } catch (error) { next(error); }
 }
@@ -78,6 +80,7 @@ export async function executeReset(req, res, next) {
     }
     const total = results.reduce((sum, item) => sum + item.deleted, 0);
     await ActivityLog.create({ action:'Database reset completed', entityType:'DatabaseReset', user:req.user.id, role:req.user.role, ipAddress:req.ip, details:JSON.stringify({ adminName:req.user.fullName, adminId:req.user.id, collectionsReset:selected, recordsDeleted:total }) });
+    emit('system:change', { action: 'reset' });
     res.json({ message:'Database Reset Completed Successfully', results, total });
   } catch (error) { next(error); }
 }

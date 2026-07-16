@@ -7,6 +7,7 @@ import User from '../models/User.js';
 import { AppError } from '../utils/appError.js';
 import { notifyStockLevel } from '../services/stockService.js';
 import { recordActivity } from '../services/activityService.js';
+import { emit } from '../services/sseService.js';
 
 async function alertUsers(roles, message, entity) {
   const users = await User.find({ role: { $in: roles }, status: 'Active' }).select('_id');
@@ -50,6 +51,8 @@ export async function reviewRequest(req, res, next) {
     });
     if (changedItem) await notifyStockLevel(changedItem);
     await recordActivity(req.user.id, `Extra stock request ${decision.toLowerCase()}`, 'ExtraStockRequest', req.params.id, decision, { role: req.user.role, ipAddress: req.ip });
+    emit('extraRequests:change', { action: decision.toLowerCase() });
+    if (changedItem) emit('stock:change', { action: 'quantity' });
     res.json({ message: `Request ${decision.toLowerCase()}.` });
   } catch (error) { next(error); } finally { await session.endSession(); }
 }

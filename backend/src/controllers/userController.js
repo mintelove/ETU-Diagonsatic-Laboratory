@@ -10,6 +10,7 @@ import path from 'node:path';
 import User from '../models/User.js';
 import { AppError } from '../utils/appError.js';
 import { recordActivity } from '../services/activityService.js';
+import { emit } from '../services/sseService.js';
 
 /**
  * GET /api/users — List all users, sorted newest first.
@@ -47,6 +48,7 @@ export async function createUser(req, res, next) {
       ipAddress: req.ip,
     });
     res.status(201).json({ user: user.toSafeObject() });
+    emit('users:change', { action: 'created' });
   } catch (error) {
     next(error);
   }
@@ -67,6 +69,7 @@ export async function updateUser(req, res, next) {
       ipAddress: req.ip,
     });
     res.json({ user: user.toSafeObject() });
+    emit('users:change', { action: 'updated' });
   } catch (error) {
     next(error);
   }
@@ -94,6 +97,7 @@ export async function updateStatus(req, res, next) {
       { role: req.user.role, ipAddress: req.ip }
     );
     res.json({ user: user.toSafeObject() });
+    emit('users:change', { action: 'status' });
   } catch (error) {
     next(error);
   }
@@ -113,6 +117,7 @@ export async function resetPassword(req, res, next) {
       ipAddress: req.ip,
     });
     res.json({ message: 'Password reset successfully.' });
+    emit('users:change', { action: 'password' });
   } catch (error) {
     next(error);
   }
@@ -139,6 +144,7 @@ export async function deleteUser(req, res, next) {
       ipAddress: req.ip,
     });
     res.status(204).send();
+    emit('users:change', { action: 'deleted' });
   } catch (error) {
     next(error);
   }
@@ -170,6 +176,7 @@ export async function uploadProfilePhoto(req, res, next) {
       ipAddress: req.ip,
     });
     res.json({ user: user.toSafeObject() });
+    emit('users:change', { action: 'photo' });
   } catch (error) {
     next(error);
   }
@@ -196,6 +203,7 @@ export async function removeProfilePhoto(req, res, next) {
       ipAddress: req.ip,
     });
     res.json({ user: user.toSafeObject() });
+    emit('users:change', { action: 'photo-removed' });
   } catch (error) {
     next(error);
   }

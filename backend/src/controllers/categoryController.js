@@ -8,6 +8,7 @@
 import Category from '../models/Category.js';
 import StockItem from '../models/StockItem.js';
 import { AppError } from '../utils/appError.js';
+import { emit } from '../services/sseService.js';
 
 /**
  * GET /api/categories — List all categories, sorted alphabetically by name.
@@ -95,6 +96,7 @@ export async function createCategory(req, res, next) {
     });
 
     res.status(201).json({ category });
+    emit('categories:change', { action: 'created' });
   } catch (error) {
     next(error);
   }
@@ -130,6 +132,7 @@ export async function updateCategory(req, res, next) {
     await category.save();
 
     res.json({ category });
+    emit('categories:change', { action: 'updated' });
   } catch (error) {
     next(error);
   }
@@ -148,6 +151,7 @@ export async function updateCategoryStatus(req, res, next) {
     );
     if (!category) throw new AppError('Category not found.', 404);
     res.json({ category });
+    emit('categories:change', { action: 'status' });
   } catch (error) {
     next(error);
   }
@@ -172,6 +176,7 @@ export async function deleteCategory(req, res, next) {
     if (!category) throw new AppError('Category not found.', 404);
 
     res.status(204).send();
+    emit('categories:change', { action: 'deleted' });
   } catch (error) {
     next(error);
   }

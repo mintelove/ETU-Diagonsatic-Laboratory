@@ -9,6 +9,7 @@ import { memo, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { api } from '../api/client.js';
 import { download } from '../api/download.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 
 const KES_TO_ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
@@ -123,6 +124,7 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
 
 export default function ReceptionPage() {
   const { token, user } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
 
   // Dashboard & global data states
   const [dash, setDash] = useState(null);
@@ -187,6 +189,17 @@ export default function ReceptionPage() {
     loadData(controller.signal);
     return () => controller.abort();
   }, [loadData]);
+
+  // Real-time sync — refresh dashboard data on changes
+  useEffect(() => {
+    const refresh = () => loadData();
+    subscribe('reception:change', refresh);
+    subscribe('reports:change', refresh);
+    return () => {
+      unsubscribe('reception:change', refresh);
+      unsubscribe('reports:change', refresh);
+    };
+  }, [subscribe, unsubscribe, loadData]);
 
   // Load counselling history when active
   useEffect(() => {

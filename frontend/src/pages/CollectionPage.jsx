@@ -1,14 +1,16 @@
 import {useEffect,useState} from 'react';
 import {api} from '../api/client.js';
 import {useAuth} from '../context/AuthContext.jsx';
+import {useRealtime} from '../context/RealtimeContext.jsx';
 import {useLocation} from 'react-router-dom';
 const emptyReport={equipment:[],results:[],comments:''};
 const emptyRequest={item:'',quantity:1,reason:'',priority:'Routine'};
 
 export default function CollectionPage(){
- const {token,user}=useAuth(),location=useLocation(),[dash,setDash]=useState(),[queue,setQueue]=useState([]),[equipment,setEquipment]=useState({equipment:[],parameters:{}}),[stock,setStock]=useState([]),[requests,setRequests]=useState([]),[tab,setTab]=useState('queue'),[selected,setSelected]=useState(),[report,setReport]=useState(emptyReport),[generated,setGenerated]=useState(),[confirmSubmit,setConfirmSubmit]=useState(false),[request,setRequest]=useState(emptyRequest),[q,setQ]=useState(''),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const {token,user}=useAuth(),location=useLocation(),{subscribe,unsubscribe}=useRealtime(),[dash,setDash]=useState(),[queue,setQueue]=useState([]),[equipment,setEquipment]=useState({equipment:[],parameters:{}}),[stock,setStock]=useState([]),[requests,setRequests]=useState([]),[tab,setTab]=useState('queue'),[selected,setSelected]=useState(),[report,setReport]=useState(emptyReport),[generated,setGenerated]=useState(),[confirmSubmit,setConfirmSubmit]=useState(false),[request,setRequest]=useState(emptyRequest),[q,setQ]=useState(''),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const load=async()=>{try{const [d,que,e,s,r]=await Promise.all([api('/collection/dashboard',{token}),api(`/collection/queue?q=${encodeURIComponent(q)}`,{token}),api('/report-entry/equipment',{token}),api('/collection/stock',{token}),api('/extra-requests',{token})]);setDash(d);setQueue(que.queue);setEquipment(e);setStock(s.items);setRequests(r.requests)}catch(e){setError(e.message)}};
  useEffect(()=>{load()},[token,q]);
+ useEffect(()=>{const cb=()=>load();subscribe('collection:change',cb);subscribe('stock:change',cb);subscribe('extraRequests:change',cb);return()=>{unsubscribe('collection:change',cb);unsubscribe('stock:change',cb);unsubscribe('extraRequests:change',cb)}},[subscribe,unsubscribe]);
  useEffect(()=>{const resume=location.state?.resume;if(resume){setSelected(resume.patient);setReport({equipment:resume.equipment||[],results:resume.results||[],comments:resume.comments||''});setGenerated(null);setTab('report');setMessage('Report loaded for editing.')}},[location.state]);
  const selectEquipment=name=>{const equipmentList=report.equipment.includes(name)?report.equipment.filter(x=>x!==name):[...report.equipment,name];setGenerated(null);setReport({...report,equipment:equipmentList,results:equipmentList.flatMap(x=>equipment.parameters[x]||[])});};
  async function start(row){setBusy(true);setError('');try{await api(`/collection/patients/${row.patient._id}/start`,{token,method:'POST'});const draft=await api(`/report-entry/patients/${row.patient._id}/draft`,{token});setSelected(row.patient);setReport(draft.report||emptyReport);setGenerated(null);setTab('report');setMessage(draft.report?'Draft loaded for editing.':'Collection started and standard consumables deducted.');load()}catch(e){setError(e.message)}finally{setBusy(false)}}

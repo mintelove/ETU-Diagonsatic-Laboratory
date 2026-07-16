@@ -1,0 +1,182 @@
+/* ============================================================
+   ETU Diagnostic Laboratory — Responsive Layout Styles
+   ============================================================ */
+
+/* ── Mobile Sidebar Drawer & Overlay Navigation ─────────── */
+@media (max-width: 720px) {
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    left: -260px;
+    width: 250px;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(13, 40, 57, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 199;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .mobile-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 1.2rem;
+    background: var(--etu-sidebar, #093f5d);
+    color: #edf8fc;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    height: 60px;
+  }
+
+  .mobile-menu-toggle {
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: 1.5rem;
+    padding: 0.2rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .mobile-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .top-navigation {
+    display: none !important; /* hidden in favor of mobile-header */
+  }
+
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .page {
+    padding: 1.2rem 1rem !important;
+  }
+}
+
+/* ── General Elements & Grid Wrapping ──────────────────── */
+@media (max-width: 1024px) {
+  .enterprise-grid,
+  .summary-grid,
+  .pm-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .category-grid,
+  .stock-grid,
+  .pm-charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .enterprise-grid,
+  .summary-grid,
+  .pm-cards,
+  .category-grid,
+  .stock-grid,
+  .pm-charts {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Compact dashboard card spacing */
+  .exec-card,
+  .pm-card {
+    padding: 1rem !important;
+  }
+}
+
+/* ── Tables & Overflow Safeguards ─────────────────────── */
+.table-card,
+.pm-table-wrap {
+  width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg, 12px);
+  margin-top: 1rem;
+}
+
+table {
+  min-width: 700px; /* Force overflow container behavior on smaller screens */
+  width: 100%;
+}
+
+/* ── Modal Dialog Responsiveness ───────────────────────── */
+.modal-content,
+.pm-modal {
+  width: 95vw !important;
+  max-width: 95vw !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  border-radius: var(--radius-lg, 14px) !important;
+  padding: 1.2rem !important;
+}
+
+.form-grid,
+.pm-form-grid,
+.result-grid {
+  grid-template-columns: 1fr !important;
+  gap: 0.8rem 0 !important;
+}
+
+.wide,
+.full {
+  grid-column: span 1 !important;
+}
+
+/* ── Custom Button wrapping for tools ─────────────────── */
+.stock-tools,
+.table-title,
+.pm-filter-grid {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.8rem !important;
+}
+
+.stock-tools > *,
+.pm-filter-grid > *,
+.table-title > * {
+  width: 100% !important;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-buttons button {
+  flex: 1;
+  text-align: center;
+}
+
+/* ── Dashboard Page Charts ────────────────────────────── */
+.pm-chart-space,
+.recharts-responsive-container {
+  min-height: 240px;
+}
