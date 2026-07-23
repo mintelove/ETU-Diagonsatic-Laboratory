@@ -604,44 +604,52 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 1rem 0;
-  }
-  .lab-bottom-left-overlay {
-    position: relative;
-    bottom: auto;
-    left: auto;
-    max-width: 92%;
-    margin: auto auto 0;
-    padding: 1.5rem 1.25rem 0.5rem;
-    z-index: 10;
-  }
-  .lab-bottom-title {
-    font-size: 1.75rem;
+    min-height: 100vh;
+    padding: 1rem 0 0;
   }
   .lab-fullscreen-right-card {
+    order: 1;
     position: relative;
     top: auto;
     right: auto;
     transform: none;
-    margin: 1rem auto;
+    margin: 0.5rem auto 1rem;
     width: 92%;
     max-width: 410px;
+  }
+  .lab-bottom-left-overlay {
+    order: 2;
+    position: relative;
+    bottom: 0;
+    left: 0;
+    max-width: 92%;
+    margin: auto auto 0;
+    padding: 1rem 1.25rem 2rem;
+    z-index: 10;
+    align-items: center;
+    text-align: center;
+  }
+  .lab-bottom-title {
+    font-size: 1.75rem;
   }
 }
 
 /* Mobile Phones (320px - 599px) */
 @media (max-width: 599px) {
+  .lab-bottom-left-overlay {
+    padding: 0.75rem 1rem 1.75rem;
+  }
   .lab-bottom-title {
-    font-size: 1.45rem;
-    margin-bottom: 6px;
+    font-size: 1.4rem;
+    margin-bottom: 4px;
   }
   .lab-bottom-subtitle {
-    font-size: 0.82rem;
-    margin-bottom: 10px;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
   }
   .lab-fullscreen-right-card {
     width: 94%;
-    margin: 0.75rem auto 1.5rem;
+    margin: 0.5rem auto 1rem;
   }
   .lab-glass-card {
     padding: 1.15rem 1.25rem !important;
@@ -655,7 +663,7 @@
     font-size: 1.3rem;
   }
   .login-field__input {
-    font-size: 16px !important; /* Touch friendly & prevents iOS auto-zoom */
+    font-size: 16px !important; /* Touch friendly & prevents mobile browser auto-zoom */
     padding: 0.7rem 0.85rem;
     padding-left: 42px;
     min-height: 44px;
