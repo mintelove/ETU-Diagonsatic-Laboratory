@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="petriBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#02141a"/>
+      <stop offset="50%" stop-color="#062e33"/>
+      <stop offset="100%" stop-color="#010e12"/>
+    </linearGradient>
+    <radialGradient id="agarGrad1" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#ff3366" stop-opacity="0.9"/>
+      <stop offset="70%" stop-color="#990033" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#4d001a" stop-opacity="0.95"/>
+    </radialGradient>
+    <radialGradient id="agarGrad2" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#ffcc00" stop-opacity="0.85"/>
+      <stop offset="75%" stop-color="#cc8800" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#664400" stop-opacity="0.95"/>
+    </radialGradient>
+    <radialGradient id="dishGlass" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#00f2fe" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.6"/>
+    </radialGradient>
+    <filter id="glowMicro">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#petriBg)"/>
+
+  <!-- Lab Bench Glow -->
+  <ellipse cx="960" cy="650" rx="750" ry="320" fill="#00e676" opacity="0.08" filter="url(#glowMicro)"/>
+
+  <!-- Petri Dish 1 (Main Red Blood Agar) -->
+  <g transform="translate(680, 520)">
+    <!-- Outer Glass Dish Shadow -->
+    <ellipse cx="0" cy="20" rx="340" ry="240" fill="#000000" opacity="0.6"/>
+    <!-- Outer Glass Ring -->
+    <ellipse cx="0" cy="0" rx="340" ry="240" fill="url(#dishGlass)" stroke="#a0e0e0" stroke-width="6"/>
+    <ellipse cx="0" cy="0" rx="325" ry="228" fill="#1a0008"/>
+    <!-- Blood Agar Surface -->
+    <ellipse cx="0" cy="0" rx="310" ry="215" fill="url(#agarGrad1)"/>
+    
+    <!-- Bacterial Colony Streaks -->
+    <g filter="url(#glowMicro)" opacity="0.9">
+      <path d="M -180 -40 C -120 -100, -40 -120, 40 -80 C 120 -40, 200 -80, 240 -30" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+      <path d="M -140 20 C -60 -20, 20 10, 100 -30 C 160 -60, 220 0, 260 40" fill="none" stroke="#ffe6ee" stroke-width="8" stroke-linecap="round"/>
+      <path d="M -80 80 C 0 40, 80 90, 160 50" fill="none" stroke="#ffb3cb" stroke-width="6" stroke-linecap="round"/>
+      
+      <!-- Isolated Colonies -->
+      <circle cx="180" cy="60" r="12" fill="#ffffff"/>
+      <circle cx="210" cy="80" r="9" fill="#ffffff"/>
+      <circle cx="235" cy="50" r="7" fill="#ffffff"/>
+      <circle cx="140" cy="110" r="10" fill="#ffffff"/>
+      <circle cx="-120" cy="100" r="11" fill="#ffe6ee"/>
+    </g>
+    
+    <!-- Glass Rim Glare -->
+    <path d="M -300 -100 A 320 220 0 0 1 200 -190" fill="none" stroke="#ffffff" stroke-width="8" opacity="0.6" stroke-linecap="round"/>
+  </g>
+
+  <!-- Petri Dish 2 (Secondary Nutrient Agar - Top Left) -->
+  <g transform="translate(1380, 420)">
+    <ellipse cx="0" cy="15" rx="260" ry="180" fill="#000000" opacity="0.5"/>
+    <ellipse cx="0" cy="0" rx="260" ry="180" fill="url(#dishGlass)" stroke="#80d0d0" stroke-width="5"/>
+    <ellipse cx="0" cy="0" rx="235" ry="160" fill="url(#agarGrad2)"/>
+    <g filter="url(#glowMicro)">
+      <path d="M -120 -30 C -60 -70, 20 -50, 80 -10" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
+      <circle cx="100" cy="30" r="10" fill="#ffffff"/>
+      <circle cx="130" cy="10" r="8" fill="#ffffff"/>
+    </g>
+  </g>
+
+  <!-- Text Overlay -->
+  <g fill="#ffffff" opacity="0.85">
+    <text x="120" y="140" font-family="DM Sans, sans-serif" font-size="28" font-weight="700" fill="#00e676" letter-spacing="4">MICROBIOLOGY &amp; CULTURE DIAGNOSTICS</text>
+    <text x="120" y="180" font-family="DM Sans, sans-serif" font-size="16" fill="#a0dfdf">BACTERIAL CULTURE ANALYSIS · AGAR COLONY STREAKING · ETU DIAGNOSTIC LABORATORY</text>
+  </g>
+</svg>

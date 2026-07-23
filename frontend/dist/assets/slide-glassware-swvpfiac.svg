@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="glassBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020814"/>
+      <stop offset="50%" stop-color="#061c30"/>
+      <stop offset="100%" stop-color="#01050a"/>
+    </linearGradient>
+    <linearGradient id="glassBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="30%" stop-color="#e0f7fa" stop-opacity="0.1"/>
+      <stop offset="70%" stop-color="#e0f7fa" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="blueSolution" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe"/>
+      <stop offset="100%" stop-color="#4facfe"/>
+    </linearGradient>
+    <linearGradient id="amberSolution" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffb300"/>
+      <stop offset="100%" stop-color="#ff6f00"/>
+    </linearGradient>
+    <linearGradient id="tealSolution" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00e676"/>
+      <stop offset="100%" stop-color="#00897b"/>
+    </linearGradient>
+    <filter id="glowGlass">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#glassBg)"/>
+  <circle cx="960" cy="540" r="500" fill="#00f2fe" opacity="0.1" filter="url(#glowGlass)"/>
+
+  <!-- Lab Bench Platform -->
+  <rect x="0" y="760" width="1920" height="320" fill="#081420" stroke="#00f2fe" stroke-width="1" opacity="0.8"/>
+
+  <!-- Flask 1: Erlenmeyer Flask (Center Left) -->
+  <g transform="translate(680, 360)">
+    <!-- Liquid in Flask -->
+    <path d="M -90 320 Q 0 310 90 320 L 130 380 L -130 380 Z" fill="url(#blueSolution)" opacity="0.9" filter="url(#glowGlass)"/>
+    <!-- Glass Contour -->
+    <path d="M -35 0 L 35 0 L 35 120 L 140 380 A 20 20 0 0 1 120 400 L -120 400 A 20 20 0 0 1 -140 380 L -35 120 Z" fill="url(#glassBody)" stroke="#a0e0e0" stroke-width="4"/>
+    <!-- Graduation Marks -->
+    <line x1="20" y1="200" x2="60" y2="200" stroke="#ffffff" stroke-width="2" opacity="0.7"/>
+    <line x1="30" y1="250" x2="80" y2="250" stroke="#ffffff" stroke-width="2" opacity="0.7"/>
+    <line x1="40" y1="300" x2="100" y2="300" stroke="#ffffff" stroke-width="2" opacity="0.7"/>
+  </g>
+
+  <!-- Flask 2: Volumetric Flask (Center Right) -->
+  <g transform="translate(1080, 280)">
+    <!-- Liquid -->
+    <ellipse cx="0" cy="360" rx="140" ry="110" fill="url(#amberSolution)" opacity="0.85" filter="url(#glowGlass)"/>
+    <!-- Glass Contour -->
+    <path d="M -20 0 L 20 0 L 20 240 A 150 150 0 1 1 -20 240 Z" fill="url(#glassBody)" stroke="#ffffff" stroke-width="4"/>
+    <!-- Calibration Line -->
+    <line x1="-20" y1="180" x2="20" y2="180" stroke="#ffffff" stroke-width="3"/>
+  </g>
+
+  <!-- Flask 3: Graduated Cylinder (Far Right) -->
+  <g transform="translate(1380, 320)">
+    <rect x="-40" y="160" width="80" height="280" rx="8" fill="url(#tealSolution)" opacity="0.8" filter="url(#glowGlass)"/>
+    <rect x="-45" y="0" width="90" height="440" rx="10" fill="url(#glassBody)" stroke="#a0e0e0" stroke-width="4"/>
+    <!-- Measurement ticks -->
+    <line x1="-30" y1="80" x2="0" y2="80" stroke="#ffffff" stroke-width="2"/>
+    <line x1="-30" y1="140" x2="10" y2="140" stroke="#ffffff" stroke-width="2"/>
+    <line x1="-30" y1="200" x2="0" y2="200" stroke="#ffffff" stroke-width="2"/>
+    <line x1="-30" y1="260" x2="10" y2="260" stroke="#ffffff" stroke-width="2"/>
+    <line x1="-30" y1="320" x2="0" y2="320" stroke="#ffffff" stroke-width="2"/>
+    <line x1="-30" y1="380" x2="10" y2="380" stroke="#ffffff" stroke-width="2"/>
+  </g>
+
+  <!-- Text Overlay -->
+  <g fill="#ffffff" opacity="0.85">
+    <text x="120" y="140" font-family="DM Sans, sans-serif" font-size="28" font-weight="700" fill="#00f2fe" letter-spacing="4">DIAGNOSTIC REAGENTS &amp; GLASSWARE</text>
+    <text x="120" y="180" font-family="DM Sans, sans-serif" font-size="16" fill="#a0c4df">CALIBRATED VOLUMETRIC FLASKS · REAGENT PREPARATION · ETU DIAGNOSTIC LABORATORY</text>
+  </g>
+</svg>

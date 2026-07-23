@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="processBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020510"/>
+      <stop offset="50%" stop-color="#09142e"/>
+      <stop offset="100%" stop-color="#01030a"/>
+    </linearGradient>
+    <linearGradient id="laserLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff0055" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ff0055"/>
+      <stop offset="100%" stop-color="#ff0055" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="trackMetal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#455a64"/>
+      <stop offset="50%" stop-color="#90a4ae"/>
+      <stop offset="100%" stop-color="#263238"/>
+    </linearGradient>
+    <filter id="glowProcess">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#processBg)"/>
+  <circle cx="960" cy="540" r="500" fill="#ff0055" opacity="0.08" filter="url(#glowProcess)"/>
+
+  <!-- Automated Track Conveyor -->
+  <rect x="0" y="620" width="1920" height="180" fill="url(#trackMetal)"/>
+  <line x1="0" y1="620" x2="1920" y2="620" stroke="#00d2ff" stroke-width="4"/>
+  <line x1="0" y1="800" x2="1920" y2="800" stroke="#00d2ff" stroke-width="4"/>
+
+  <!-- Barcode Scanner Laser Beam -->
+  <rect x="0" y="440" width="1920" height="6" fill="url(#laserLine)" filter="url(#glowProcess)"/>
+
+  <!-- Automated Sample Racks on Conveyor Belt -->
+  <g transform="translate(200, 340)">
+    <!-- Rack 1 -->
+    <rect x="0" y="200" width="400" height="100" rx="12" fill="#0d1b2a" stroke="#00d2ff" stroke-width="2"/>
+    <!-- Tube array in Rack 1 -->
+    <g transform="translate(30, 40)">
+      <rect x="0" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="-4" y="-15" width="48" height="30" rx="8" fill="#d32f2f"/><!-- Red Cap -->
+      
+      <rect x="70" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="66" y="-15" width="48" height="30" rx="8" fill="#1976d2"/><!-- Blue Cap -->
+      
+      <rect x="140" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="136" y="-15" width="48" height="30" rx="8" fill="#388e3c"/><!-- Green Cap -->
+
+      <rect x="210" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="206" y="-15" width="48" height="30" rx="8" fill="#fbc02d"/><!-- Yellow Cap -->
+
+      <rect x="280" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="276" y="-15" width="48" height="30" rx="8" fill="#7b1fa2"/><!-- Purple Cap -->
+    </g>
+  </g>
+
+  <!-- Rack 2 (Center under Scanner Laser) -->
+  <g transform="translate(800, 340)">
+    <rect x="0" y="200" width="400" height="100" rx="12" fill="#0d1b2a" stroke="#ff0055" stroke-width="3" filter="url(#glowProcess)"/>
+    <g transform="translate(30, 40)">
+      <rect x="0" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="-4" y="-15" width="48" height="30" rx="8" fill="#d32f2f"/>
+      
+      <rect x="70" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="66" y="-15" width="48" height="30" rx="8" fill="#7b1fa2"/>
+      
+      <rect x="140" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="136" y="-15" width="48" height="30" rx="8" fill="#1976d2"/>
+
+      <rect x="210" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="206" y="-15" width="48" height="30" rx="8" fill="#388e3c"/>
+
+      <rect x="280" y="0" width="40" height="180" rx="20" fill="#e0f7fa" stroke="#ffffff" stroke-width="2"/>
+      <rect x="276" y="-15" width="48" height="30" rx="8" fill="#d32f2f"/>
+    </g>
+  </g>
+
+  <!-- Text Overlay -->
+  <g fill="#ffffff" opacity="0.85">
+    <text x="120" y="140" font-family="DM Sans, sans-serif" font-size="28" font-weight="700" fill="#ff0055" letter-spacing="4">AUTOMATED SPECIMEN PROCESSING</text>
+    <text x="120" y="180" font-family="DM Sans, sans-serif" font-size="16" fill="#a0c4df">HIGH-THROUGHPUT CONVEYOR TRACK · BARCODE IDENTIFICATION · ETU DIAGNOSTIC LABORATORY</text>
+  </g>
+</svg>

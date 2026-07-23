@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="pipeBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020d18"/>
+      <stop offset="50%" stop-color="#09253d"/>
+      <stop offset="100%" stop-color="#01070e"/>
+    </linearGradient>
+    <linearGradient id="pipetteShaft" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#cfd8dc"/>
+      <stop offset="50%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#90a4ae"/>
+    </linearGradient>
+    <linearGradient id="pipetteAccent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00d2ff"/>
+      <stop offset="100%" stop-color="#0066cc"/>
+    </linearGradient>
+    <filter id="glowPipe">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#pipeBg)"/>
+  
+  <circle cx="960" cy="500" r="450" fill="#00d2ff" opacity="0.12" filter="url(#glowPipe)"/>
+
+  <!-- Microcentrifuge Tube Rack (Bottom Center) -->
+  <g transform="translate(640, 680)">
+    <!-- Rack Base -->
+    <rect x="0" y="0" width="640" height="140" rx="16" fill="#102e4a" stroke="#00d2ff" stroke-width="2"/>
+    
+    <!-- Tubes in Rack -->
+    <g fill="#e0f7fa" stroke="#00d2ff" stroke-width="2" opacity="0.9">
+      <!-- Row of microcentrifuge tubes -->
+      <rect x="50" y="-80" width="36" height="110" rx="18" fill="url(#pipetteAccent)"/>
+      <rect x="130" y="-80" width="36" height="110" rx="18"/>
+      <rect x="210" y="-80" width="36" height="110" rx="18" fill="url(#pipetteAccent)"/>
+      <rect x="290" y="-80" width="36" height="110" rx="18"/>
+      <rect x="370" y="-80" width="36" height="110" rx="18" fill="url(#pipetteAccent)"/>
+      <rect x="450" y="-80" width="36" height="110" rx="18"/>
+      <rect x="530" y="-80" width="36" height="110" rx="18" fill="url(#pipetteAccent)"/>
+    </g>
+  </g>
+
+  <!-- Stylized Micropipettes on Stand -->
+  <g transform="translate(960, 200)">
+    <!-- Pipette 1 (Left Diagonal) -->
+    <g transform="rotate(-15) translate(-180, 0)">
+      <!-- Top Plunger Button -->
+      <rect x="-25" y="0" width="50" height="40" rx="8" fill="#00d2ff"/>
+      <rect x="-15" y="40" width="30" height="30" fill="#b0bec5"/>
+      <!-- Body & Digital Volume Display -->
+      <rect x="-35" y="70" width="70" height="260" rx="12" fill="url(#pipetteShaft)"/>
+      <rect x="-22" y="110" width="44" height="60" fill="#0d1b2a" rx="4"/>
+      <text x="0" y="148" font-family="monospace" font-size="22" fill="#00d2ff" text-anchor="middle">100</text>
+      <!-- Lower Tip Cone -->
+      <polygon points="-20,330 20,330 8,520 -8,520" fill="url(#pipetteShaft)"/>
+      <!-- Clear Disposable Tip -->
+      <polygon points="-10,520 10,520 3,600 -3,600" fill="#00d2ff" opacity="0.6" stroke="#ffffff" stroke-width="1.5"/>
+    </g>
+
+    <!-- Pipette 2 (Vertical Center) -->
+    <g transform="translate(40, 20)">
+      <rect x="-25" y="0" width="50" height="40" rx="8" fill="#38ef7d"/>
+      <rect x="-15" y="40" width="30" height="30" fill="#b0bec5"/>
+      <rect x="-35" y="70" width="70" height="260" rx="12" fill="url(#pipetteShaft)"/>
+      <rect x="-22" y="110" width="44" height="60" fill="#0d1b2a" rx="4"/>
+      <text x="0" y="148" font-family="monospace" font-size="22" fill="#38ef7d" text-anchor="middle">20.0</text>
+      <polygon points="-20,330 20,330 8,520 -8,520" fill="url(#pipetteShaft)"/>
+      <polygon points="-10,520 10,520 3,600 -3,600" fill="#38ef7d" opacity="0.6" stroke="#ffffff" stroke-width="1.5"/>
+    </g>
+
+    <!-- Pipette 3 (Right Diagonal) -->
+    <g transform="rotate(15) translate(200, 0)">
+      <rect x="-25" y="0" width="50" height="40" rx="8" fill="#ff4b2b"/>
+      <rect x="-15" y="40" width="30" height="30" fill="#b0bec5"/>
+      <rect x="-35" y="70" width="70" height="260" rx="12" fill="url(#pipetteShaft)"/>
+      <rect x="-22" y="110" width="44" height="60" fill="#0d1b2a" rx="4"/>
+      <text x="0" y="148" font-family="monospace" font-size="22" fill="#ff4b2b" text-anchor="middle">1000</text>
+      <polygon points="-20,330 20,330 8,520 -8,520" fill="url(#pipetteShaft)"/>
+      <polygon points="-10,520 10,520 3,600 -3,600" fill="#ff4b2b" opacity="0.6" stroke="#ffffff" stroke-width="1.5"/>
+    </g>
+  </g>
+
+  <!-- Text Overlay -->
+  <g fill="#ffffff" opacity="0.85">
+    <text x="120" y="140" font-family="DM Sans, sans-serif" font-size="28" font-weight="700" fill="#00d2ff" letter-spacing="4">PRECISION LIQUID HANDLING SYSTEM</text>
+    <text x="120" y="180" font-family="DM Sans, sans-serif" font-size="16" fill="#a0c4df">CALIBRATED MICROPIPETTES · ACCURATE REAGENT DISPENSING · ETU DIAGNOSTIC LABORATORY</text>
+  </g>
+</svg>

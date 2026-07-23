@@ -29,6 +29,13 @@ import slideKlite from '../assets/slide-klite.png';
 import slideFinecare from '../assets/slide-finecare.png';
 import slideCoagulation from '../assets/slide-coagulation.png';
 
+import slideDna from '../assets/slide-dna.svg';
+import slidePetri from '../assets/slide-petri.svg';
+import slidePipette from '../assets/slide-pipette.svg';
+import slideGlassware from '../assets/slide-glassware.svg';
+import slideSpecimenContainers from '../assets/slide-specimen-containers.svg';
+import slideSampleProcessing from '../assets/slide-sample-processing.svg';
+
 const copy = {
   en: {
     welcome: 'Welcome Back',
@@ -74,7 +81,7 @@ const copy = {
   },
 };
 
-// 8 ETU Equipment Scenes with custom equipment titles and subtitles
+// 14 ETU Laboratory Scenes with equipment & scientific diagnostic materials
 const LAB_SCENES = [
   {
     id: 'bs120',
@@ -163,6 +170,72 @@ const LAB_SCENES = [
     buttonGradient: 'linear-gradient(135deg, #00897b 0%, #00e676 100%)',
     glow: 'rgba(0, 230, 118, 0.45)',
     cardBorder: 'rgba(0, 230, 118, 0.35)',
+  },
+  {
+    id: 'dna',
+    name: 'Molecular Diagnostics & DNA Sequencing',
+    title: 'Advanced Molecular Diagnostics',
+    subtitle: 'Cutting-edge genetic analysis and DNA sequencing technology for precision diagnostics.',
+    image: slideDna,
+    accent: '#00d2ff',
+    buttonGradient: 'linear-gradient(135deg, #0b6bcb 0%, #00d2ff 100%)',
+    glow: 'rgba(0, 210, 255, 0.45)',
+    cardBorder: 'rgba(0, 210, 255, 0.35)',
+  },
+  {
+    id: 'petri',
+    name: 'Microbiology & Culture Media',
+    title: 'Exploring the Science of Diagnosis',
+    subtitle: 'Sterile culture media and microbiological identification for infectious agent detection.',
+    image: slidePetri,
+    accent: '#00e676',
+    buttonGradient: 'linear-gradient(135deg, #00897b 0%, #00e676 100%)',
+    glow: 'rgba(0, 230, 118, 0.45)',
+    cardBorder: 'rgba(0, 230, 118, 0.35)',
+  },
+  {
+    id: 'pipette',
+    name: 'Precision Micropipetting System',
+    title: 'Accuracy in Liquid Handling',
+    subtitle: 'High-precision calibrated micropipettes for accurate reagent and aliquot dispensing.',
+    image: slidePipette,
+    accent: '#38ef7d',
+    buttonGradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+    glow: 'rgba(56, 239, 125, 0.45)',
+    cardBorder: 'rgba(56, 239, 125, 0.35)',
+  },
+  {
+    id: 'glassware',
+    name: 'Diagnostic Glassware & Reagents',
+    title: 'Precision in Every Solution',
+    subtitle: 'Calibrated volumetric flasks, Erlenmeyer flasks, and chemical reagent solutions.',
+    image: slideGlassware,
+    accent: '#4facfe',
+    buttonGradient: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+    glow: 'rgba(79, 172, 254, 0.45)',
+    cardBorder: 'rgba(79, 172, 254, 0.35)',
+  },
+  {
+    id: 'containers',
+    name: 'Sterile Specimen Collection Containers',
+    title: 'Secure Specimen Handling',
+    subtitle: 'Standardized sterile specimen collection containers with color-coded tracking labels.',
+    image: slideSpecimenContainers,
+    accent: '#ffb300',
+    buttonGradient: 'linear-gradient(135deg, #ff8f00 0%, #ffc107 100%)',
+    glow: 'rgba(255, 179, 0, 0.45)',
+    cardBorder: 'rgba(255, 179, 0, 0.35)',
+  },
+  {
+    id: 'processing',
+    name: 'Automated Specimen Track Processing',
+    title: 'Streamlined Sample Workflow',
+    subtitle: 'High-throughput automated specimen rack conveyor and barcode scanning workflow.',
+    image: slideSampleProcessing,
+    accent: '#ff0055',
+    buttonGradient: 'linear-gradient(135deg, #d32f2f 0%, #ff0055 100%)',
+    glow: 'rgba(255, 0, 85, 0.45)',
+    cardBorder: 'rgba(255, 0, 85, 0.35)',
   },
 ];
 

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="containerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#02120e"/>
+      <stop offset="50%" stop-color="#072b22"/>
+      <stop offset="100%" stop-color="#010a08"/>
+    </linearGradient>
+    <linearGradient id="yellowCap" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffd54f"/>
+      <stop offset="100%" stop-color="#ff8f00"/>
+    </linearGradient>
+    <linearGradient id="greenCap" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00e676"/>
+      <stop offset="100%" stop-color="#00897b"/>
+    </linearGradient>
+    <linearGradient id="blueCap" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00d2ff"/>
+      <stop offset="100%" stop-color="#0066cc"/>
+    </linearGradient>
+    <linearGradient id="containerBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="20%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="80%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.5"/>
+    </linearGradient>
+    <filter id="glowContainer">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#containerBg)"/>
+  <circle cx="960" cy="540" r="480" fill="#00e676" opacity="0.1" filter="url(#glowContainer)"/>
+
+  <!-- Specimen Rack Platform -->
+  <rect x="360" y="700" width="1200" height="180" rx="20" fill="#0b241e" stroke="#00e676" stroke-width="2"/>
+
+  <!-- Specimen Container 1 (Left - Yellow Cap Urine Container) -->
+  <g transform="translate(620, 380)">
+    <!-- Yellow Screw Cap -->
+    <rect x="-80" y="0" width="160" height="50" rx="10" fill="url(#yellowCap)"/>
+    <rect x="-70" y="50" width="140" height="12" fill="#e65100"/>
+    <!-- Clear Graduated Cup -->
+    <path d="M -70 62 L 70 62 L 58 280 A 15 15 0 0 1 43 295 L -43 295 A 15 15 0 0 1 -58 280 Z" fill="url(#containerBody)" stroke="#ffffff" stroke-width="3"/>
+    <!-- Specimen Content -->
+    <path d="M -50 160 L 50 160 L 43 280 L -43 280 Z" fill="#ffd54f" opacity="0.5" filter="url(#glowContainer)"/>
+    <!-- Label -->
+    <rect x="-40" y="100" width="80" height="50" fill="#ffffff" opacity="0.9" rx="4"/>
+    <line x1="-30" y1="115" x2="10" y2="115" stroke="#072b22" stroke-width="3"/>
+    <line x1="-30" y1="130" x2="30" y2="130" stroke="#072b22" stroke-width="2"/>
+  </g>
+
+  <!-- Specimen Container 2 (Center - Green Cap Container) -->
+  <g transform="translate(960, 340)">
+    <rect x="-85" y="0" width="170" height="55" rx="10" fill="url(#greenCap)"/>
+    <rect x="-75" y="55" width="150" height="12" fill="#004d40"/>
+    <path d="M -75 67 L 75 67 L 62 310 A 15 15 0 0 1 47 325 L -47 325 A 15 15 0 0 1 -62 310 Z" fill="url(#containerBody)" stroke="#ffffff" stroke-width="3"/>
+    <path d="M -55 170 L 55 170 L 47 310 L -47 310 Z" fill="#00e676" opacity="0.4" filter="url(#glowContainer)"/>
+    <rect x="-45" y="110" width="90" height="55" fill="#ffffff" opacity="0.9" rx="4"/>
+    <line x1="-32" y1="128" x2="15" y2="128" stroke="#072b22" stroke-width="3"/>
+    <line x1="-32" y1="145" x2="32" y2="145" stroke="#072b22" stroke-width="2"/>
+  </g>
+
+  <!-- Specimen Container 3 (Right - Blue Cap Container) -->
+  <g transform="translate(1300, 390)">
+    <rect x="-75" y="0" width="150" height="48" rx="10" fill="url(#blueCap)"/>
+    <rect x="-65" y="48" width="130" height="12" fill="#0d47a1"/>
+    <path d="M -65 60 L 65 60 L 54 260 A 15 15 0 0 1 39 275 L -39 275 A 15 15 0 0 1 -54 260 Z" fill="url(#containerBody)" stroke="#ffffff" stroke-width="3"/>
+    <path d="M -46 150 L 46 150 L 39 260 L -39 260 Z" fill="#00d2ff" opacity="0.4" filter="url(#glowContainer)"/>
+    <rect x="-38" y="95" width="76" height="46" fill="#ffffff" opacity="0.9" rx="4"/>
+    <line x1="-28" y1="110" x2="10" y2="110" stroke="#072b22" stroke-width="3"/>
+    <line x1="-28" y1="125" x2="25" y2="125" stroke="#072b22" stroke-width="2"/>
+  </g>
+
+  <!-- Text Overlay -->
+  <g fill="#ffffff" opacity="0.85">
+    <text x="120" y="140" font-family="DM Sans, sans-serif" font-size="28" font-weight="700" fill="#00e676" letter-spacing="4">STERILE SPECIMEN CONTAINER PROCESSING</text>
+    <text x="120" y="180" font-family="DM Sans, sans-serif" font-size="16" fill="#a0e0d0">SEALED SPECIMEN CONTAINERS · BARCODE TRACKING · ETU DIAGNOSTIC LABORATORY</text>
+  </g>
+</svg>
