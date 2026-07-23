@@ -177,21 +177,21 @@ export default function AppLayout() {
           <div className="top-tools">
             <NotificationBell />
             <button
-              className="tool-button"
+              className="tool-button lang-toggle-btn"
               title={t('language')}
               onClick={() => updatePreferences({ language: preferences.language === 'en' ? 'am' : 'en' })}
             >
               {preferences.language === 'en' ? 'EN' : 'አማ'}
             </button>
             <button
-              className="tool-button"
+              className="tool-button theme-toggle-btn"
               title={t('theme')}
               onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
             >
               {preferences.theme === 'light' ? '◐' : '☀'}
             </button>
             <span className="profile-chip" title={`${user.fullName} — ${t(user.role)}`}>
-              ♙ <b>{user.fullName}</b> ({t(user.role)})
+              ♙ <b>{user.fullName}</b> <span className="profile-role">({t(user.role)})</span>
             </span>
             <button className="logout-button" onClick={logout}>
               {t('signOut')}
