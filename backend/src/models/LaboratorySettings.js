@@ -1,0 +1,2 @@
+import mongoose from 'mongoose';
+const schema=new mongoose.Schema({key:{type:String,unique:true,default:'default'},staffDiscount:{type:Number,min:0,max:100,default:20},collaboratorDiscount:{type:Number,min:0,max:100,default:20},counselingStatus:{type:String,enum:['Free','Paid'],default:'Free'},counselingPrice:{type:Number,min:0,default:0},stockManagementMode:{type:String,enum:['Smart','Manual'],default:'Smart'}},{timestamps:true,versionKey:false});export default mongoose.model('LaboratorySettings',schema);

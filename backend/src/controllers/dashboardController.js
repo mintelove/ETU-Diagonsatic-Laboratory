@@ -42,6 +42,32 @@ const serialize = (item) => {
   return { ...data, remainingQuantity: data.currentQuantity - data.usedQuantity, stockLevel: stockLevel(data) };
 };
 
+/* ── Helper: parse date range for exact day boundary ── */
+function parseDateRange(dateFrom, dateTo) {
+  if (!dateFrom && !dateTo) return null;
+  const fromStr = String(dateFrom || dateTo).trim();
+  const toStr = String(dateTo || dateFrom).trim();
+
+  let startDate, endDate;
+  if (fromStr.includes('-') && fromStr.length === 10) {
+    const [fY, fM, fD] = fromStr.split('-').map(Number);
+    startDate = new Date(fY, fM - 1, fD, 0, 0, 0, 0);
+  } else {
+    startDate = new Date(fromStr);
+    startDate.setHours(0, 0, 0, 0);
+  }
+
+  if (toStr.includes('-') && toStr.length === 10) {
+    const [tY, tM, tD] = toStr.split('-').map(Number);
+    endDate = new Date(tY, tM - 1, tD, 23, 59, 59, 999);
+  } else {
+    endDate = new Date(toStr);
+    endDate.setHours(23, 59, 59, 999);
+  }
+
+  return { $gte: startDate, $lte: endDate };
+}
+
 /**
  * GET /api/dashboard
  * Returns comprehensive analytics for the Admin Dashboard.
@@ -51,45 +77,39 @@ export async function dashboard(req, res, next) {
   try {
     const { todayStart, weekStart, monthStart, thirtyDaysAgo } = dateBounds();
 
-    // Optional custom date filter from query
-    const customFrom = req.query.dateFrom ? new Date(req.query.dateFrom) : null;
-    const customTo = req.query.dateTo ? new Date(`${req.query.dateTo}T23:59:59.999Z`) : null;
-    const customDateMatch = {};
-    if (customFrom) customDateMatch.$gte = customFrom;
-    if (customTo) customDateMatch.$lte = customTo;
-    const hasCustomDate = customFrom || customTo;
+    const activeDateMatch = parseDateRange(req.query.dateFrom, req.query.dateTo);
+    const hasCustomDate = !!activeDateMatch;
+    const patientDateMatch = hasCustomDate ? { registrationDate: activeDateMatch } : {};
+    const reportDateMatch = hasCustomDate ? { createdDate: activeDateMatch } : {};
 
     // ─── Revenue aggregations (parallel) ──────────────
     const [dailyRev, weeklyRev, monthlyRev, totalRev, customRev] = await Promise.all([
-      revenueAgg({ registrationDate: { $gte: todayStart } }),
+      revenueAgg({ registrationDate: activeDateMatch || { $gte: todayStart } }),
       revenueAgg({ registrationDate: { $gte: weekStart } }),
       revenueAgg({ registrationDate: { $gte: monthStart } }),
       revenueAgg({}),
-      hasCustomDate ? revenueAgg({ registrationDate: customDateMatch }) : Promise.resolve([]),
+      hasCustomDate ? revenueAgg({ registrationDate: activeDateMatch }) : Promise.resolve([]),
     ]);
 
     // ─── Patient counts ───────────────────────────────
-    const patientDateMatch = hasCustomDate
-      ? { registrationDate: customDateMatch }
-      : {};
     const [todayPatients, referralPatients, totalPatients] = await Promise.all([
-      Patient.countDocuments({ registrationDate: { $gte: todayStart } }),
+      Patient.countDocuments({ registrationDate: activeDateMatch || { $gte: todayStart } }),
       Patient.countDocuments({ registrationType: 'Referral', ...patientDateMatch }),
       Patient.countDocuments(patientDateMatch),
     ]);
 
-    // ─── Sample collection count (today) ──────────────
+    // ─── Sample collection count ──────────────────────
     const samplesCollectedToday = await Patient.aggregate([
-      { $match: { paymentStatus: 'Paid', registrationDate: { $gte: todayStart } } },
+      { $match: { paymentStatus: 'Paid', registrationDate: activeDateMatch || { $gte: todayStart } } },
       { $project: { count: { $size: '$sampleTypes' } } },
       { $group: { _id: null, total: { $sum: '$count' } } },
     ]);
 
     // ─── Report stats ─────────────────────────────────
     const [pendingReports, approvedReports, rejectedReports] = await Promise.all([
-      LabReport.countDocuments({ status: { $in: ['Draft', 'Submitted', 'Pending'] } }),
-      LabReport.countDocuments({ status: { $in: ['Approved', 'Ready for Printing'] } }),
-      LabReport.countDocuments({ status: 'Rejected' }),
+      LabReport.countDocuments({ status: { $in: ['Draft', 'Submitted', 'Pending'] }, ...reportDateMatch }),
+      LabReport.countDocuments({ status: { $in: ['Approved', 'Ready for Printing'] }, ...reportDateMatch }),
+      LabReport.countDocuments({ status: 'Rejected', ...reportDateMatch }),
     ]);
 
     // ─── Stock health ─────────────────────────────────
@@ -137,9 +157,10 @@ export async function dashboard(req, res, next) {
       { $project: { name: { $ifNull: ['$_id', 'Unknown'] }, revenue: 1, count: 1 } },
     ]);
 
-    // ─── Revenue trend (last 30 days) ─────────────────
+    // ─── Revenue trend ────────────────────────────────
+    const revenueTrendMatch = hasCustomDate ? { paymentStatus: 'Paid', registrationDate: activeDateMatch } : { paymentStatus: 'Paid', registrationDate: { $gte: thirtyDaysAgo } };
     const revenueTrend = await Patient.aggregate([
-      { $match: { paymentStatus: 'Paid', registrationDate: { $gte: thirtyDaysAgo } } },
+      { $match: revenueTrendMatch },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$registrationDate' } },
@@ -202,14 +223,14 @@ export async function dashboard(req, res, next) {
     ]);
 
     // ─── Recent patients ──────────────────────────────
-    const recentPatients = await Patient.find()
+    const recentPatients = await Patient.find(patientDateMatch)
       .populate('sampleTypes', 'name')
       .sort({ registrationDate: -1 })
       .limit(10)
       .lean();
 
     // ─── Recent lab reports ───────────────────────────
-    const recentReports = await LabReport.find()
+    const recentReports = await LabReport.find(reportDateMatch)
       .populate('patient', 'patientId name')
       .populate('technician', 'fullName')
       .populate('approvedBy', 'fullName')
@@ -232,7 +253,7 @@ export async function dashboard(req, res, next) {
         database: mongoose.connection.readyState === 1 ? 'Connected' : 'Unavailable',
       },
       revenue: {
-        dailyIncome: dailyRev[0]?.total || 0,
+        dailyIncome: hasCustomDate ? (customRev[0]?.total || 0) : (dailyRev[0]?.total || 0),
         weeklyIncome: weeklyRev[0]?.total || 0,
         monthlyIncome: monthlyRev[0]?.total || 0,
         totalRevenue: totalRev[0]?.total || 0,
@@ -243,7 +264,7 @@ export async function dashboard(req, res, next) {
         totalCategories: categories,
         totalUsers: activeUsers,
         totalItems: items.length,
-        todayPatients,
+        todayPatients: hasCustomDate ? (customRev[0]?.count || 0) : todayPatients,
         totalPatients,
         referralPatients,
         samplesCollectedToday: samplesCollectedToday[0]?.total || 0,

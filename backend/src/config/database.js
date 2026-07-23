@@ -3,12 +3,76 @@ import User from '../models/User.js';
 import Category from '../models/Category.js';
 import SampleType from '../models/SampleType.js';
 
-export async function connectDatabase() {
-  if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI must be configured.');
-  mongoose.set('strictQuery', true);
+const MAX_CONNECTION_ATTEMPTS = Math.max(1, Number(process.env.MONGODB_CONNECT_RETRIES || 3));
+const RETRY_DELAY_MS = Math.max(0, Number(process.env.MONGODB_CONNECT_RETRY_DELAY_MS || 3000));
+let connectionEventsRegistered = false;
+
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function registerConnectionEvents() {
+  if (connectionEventsRegistered) return;
+  connectionEventsRegistered = true;
+
+  mongoose.connection.on('connected', () => console.log('MongoDB connection status: CONNECTED'));
   mongoose.connection.on('error', (error) => console.error('MongoDB runtime error:', error.message));
-  mongoose.connection.on('disconnected', () => console.warn('MongoDB disconnected.'));
-  await mongoose.connect(process.env.MONGODB_URI, { dbName: 'ETU_Diagonstic_Labratory', maxPoolSize: 10, minPoolSize: 1, maxIdleTimeMS: 60000, serverSelectionTimeoutMS: 10000, connectTimeoutMS: 10000, retryWrites: true });
+  mongoose.connection.on('disconnected', () => console.warn('MongoDB connection status: DISCONNECTED'));
+}
+
+export async function connectDatabase() {
+  const uri = process.env.MONGODB_URI?.trim();
+  if (!uri) throw new Error('MONGODB_URI is not configured.');
+  const fallbackUri = process.env.MONGODB_URI_FALLBACK?.trim();
+  const connectionUris = [{ label: 'primary URI', uri }];
+  if (fallbackUri && fallbackUri !== uri) connectionUris.push({ label: 'fallback URI', uri: fallbackUri });
+
+  mongoose.set('strictQuery', true);
+  registerConnectionEvents();
+
+  let lastError;
+  for (const connectionUri of connectionUris) {
+    for (let attempt = 1; attempt <= MAX_CONNECTION_ATTEMPTS; attempt += 1) {
+      try {
+        console.log(`MongoDB ${connectionUri.label} connection attempt ${attempt}/${MAX_CONNECTION_ATTEMPTS}.`);
+        await mongoose.connect(connectionUri.uri, {
+          dbName: 'ETU_Diagonstic_Labratory',
+          maxPoolSize: 10,
+          minPoolSize: 1,
+          maxIdleTimeMS: 60000,
+          serverSelectionTimeoutMS: 10000,
+          connectTimeoutMS: 10000,
+          retryWrites: true
+        });
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+        console.error(`MongoDB ${connectionUri.label} connection attempt ${attempt}/${MAX_CONNECTION_ATTEMPTS} failed:`, error.message);
+        if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+        
+        // If SRV DNS lookup fails and fallback is available, skip remaining attempts for primary SRV
+        if (/querySrv|ETIMEOUT|ECONNREFUSED|ENOTFOUND/i.test(error.message) && connectionUri.label === 'primary URI' && fallbackUri) {
+          console.warn('DNS SRV lookup failed for primary URI; switching to fallback connection URI immediately.');
+          break;
+        }
+
+        if (attempt < MAX_CONNECTION_ATTEMPTS) {
+          console.log(`Retrying MongoDB connection in ${RETRY_DELAY_MS / 1000} seconds.`);
+          await wait(RETRY_DELAY_MS);
+        }
+      }
+    }
+    if (!lastError) break;
+  }
+
+  if (lastError) {
+    const networkHint = /querySrv|ETIMEOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|server selection/i.test(lastError.message);
+    if (networkHint) console.error('MongoDB Atlas Network Access may be blocking this machine, or DNS/network access to Atlas is unavailable.');
+    if (/querySrv|ETIMEOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED/i.test(lastError.message) && !fallbackUri) {
+      console.error('If this network blocks Node.js SRV DNS lookups, set MONGODB_URI_FALLBACK to the standard (non-SRV) connection string copied from MongoDB Atlas.');
+    }
+    throw lastError;
+  }
+
   console.log(`MongoDB connected (${mongoose.connection.name}).`);
 
   // Ensure Category collection exists and migrate legacy categories
@@ -105,4 +169,3 @@ export async function connectDatabase() {
 export async function disconnectDatabase() {
   if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
 }
-

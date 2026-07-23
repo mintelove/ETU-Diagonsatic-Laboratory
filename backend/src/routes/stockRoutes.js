@@ -1,2 +1,12 @@
-import { Router } from 'express'; import { allowRoles, requireAuth } from '../middleware/auth.js'; import { ROLES } from '../constants/roles.js'; import { validate } from '../middleware/validate.js'; import { createItemSchema, quantitySchema, updateItemSchema } from '../validators/stockValidators.js'; import { createItem, deleteItem, getItem, itemHistory, listItems, summary, updateItem, updateQuantity } from '../controllers/stockController.js';
-const router=Router();router.use(requireAuth,allowRoles(ROLES.ADMIN,ROLES.RECEPTION));router.get('/summary',summary);router.get('/',listItems);router.get('/:id/history',itemHistory);router.get('/:id',getItem);router.use(allowRoles(ROLES.ADMIN));router.post('/',validate(createItemSchema),createItem);router.patch('/:id',validate(updateItemSchema),updateItem);router.patch('/:id/quantity',validate(quantitySchema),updateQuantity);router.delete('/:id',deleteItem);export default router;
+import { Router } from 'express';
+import { allowRoles, requireAuth } from '../middleware/auth.js';
+import { ROLES } from '../constants/roles.js';
+import { validate } from '../middleware/validate.js';
+import { createItemSchema, quantitySchema, updateItemSchema, editRequestSchema } from '../validators/stockValidators.js';
+import { createItem, createEditRequest, deleteItem, getItem, itemHistory, listEditRequests, listItems, manualDeduct, reviewEditRequest, summary, updateItem, updateQuantity } from '../controllers/stockController.js';
+const router=Router();
+router.use(requireAuth,allowRoles(ROLES.ADMIN,ROLES.RECEPTION));
+router.get('/summary',summary);router.get('/',listItems);router.get('/edit-requests',allowRoles(ROLES.ADMIN),listEditRequests);router.patch('/edit-requests/:id/review',allowRoles(ROLES.ADMIN),reviewEditRequest);
+router.post('/manual-deduct',manualDeduct);
+router.get('/:id/history',itemHistory);router.get('/:id',getItem);router.post('/',validate(createItemSchema),createItem);router.post('/:id/edit-permission-requests',allowRoles(ROLES.RECEPTION),validate(editRequestSchema),createEditRequest);router.patch('/:id',validate(updateItemSchema),updateItem);router.patch('/:id/quantity',validate(quantitySchema),updateQuantity);router.delete('/:id',deleteItem);
+export default router;

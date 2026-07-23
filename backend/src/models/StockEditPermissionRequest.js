@@ -1,0 +1,3 @@
+import mongoose from 'mongoose';
+const schema=new mongoose.Schema({stockItem:{type:mongoose.Schema.Types.ObjectId,ref:'StockItem',required:true,index:true},requestedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true,index:true},currentQuantity:{type:Number,required:true},requestedQuantity:{type:Number,required:true},reason:{type:String,required:true,trim:true,maxlength:300},additionalNotes:{type:String,trim:true,maxlength:500,default:''},status:{type:String,enum:['Pending','Approved','Rejected'],default:'Pending',index:true},reviewedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},reviewedAt:Date},{timestamps:{createdAt:'createdDate',updatedAt:false},versionKey:false});
+export default mongoose.model('StockEditPermissionRequest',schema);

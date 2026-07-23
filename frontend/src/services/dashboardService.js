@@ -16,8 +16,20 @@ export async function getDashboardData(filters = {}) {
   const params = {};
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
-  const { data } = await api.get('/dashboard', { params });
-  return data;
+  try {
+    // Dashboard aggregation can be slow — use a longer timeout
+    const { data } = await api.get('/dashboard', { params, timeout: 45000 });
+    return data;
+  } catch (err) {
+    console.error('Dashboard API Error', {
+      endpoint: '/api/dashboard',
+      status: err.status || 'N/A',
+      message: err.message,
+      isTimeout: err.isTimeout || false,
+      isNetworkError: err.isNetworkError || false,
+    });
+    throw err;
+  }
 }
 
 /**

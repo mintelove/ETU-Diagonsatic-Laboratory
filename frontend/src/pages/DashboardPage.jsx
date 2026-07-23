@@ -75,18 +75,41 @@ function CustomTooltip({ active, payload, label, prefix = '' }) {
 }
 
 /* ── Date helpers ────────────────────────────────────── */
-function toISO(d) { return d.toISOString().split('T')[0]; }
+/* ── Date helpers ────────────────────────────────────── */
+function toISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function getPresetRange(preset) {
   const now = new Date();
-  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   switch (preset) {
     case 'today': return { dateFrom: toISO(today), dateTo: toISO(today) };
     case 'yesterday': { const y = new Date(today); y.setDate(y.getDate() - 1); return { dateFrom: toISO(y), dateTo: toISO(y) }; }
-    case 'week': { const w = new Date(today); w.setDate(w.getDate() - 6); return { dateFrom: toISO(w), dateTo: toISO(today) }; }
-    case 'lastweek': { const e = new Date(today); e.setDate(e.getDate() - 7); const s = new Date(e); s.setDate(s.getDate() - 6); return { dateFrom: toISO(s), dateTo: toISO(e) }; }
-    case 'month': { const m = new Date(today); m.setDate(1); return { dateFrom: toISO(m), dateTo: toISO(today) }; }
-    case 'lastmonth': { const fm = new Date(today.getFullYear(), today.getMonth() - 1, 1); const lm = new Date(today.getFullYear(), today.getMonth(), 0); return { dateFrom: toISO(fm), dateTo: toISO(lm) }; }
-    case 'year': { const yr = new Date(today.getFullYear(), 0, 1); return { dateFrom: toISO(yr), dateTo: toISO(today) }; }
+    case 'week': {
+      const day = now.getDay();
+      const diffToMon = (day === 0 ? -6 : 1 - day);
+      const mon = new Date(now);
+      mon.setDate(now.getDate() + diffToMon);
+      return { dateFrom: toISO(mon), dateTo: toISO(now) };
+    }
+    case 'lastweek': {
+      const day = now.getDay();
+      const diffToMon = (day === 0 ? -6 : 1 - day);
+      const thisMon = new Date(now);
+      thisMon.setDate(now.getDate() + diffToMon);
+      const lastMon = new Date(thisMon);
+      lastMon.setDate(lastMon.getDate() - 7);
+      const lastSun = new Date(thisMon);
+      lastSun.setDate(lastSun.getDate() - 1);
+      return { dateFrom: toISO(lastMon), dateTo: toISO(lastSun) };
+    }
+    case 'month': { const m = new Date(now.getFullYear(), now.getMonth(), 1); return { dateFrom: toISO(m), dateTo: toISO(now) }; }
+    case 'lastmonth': { const fm = new Date(now.getFullYear(), now.getMonth() - 1, 1); const lm = new Date(now.getFullYear(), now.getMonth(), 0); return { dateFrom: toISO(fm), dateTo: toISO(lm) }; }
+    case 'year': { const yr = new Date(now.getFullYear(), 0, 1); return { dateFrom: toISO(yr), dateTo: toISO(now) }; }
     default: return {};
   }
 }
@@ -126,6 +149,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [clock, setClock] = useState(new Date());
   const [filterPreset, setFilterPreset] = useState('');
+  const [singleDate, setSingleDate] = useState('');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [revenueView, setRevenueView] = useState('30d');
@@ -140,7 +164,23 @@ export default function DashboardPage() {
       const result = await getDashboardData(filters);
       setData(result);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard');
+      let errorMessage;
+      if (err.isTimeout) {
+        errorMessage = 'The server is taking too long to respond. Please try again.';
+      } else if (err.status === 401) {
+        errorMessage = 'Session expired. Please log in again.';
+      } else if (err.status === 403) {
+        errorMessage = 'You do not have permission to access this Dashboard.';
+      } else if (err.status === 404) {
+        errorMessage = 'Dashboard API endpoint not found. Please contact the administrator.';
+      } else if (err.status >= 500) {
+        errorMessage = 'Server error while loading Dashboard data. Please try again later.';
+      } else if (err.isNetworkError) {
+        errorMessage = 'Unable to connect to the server. Please check your network connection and try again.';
+      } else {
+        errorMessage = err.message || 'Failed to load dashboard';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -170,20 +210,32 @@ export default function DashboardPage() {
   /* ── Filter changes ────────────────────────────────── */
   const applyPreset = (preset) => {
     setFilterPreset(preset);
+    setSingleDate('');
     setCustomFrom('');
     setCustomTo('');
     const range = getPresetRange(preset);
     loadDashboard(range);
   };
 
+  const applySingleDate = (dateVal) => {
+    if (!dateVal) return;
+    setSingleDate(dateVal);
+    setFilterPreset('single');
+    setCustomFrom('');
+    setCustomTo('');
+    loadDashboard({ dateFrom: dateVal, dateTo: dateVal });
+  };
+
   const applyCustomRange = () => {
     if (!customFrom || !customTo) return;
     setFilterPreset('custom');
+    setSingleDate('');
     loadDashboard({ dateFrom: customFrom, dateTo: customTo });
   };
 
   const clearFilters = () => {
     setFilterPreset('');
+    setSingleDate('');
     setCustomFrom('');
     setCustomTo('');
     loadDashboard();
@@ -307,8 +359,19 @@ export default function DashboardPage() {
           padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
           background: 'var(--color-error-container)', color: 'var(--color-error)',
           fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
         }}>
-          ⚠ {error}
+          <span>⚠ {error}</span>
+          <button
+            onClick={() => { setLoading(true); loadDashboard(); }}
+            style={{
+              padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-full)',
+              background: 'var(--color-error)', color: '#fff', border: 'none',
+              fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            ↻ Retry
+          </button>
         </div>
       )}
 
@@ -333,8 +396,8 @@ export default function DashboardPage() {
       </div>
 
       {/* ═══ DATE FILTER BAR ══════════════════════════ */}
-      <div className="dash-filter-bar">
-        {['', 'today', 'yesterday', 'week', 'lastweek', 'month', 'lastmonth', 'year'].map(p => (
+      <div className="dash-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {['', 'today', 'yesterday', 'week', 'lastweek', 'month', 'lastmonth'].map(p => (
           <button
             key={p}
             className={`filter-chip ${filterPreset === p ? 'active' : ''}`}
@@ -342,14 +405,34 @@ export default function DashboardPage() {
           >
             {p === '' ? 'All Time' : p === 'today' ? 'Today' : p === 'yesterday' ? 'Yesterday'
               : p === 'week' ? 'This Week' : p === 'lastweek' ? 'Last Week'
-              : p === 'month' ? 'This Month' : p === 'lastmonth' ? 'Last Month' : 'This Year'}
+              : p === 'month' ? 'This Month' : 'Last Month'}
           </button>
         ))}
+        
+        <div className="single-date-picker-wrap" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#405965)' }}>📅 Single Date:</label>
+          <input
+            type="date"
+            value={singleDate}
+            onChange={e => applySingleDate(e.target.value)}
+            className={`date-input ${filterPreset === 'single' ? 'active' : ''}`}
+            style={{
+              padding: '0.35rem 0.6rem',
+              borderRadius: '8px',
+              border: filterPreset === 'single' ? '2px solid #075c91' : '1px solid var(--color-border,#d7e5eb)',
+              fontSize: '13px',
+              background: filterPreset === 'single' ? '#f0f7fb' : '#fff',
+              color: '#1a2e38',
+              fontWeight: filterPreset === 'single' ? 600 : 400
+            }}
+          />
+        </div>
+
         <div className="date-inputs">
           <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
           <span style={{ fontSize: '0.7rem', color: 'var(--color-on-surface-variant)' }}>to</span>
           <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
-          <button className="filter-chip active" onClick={applyCustomRange} style={{ padding: '0.4rem 0.7rem' }}>Apply</button>
+          <button className="filter-chip active" onClick={applyCustomRange} style={{ padding: '0.4rem 0.7rem' }}>Apply Range</button>
         </div>
       </div>
 

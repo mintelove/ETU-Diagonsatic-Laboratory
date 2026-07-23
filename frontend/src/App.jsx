@@ -22,9 +22,11 @@ const ReportApprovalsPage = lazy(() => import('./pages/ReportApprovalsPage.jsx')
 const UsersPage = lazy(() => import('./pages/UsersPage.jsx'));
 const StockPage = lazy(() => import('./pages/StockPage.jsx'));
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage.jsx'));
-const SampleTypesPage = lazy(() => import('./pages/SampleTypesPage.jsx'));
 const PatientManagementPage = lazy(() => import('./pages/PatientManagementPage.jsx'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
+const LaboratoryTestsPage = lazy(() => import('./pages/LaboratoryTestsPage.jsx'));
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage.jsx'));
+const AboutUsPage = lazy(() => import('./pages/AboutUsPage.jsx'));
 
 /**
  * Handle landing page routing redirect based on the user's role.
@@ -119,7 +121,7 @@ export default function App() {
         <Route
           path="stock"
           element={
-            <ProtectedRoute roles={['Admin', 'Reception']}>
+            <ProtectedRoute roles={['Admin', 'Reception', 'Sample Collector']}>
               <StockPage />
             </ProtectedRoute>
           }
@@ -131,16 +133,6 @@ export default function App() {
           element={
             <ProtectedRoute roles={['Admin']}>
               <CategoriesPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Sample Types */}
-        <Route
-          path="sample-types"
-          element={
-            <ProtectedRoute roles={['Admin']}>
-              <SampleTypesPage />
             </ProtectedRoute>
           }
         />
@@ -165,6 +157,18 @@ export default function App() {
           }
         />
         <Route path="settings" element={<ProtectedRoute roles={['Admin']}><SettingsPage /></ProtectedRoute>} />
+        <Route path="laboratory-tests" element={<ProtectedRoute roles={['Admin']}><LaboratoryTestsPage /></ProtectedRoute>} />
+        <Route path="admin-reports" element={<ProtectedRoute roles={['Admin']}><AdminReportsPage /></ProtectedRoute>} />
+
+        {/* About Us */}
+        <Route
+          path="about"
+          element={
+            <ProtectedRoute roles={['Admin', 'Reception', 'Sample Collector', 'Approver']}>
+              <AboutUsPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       {/* Fallback Catch-All */}

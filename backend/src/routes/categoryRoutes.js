@@ -29,7 +29,7 @@ const router = Router();
 router.use(requireAuth);
 
 // GET /api/categories — Accessible by Admin and Reception
-router.get('/', allowRoles(ROLES.ADMIN, ROLES.RECEPTION), listCategories);
+router.get('/', allowRoles(ROLES.ADMIN, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR), listCategories);
 
 // Restrict remaining endpoints to Administrator role
 router.use(allowRoles(ROLES.ADMIN));

@@ -1,8 +1,14 @@
 /**
- * ETU Diagnostic Laboratory — Enterprise Login Page
+ * ETU Diagnostic Laboratory — Full-Screen Photorealistic Equipment Login Page
  *
- * Implements modern glassmorphism aesthetic, Material Design 3 inputs,
- * client-side form validation, submit states, and full responsive support.
+ * Features:
+ * - Full-screen (100vw x 100vh) photorealistic laboratory equipment slideshow
+ *   showcasing 8 real ETU laboratory machines & tools cycling every 3 seconds.
+ * - Bottom-left text overlay (left: 6%, bottom: 8%) that dynamically transitions
+ *   with equipment-specific diagnostic titles and supporting subtitles.
+ * - Floating glassmorphic login panel positioned on the right side (right: 6%).
+ * - Prominent laboratory logo matching printable report reference size (height 60px).
+ * - 100% preserved authentication logic and viewport fit.
  */
 
 import { useEffect, useState } from 'react';
@@ -10,11 +16,155 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { login as apiLogin } from '../services/authService.js';
 import { useForm } from '../hooks/useForm.js';
-import Logo from '../assets/Logo.jsx';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import { api } from '../api/client.js';
+import labLogo from '../assets/logo.jpg';
 
-const copy = { en:{welcome:'Welcome Back',subtitle:'Sign in to Laboratory Information Management System (LIMS)',username:'Username',password:'Password',usernameHint:'Enter your username',passwordHint:'Enter your password',show:'Show password',hide:'Hide password',remember:'Remember my login on this device',signIn:'Sign In Securely',verifying:'Verifying credentials…',requiredUser:'Username is required',shortUser:'Username must be at least 3 characters',requiredPassword:'Password is required',invalid:'Invalid username or password.',version:'Version',rights:'All Rights Reserved',theme:'Theme',language:'Language'},am:{welcome:'እንኳን በደህና መጡ',subtitle:'ወደ የላቦራቶሪ መረጃ አስተዳደር ሥርዓት ይግቡ',username:'የተጠቃሚ ስም',password:'የይለፍ ቃል',usernameHint:'የተጠቃሚ ስምዎን ያስገቡ',passwordHint:'የይለፍ ቃልዎን ያስገቡ',show:'የይለፍ ቃል አሳይ',hide:'የይለፍ ቃል ደብቅ',remember:'በዚህ መሣሪያ ላይ አስታውሰኝ',signIn:'በደህንነት ግባ',verifying:'በማረጋገጥ ላይ…',requiredUser:'የተጠቃሚ ስም ያስፈልጋል',shortUser:'የተጠቃሚ ስም ቢያንስ 3 ፊደላት መሆን አለበት',requiredPassword:'የይለፍ ቃል ያስፈልጋል',invalid:'የተጠቃሚ ስም ወይም የይለፍ ቃል ልክ አይደለም።',version:'ስሪት',rights:'መብቱ በሙሉ የተጠበቀ ነው',theme:'ገጽታ',language:'ቋንቋ'} };
+import slideMicroscope from '../assets/slide-microscope.png';
+import slideBloodTubes from '../assets/slide-blood-tubes.png';
+import slideAnalyzer from '../assets/slide-analyzer.png';
+import slideCentrifuge from '../assets/slide-centrifuge.png';
+import slideWorkspace from '../assets/slide-workspace.png';
+import slideKlite from '../assets/slide-klite.png';
+import slideFinecare from '../assets/slide-finecare.png';
+import slideCoagulation from '../assets/slide-coagulation.png';
+
+const copy = {
+  en: {
+    welcome: 'Welcome Back',
+    subtitle: 'Sign in to Laboratory Information Management System (LIMS)',
+    username: 'Username',
+    password: 'Password',
+    usernameHint: 'Enter your username',
+    passwordHint: 'Enter your password',
+    show: 'Show password',
+    hide: 'Hide password',
+    remember: 'Remember my login on this device',
+    signIn: 'Sign In Securely',
+    verifying: 'Verifying credentials…',
+    requiredUser: 'Username is required',
+    shortUser: 'Username must be at least 3 characters',
+    requiredPassword: 'Password is required',
+    invalid: 'Invalid username or password.',
+    version: 'Version',
+    rights: 'All Rights Reserved',
+    theme: 'Theme',
+    language: 'Language',
+  },
+  am: {
+    welcome: 'እንኳን በደህና መጡ',
+    subtitle: 'ወደ የላቦራቶሪ መረጃ አስተዳደር ሥርዓት ይግቡ',
+    username: 'የተጠቃሚ ስም',
+    password: 'የይለፍ ቃል',
+    usernameHint: 'የተጠቃሚ ስምዎን ያስገቡ',
+    passwordHint: 'የይለፍ ቃልዎን ያስገቡ',
+    show: 'የይለፍ ቃል አሳይ',
+    hide: 'የይለፍ ቃል ደብቅ',
+    remember: 'በዚህ መሣሪያ ላይ አስታውሰኝ',
+    signIn: 'በደህንነት ግባ',
+    verifying: 'በማረጋገጥ ላይ…',
+    requiredUser: 'የተጠቃሚ ስም ያስፈልጋል',
+    shortUser: 'የተጠቃሚ ስም ቢያንስ 3 ፊደላት መሆን አለበት',
+    requiredPassword: 'የይለፍ ቃል ያስፈልጋል',
+    invalid: 'የተጠቃሚ ስም ወይም የይለፍ ቃል ልክ አይደለም።',
+    version: 'ስሪት',
+    rights: 'መብቱ በሙሉ የተጠበቀ ነው',
+    theme: 'ገጽታ',
+    language: 'ቋንቋ',
+  },
+};
+
+// 8 ETU Equipment Scenes with custom equipment titles and subtitles
+const LAB_SCENES = [
+  {
+    id: 'bs120',
+    name: 'Mindray BS-120 Chemistry Analyzer',
+    title: 'Accurate Clinical Chemistry',
+    subtitle: 'Modern diagnostic technology supporting precise biochemistry and metabolic testing.',
+    image: slideAnalyzer,
+    accent: '#00d2ff',
+    buttonGradient: 'linear-gradient(135deg, #0b6bcb 0%, #00d2ff 100%)',
+    glow: 'rgba(0, 210, 255, 0.45)',
+    cardBorder: 'rgba(0, 210, 255, 0.35)',
+  },
+  {
+    id: 'bc3000',
+    name: 'BC-3000 Plus Hematology Analyzer',
+    title: 'Advanced Hematology Diagnostics',
+    subtitle: 'Automated blood cell counts and 3-part differential analysis for reliable diagnostic results.',
+    image: slideWorkspace,
+    accent: '#ff4b2b',
+    buttonGradient: 'linear-gradient(135deg, #d32f2f 0%, #ff4b2b 100%)',
+    glow: 'rgba(255, 75, 43, 0.45)',
+    cardBorder: 'rgba(255, 75, 43, 0.35)',
+  },
+  {
+    id: 'klite8',
+    name: 'K-Lite 8 Electrolyte Analyzer',
+    title: 'Precision Electrolyte Testing',
+    subtitle: 'Ion-selective analysis for rapid Na+, K+, Cl-, and Ca++ diagnostic monitoring.',
+    image: slideKlite,
+    accent: '#00e676',
+    buttonGradient: 'linear-gradient(135deg, #00897b 0%, #00e676 100%)',
+    glow: 'rgba(0, 230, 118, 0.45)',
+    cardBorder: 'rgba(0, 230, 118, 0.35)',
+  },
+  {
+    id: 'finecare',
+    name: 'Finecare HbA1c Immunoassay Reader',
+    title: 'Advanced Immunodiagnostics',
+    subtitle: 'Automated glycated hemoglobin and cardiac bio-marker immunoassay testing.',
+    image: slideFinecare,
+    accent: '#38ef7d',
+    buttonGradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+    glow: 'rgba(56, 239, 125, 0.45)',
+    cardBorder: 'rgba(56, 239, 125, 0.35)',
+  },
+  {
+    id: 'coagulation',
+    name: 'Semi Automatic 2-Part Coagulation Analyzer',
+    title: 'Precision Coagulation Assay',
+    subtitle: 'Hemostasis testing for accurate PT, APTT, INR, and clotting time evaluation.',
+    image: slideCoagulation,
+    accent: '#4facfe',
+    buttonGradient: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+    glow: 'rgba(79, 172, 254, 0.45)',
+    cardBorder: 'rgba(79, 172, 254, 0.35)',
+  },
+  {
+    id: 'microscope',
+    name: 'Clinical Binocular Microscope',
+    title: 'Precision in Every Observation',
+    subtitle: 'Advanced laboratory microscopy for high-accuracy cellular and cytological analysis.',
+    image: slideMicroscope,
+    accent: '#00d2ff',
+    buttonGradient: 'linear-gradient(135deg, #0b6bcb 0%, #00d2ff 100%)',
+    glow: 'rgba(0, 210, 255, 0.45)',
+    cardBorder: 'rgba(0, 210, 255, 0.35)',
+  },
+  {
+    id: 'centrifuge',
+    name: 'High-Speed Laboratory Centrifuge',
+    title: 'Precision Sample Processing',
+    subtitle: 'Reliable plasma and serum separation for high-quality laboratory diagnostic testing.',
+    image: slideCentrifuge,
+    accent: '#ff4b2b',
+    buttonGradient: 'linear-gradient(135deg, #d32f2f 0%, #ff4b2b 100%)',
+    glow: 'rgba(255, 75, 43, 0.45)',
+    cardBorder: 'rgba(255, 75, 43, 0.35)',
+  },
+  {
+    id: 'bloodtubes',
+    name: 'Vacuum Blood Collection Tubes',
+    title: 'Every Sample Matters',
+    subtitle: 'Careful specimen handling and color-coded tube processing ensure sample integrity.',
+    image: slideBloodTubes,
+    accent: '#00e676',
+    buttonGradient: 'linear-gradient(135deg, #00897b 0%, #00e676 100%)',
+    glow: 'rgba(0, 230, 118, 0.45)',
+    cardBorder: 'rgba(0, 230, 118, 0.35)',
+  },
+];
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -23,8 +173,23 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState('');
   const [now, setNow] = useState(new Date());
-  const text = copy[preferences.language];
-  useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer); }, []);
+  const [sceneIndex, setSceneIndex] = useState(0);
+
+  const text = copy[preferences.language] || copy.en;
+
+  // Real-time clock update
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Automatic Background Scene Rotation every 3 seconds
+  useEffect(() => {
+    const sceneTimer = setInterval(() => {
+      setSceneIndex((prev) => (prev + 1) % LAB_SCENES.length);
+    }, 3000);
+    return () => clearInterval(sceneTimer);
+  }, []);
 
   // Form Validation
   const { values, errors, touched, handleChange, handleBlur, validateAll } = useForm(
@@ -62,7 +227,16 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const sessionData = await apiLogin(values.username, values.password);
-      try { const stored = await api('/preferences', { token: sessionData.token, method: 'PATCH', body: JSON.stringify({ theme: preferences.theme, language: preferences.language }) }); sessionData.user.preferences = { ...sessionData.user.preferences, ...stored.preferences }; } catch { /* Login remains available if preference sync is temporarily unavailable. */ }
+      try {
+        const stored = await api('/preferences', {
+          token: sessionData.token,
+          method: 'PATCH',
+          body: JSON.stringify({ theme: preferences.theme, language: preferences.language }),
+        });
+        sessionData.user.preferences = { ...sessionData.user.preferences, ...stored.preferences };
+      } catch {
+        /* Preference sync fallback */
+      }
       login(sessionData, values.rememberMe);
     } catch (err) {
       setApiError(err.message || text.invalid);
@@ -71,46 +245,118 @@ export default function LoginPage() {
     }
   }
 
+  const currentScene = LAB_SCENES[sceneIndex];
+
   return (
-    <div className="login-page">
-      {/* Premium Animated Background */}
-      <div className="login-bg" aria-hidden="true">
-        <div className="login-bg__grid" />
-        <div className="login-bg__pattern" />
-        <div className="login-bg__orb login-bg__orb--1" />
-        <div className="login-bg__orb login-bg__orb--2" />
-        <div className="login-bg__orb login-bg__orb--3" />
-        <div className="login-bg__molecule login-bg__molecule--1" />
-        <div className="login-bg__molecule login-bg__molecule--2" />
-        <div className="login-bg__molecule login-bg__molecule--3" />
-        <div className="login-bg__molecule login-bg__molecule--4" />
-        <div className="login-bg__molecule login-bg__molecule--5" />
-        <div className="login-bg__molecule login-bg__molecule--6" />
+    <div
+      className="login-fullscreen-page lab-theme-login"
+      style={{
+        '--scene-accent': currentScene.accent,
+        '--scene-btn-bg': currentScene.buttonGradient,
+        '--scene-glow': currentScene.glow,
+        '--scene-card-border': currentScene.cardBorder,
+      }}
+    >
+      {/* ── 100VW x 100VH FULL-SCREEN LABORATORY SLIDESHOW BACKGROUND ───── */}
+      <div className="lab-fullscreen-slideshow">
+        {LAB_SCENES.map((scene, idx) => (
+          <div
+            key={scene.id}
+            className={`lab-fullscreen-slide ${idx === sceneIndex ? 'slide-active' : ''}`}
+          >
+            <div className="lab-fullscreen-overlay" />
+            <img
+              src={scene.image}
+              alt={scene.name}
+              className="lab-fullscreen-photo"
+            />
+          </div>
+        ))}
+        <div className="lab-particle-grid" />
       </div>
 
-      <div className="login-topbar">
-        <div className="login-clock"><span>{now.toLocaleDateString(preferences.language==='am'?'am-ET':'en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span><b>{now.toLocaleTimeString(preferences.language==='am'?'am-ET':'en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:preferences.timeFormat==='12'})}</b></div>
-        <button type="button" className="login-control" onClick={()=>updatePreferences({theme:preferences.theme==='light'?'dark':'light'})} aria-label={text.theme}>{preferences.theme==='light'?'🌙':'☀️'} <span>{preferences.theme==='light'?t('dark'):t('light')}</span></button>
-        <button type="button" className="login-control" onClick={()=>updatePreferences({language:preferences.language==='en'?'am':'en'})} aria-label={text.language}>{preferences.language==='en'?'🇪🇹':'🇬🇧'} <span>{preferences.language==='en'?'አማርኛ':'English'}</span></button>
+      {/* ── BOTTOM-LEFT DYNAMIC TEXT OVERLAY (SYNCHRONIZED WITH ACTIVE SLIDE) ── */}
+      <div className="lab-bottom-left-overlay" key={currentScene.id}>
+        <div className="lab-bottom-tag">ETU Diagnostic Laboratory</div>
+        <h2 className="lab-bottom-title">{currentScene.title}</h2>
+        <p className="lab-bottom-subtitle">{currentScene.subtitle}</p>
+        <div className="lab-bottom-scene-pill">
+          <span className="lab-bottom-dot" />
+          <span>{currentScene.name}</span>
+        </div>
+
+        {/* Scene Indicator Dots */}
+        <div className="lab-dots-indicator">
+          {LAB_SCENES.map((sc, idx) => (
+            <span
+              key={sc.id}
+              className={`lab-dot ${idx === sceneIndex ? 'dot-active' : ''}`}
+              onClick={() => setSceneIndex(idx)}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="login-container">
-        {/* Glassmorphic Login Card */}
-        <main className="login-card">
+      {/* ── FLOATING RIGHT SIDE GLASS LOGIN PANEL ──────────────────────── */}
+      <div className="lab-fullscreen-right-card">
+        {/* Topbar Tools */}
+        <div className="login-topbar">
+          <div className="login-clock">
+            <span>
+              {now.toLocaleDateString(preferences.language === 'am' ? 'am-ET' : 'en-GB', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </span>
+            <b>
+              {now.toLocaleTimeString(preferences.language === 'am' ? 'am-ET' : 'en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: preferences.timeFormat === '12',
+              })}
+            </b>
+          </div>
+          <button
+            type="button"
+            className="login-control"
+            onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
+            aria-label={text.theme}
+          >
+            {preferences.theme === 'light' ? '🌙' : '☀️'}{' '}
+            <span>{preferences.theme === 'light' ? t('dark') : t('light')}</span>
+          </button>
+          <button
+            type="button"
+            className="login-control"
+            onClick={() => updatePreferences({ language: preferences.language === 'en' ? 'am' : 'en' })}
+            aria-label={text.language}
+          >
+            {preferences.language === 'en' ? '🇪🇹' : '🇬🇧'}{' '}
+            <span>{preferences.language === 'en' ? 'አማርኛ' : 'English'}</span>
+          </button>
+        </div>
+
+        <main className="login-card lab-glass-card">
           <header className="login-brand">
-            <div className="login-brand__logo-wrapper">
-              <Logo size={36} />
+            {/* Prominent Laboratory Logo matching final printable report visual size */}
+            <div className="login-brand__logo-wrapper lab-logo-wrapper-large">
+              <img
+                src={labLogo}
+                alt="ETU Diagnostic Laboratory Logo"
+                className="login-brand__logo-img-large"
+              />
             </div>
             <span className="login-brand__name">ETU Diagnostic Laboratory</span>
             <h1 className="login-brand__title">{text.welcome}</h1>
-            <p className="login-brand__subtitle">
-              {text.subtitle}
-            </p>
+            <p className="login-brand__subtitle">{text.subtitle}</p>
           </header>
 
-          {/* Form */}
+          {/* Login Form */}
           <form className="login-form" onSubmit={handleSubmit} noValidate>
-            {/* Server Error Message */}
+            {/* Server Error Alert */}
             {apiError && (
               <div className="login-error" role="alert">
                 <svg
@@ -131,7 +377,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Username field */}
+            {/* Username Field */}
             <div className="login-field">
               <label htmlFor="username-input" className="login-field__label">
                 {text.username}
@@ -186,7 +432,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Password field */}
+            {/* Password Field */}
             <div className="login-field">
               <label htmlFor="password-input" className="login-field__label">
                 {text.password}
@@ -285,7 +531,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Remember Me */}
+            {/* Remember Me Checkbox */}
             <div className="login-remember">
               <input
                 id="remember-me-checkbox"
@@ -301,8 +547,8 @@ export default function LoginPage() {
               </label>
             </div>
 
-            {/* Submit Button */}
-            <button type="submit" disabled={isSubmitting} className="login-submit">
+            {/* Dynamic Animated Submit Button */}
+            <button type="submit" disabled={isSubmitting} className="login-submit lab-dynamic-btn">
               <span className="login-submit__content">
                 {isSubmitting ? (
                   <>
@@ -322,9 +568,13 @@ export default function LoginPage() {
           <p className="login-footer__org">ETU Diagnostic Laboratory</p>
           <p className="login-footer__system">Laboratory Information Management System (LIMS)</p>
           <div className="login-footer__meta">
-            <span>{text.version} {import.meta.env.VITE_APP_VERSION || '1.0.0'}</span>
+            <span>
+              {text.version} {import.meta.env.VITE_APP_VERSION || '1.0.0'}
+            </span>
             <span className="login-footer__divider" />
-            <span>&copy; {new Date().getFullYear()} {text.rights}</span>
+            <span>
+              &copy; {new Date().getFullYear()} {text.rights}
+            </span>
           </div>
         </footer>
       </div>

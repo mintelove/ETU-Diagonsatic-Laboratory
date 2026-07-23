@@ -35,6 +35,140 @@ function Toast({ message, type, onClose }) {
   );
 }
 
+// POS Manual Stock Update Modal Component
+function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast }) {
+  const [deductions, setDeductions] = useState(() => {
+    const testList = patient.laboratoryTests || [];
+    const map = new Map();
+    testList.forEach(t => {
+      const tName = t.name || t;
+      (t.consumables || []).forEach(c => {
+        const itemObj = stockItems.find(s => String(s._id) === String(c.item?._id || c.item));
+        if (!itemObj) return;
+        const key = `${itemObj._id}_${tName}`;
+        const current = map.get(key) || {
+          item: itemObj._id,
+          itemName: itemObj.itemName,
+          testName: tName,
+          currentQuantity: itemObj.remainingQuantity ?? (itemObj.currentQuantity - itemObj.usedQuantity),
+          requiredQuantity: 0,
+          quantityDeducted: 0
+        };
+        current.requiredQuantity += Number(c.quantity || 1);
+        current.quantityDeducted = current.requiredQuantity;
+        map.set(key, current);
+      });
+    });
+    if (map.size === 0) {
+      const singleTestName = testList.length === 1 ? (testList[0].name || testList[0]) : '';
+      stockItems.forEach(s => {
+        map.set(String(s._id), {
+          item: s._id,
+          itemName: s.itemName,
+          testName: singleTestName,
+          currentQuantity: s.remainingQuantity ?? (s.currentQuantity - s.usedQuantity),
+          requiredQuantity: 0,
+          quantityDeducted: 0
+        });
+      });
+    }
+    return Array.from(map.values());
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleQtyChange = (itemId, val) => {
+    setDeductions(prev => prev.map(d => (d.item === itemId || `${d.item}_${d.testName}` === itemId) ? { ...d, quantityDeducted: Math.max(0, Number(val) || 0) } : d));
+  };
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    try {
+      const activeDeductions = deductions.filter(d => d.quantityDeducted > 0);
+      if (activeDeductions.length === 0) {
+        onClose();
+        return;
+      }
+      await api('/stock/manual-deduct', {
+        token,
+        method: 'POST',
+        body: JSON.stringify({
+          patientId: patient._id,
+          patientCode: patient.patientId,
+          testNames: (patient.laboratoryTests || []).map(t => t.name || t),
+          deductions: activeDeductions.map(d => ({ item: d.item, quantityDeducted: d.quantityDeducted, testName: d.testName }))
+        })
+      });
+      setToast({ message: 'Manual stock update confirmed & deducted.', type: 'success' });
+      onClose();
+    } catch (e) {
+      setToast({ message: e.message || 'Failed to update manual stock.', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const testNamesList = (patient.laboratoryTests || []).map(t => t.name || t).filter(Boolean).join(', ') || 'Selected Tests';
+
+  return (
+    <div className="pm-modal-backdrop" style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
+      <article className="pm-modal" style={{ maxWidth: '560px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <h2 style={{ margin: 0, color: 'var(--color-primary,#075c91)', fontSize: '16px', fontWeight: 700 }}>Manual Stock Update</h2>
+          <button onClick={onClose} disabled={saving} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#607985', padding: '0 4px', lineHeight: 1 }}>×</button>
+        </div>
+        <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#516a75', lineHeight: '1.4' }}>
+          <strong>Patient:</strong> {patient.name} ({patient.patientId}) · <strong>Tests:</strong> {testNamesList}
+        </p>
+        
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '12px', border: '1px solid #e0e0e0', borderRadius: '6px', maxHeight: '55vh' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+              <tr style={{ background: '#075c91', color: '#fff', textAlign: 'left' }}>
+                <th style={{ padding: '6px 8px' }}>Stock Item</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Current</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Req.</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Deduct Qty</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Remaining</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deductions.map(d => {
+                const remainingAfter = d.currentQuantity - d.quantityDeducted;
+                return (
+                  <tr key={d.item} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                    <td style={{ padding: '5px 8px', fontWeight: 600 }}>{d.itemName}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>{d.currentQuantity}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>{d.requiredQuantity}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={d.quantityDeducted}
+                        onChange={e => handleQtyChange(d.item, e.target.value)}
+                        style={{ width: '60px', padding: '2px 5px', textAlign: 'right', borderRadius: '4px', border: '1px solid #ccc', fontSize: '12px' }}
+                      />
+                    </td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right', color: remainingAfter < 0 ? '#c52626' : '#203640', fontWeight: 600 }}>
+                      {remainingAfter}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
+          <button className="secondary-button" onClick={onClose} disabled={saving} style={{ padding: '6px 14px', fontSize: '12px' }}>Skip / Close</button>
+          <button className="primary-button" onClick={handleConfirm} disabled={saving} style={{ padding: '6px 14px', fontSize: '12px' }}>
+            {saving ? 'Deducting...' : 'Confirm Stock Deduction'}
+          </button>
+        </div>
+      </article>
+    </div>
+  );
+}
+
 // POS 80mm Thermal Receipt Component
 function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, token }) {
   const [printing, setPrinting] = useState(false);
@@ -44,9 +178,11 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
   const pName = isReprint ? patientData.name : patientData.name || 'Walk-in Patient';
   const pId = isReprint ? patientData.patientId : 'TEMP-REG';
   const recNo = isReprint ? patientData.receiptNumber : 'RC-PENDING';
-  const dateStr = isReprint ? new Date(patientData.paymentDate).toLocaleDateString() : new Date().toLocaleDateString();
-  const timeStr = isReprint ? new Date(patientData.paymentDate).toLocaleTimeString() : new Date().toLocaleTimeString();
-  const sampleList = isReprint ? patientData.sampleTypes : patientData.samplesSelected;
+  const rawDate = patientData.paymentDate || patientData.registrationDate;
+  const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) ? new Date(rawDate) : new Date();
+  const dateStr = validDate.toLocaleDateString();
+  const timeStr = validDate.toLocaleTimeString();
+  const sampleList = isReprint ? (patientData.laboratoryTests || patientData.sampleTypes) : patientData.samplesSelected;
 
   const handlePrint = async () => {
     if (printing) return;
@@ -99,6 +235,11 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
           <span>GRAND TOTAL</span>
           <span>{KES_TO_ETB(total)}</span>
         </div>
+        {isReprint && <div style={{ fontSize: '10px', marginTop: '5px' }}>
+          <div><strong>Patient Category:</strong> {patientData.registrationType}</div>
+          <div><strong>Service Type:</strong> {patientData.patientCategory || patientData.serviceType}</div>
+          <div><strong>Discount:</strong> {patientData.discountPercent || 0}% ({KES_TO_ETB(patientData.discountAmount)})</div>
+        </div>}
         <hr />
 
         <div style={{ fontSize: '10px' }}>
@@ -129,6 +270,12 @@ export default function ReceptionPage() {
   // Dashboard & global data states
   const [dash, setDash] = useState(null);
   const [samples, setSamples] = useState([]);
+  const [testCategories, setTestCategories] = useState([]);
+  const [testSettings, setTestSettings] = useState({ staffDiscount: 20, collaboratorDiscount: 20, counselingStatus: 'Free', counselingPrice: 0 });
+  const [serviceDiscountType, setServiceDiscountType] = useState('Regular Patient');
+  const [expandedCategories, setExpandedCategories] = useState([]);
+  const [testSearch, setTestSearch] = useState('');
+  const [testFilter, setTestFilter] = useState('All');
   const [hospitals, setHospitals] = useState([]);
   const [patients, setPatients] = useState([]);
   const [reports, setReports] = useState([]);
@@ -156,6 +303,8 @@ export default function ReceptionPage() {
   const [amountReceived, setAmountReceived] = useState('');
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
+  const [manualStockPatient, setManualStockPatient] = useState(null);
+  const [stockItems, setStockItems] = useState([]);
 
   // Patient Registration Form State
   const [patientName, setPatientName] = useState('');
@@ -170,14 +319,18 @@ export default function ReceptionPage() {
   // Startup payload excludes reports and counselling; those load only when opened.
   const loadData = useCallback(async (signal) => {
     try {
-      const [d, s, h] = await Promise.all([
+      const [d, s, h, stk] = await Promise.all([
         api('/reception/dashboard', { token, signal }),
-        api('/reception/sample-types', { token, signal }),
-        api('/reception/referral-hospitals', { token, signal })
+        api('/laboratory-tests/catalog', { token, signal }),
+        api('/reception/referral-hospitals', { token, signal }),
+        api('/stock', { token, signal }).catch(() => ({ items: [] }))
       ]);
       setDash(d);
-      setSamples(s.sampleTypes);
+      setSamples(s.categories.flatMap(category => category.tests || []));
+      setTestCategories(s.categories);
+      setTestSettings(s.settings || {});
       setHospitals(h.hospitals);
+      setStockItems(stk.items || []);
     } catch (e) {
       if (e.name === 'AbortError') return;
       setToast({ message: e.message || 'Error loading reception settings.', type: 'error' });
@@ -189,7 +342,6 @@ export default function ReceptionPage() {
     loadData(controller.signal);
     return () => controller.abort();
   }, [loadData]);
-
   // Real-time sync — refresh dashboard data on changes
   useEffect(() => {
     const refresh = () => loadData();
@@ -238,9 +390,16 @@ export default function ReceptionPage() {
     return samples.filter(s => selectedSampleIds.includes(s._id));
   }, [samples, selectedSampleIds]);
 
-  const billTotal = useMemo(() => {
-    return selectedSamples.reduce((sum, s) => sum + s.price, 0);
-  }, [selectedSamples]);
+  const visibleTestCategories = useMemo(() => testCategories.map(category => ({...category,tests:(category.tests||[]).filter(test => {
+    const matchSearch=!testSearch||`${test.name} ${test.description||''} ${category.name}`.toLowerCase().includes(testSearch.toLowerCase());
+    const matchFilter=testFilter==='All'||(testFilter==='Selected'&&selectedSampleIds.includes(test._id))||(testFilter==='Referral'&&/referral/i.test(category.name))||(testFilter==='Active'&&test.status==='Active')||testFilter==='Popular'||testFilter==='Recently Added';
+    return matchSearch&&matchFilter;
+  })})).filter(category=>category.tests.length),[testCategories,testSearch,testFilter,selectedSampleIds]);
+
+  const billSubtotal = useMemo(() => selectedSamples.reduce((sum, s) => sum + s.price, 0), [selectedSamples]);
+  const discountPercent = serviceDiscountType === 'Staff Member' ? Number(testSettings.staffDiscount || 20) : serviceDiscountType === 'Collaborator' ? Number(testSettings.collaboratorDiscount || 20) : 0;
+  const discountAmount = serviceDiscountType === 'Counseling Only' ? 0 : billSubtotal * discountPercent / 100;
+  const billTotal = serviceDiscountType === 'Counseling Only' ? (testSettings.counselingStatus === 'Paid' ? Number(testSettings.counselingPrice || 0) : 0) : billSubtotal - discountAmount;
 
   const balanceDue = useMemo(() => {
     if (!amountReceived) return 0;
@@ -254,7 +413,7 @@ export default function ReceptionPage() {
     );
   };
 
-  // Step 2 -> 3: Move from payment confirmation to receipt print
+  // Step 2 -> 3: Validate payment, then continue to patient registration.
   const handleConfirmPayment = () => {
     if (counsellingOnly) {
       setWizardStep(3); // Skip payment for counselling
@@ -264,24 +423,13 @@ export default function ReceptionPage() {
       setToast({ message: 'Please select at least one sample type.', type: 'error' });
       return;
     }
-    if (Number(amountReceived) < billTotal) {
-      setToast({ message: 'Amount received cannot be less than the bill total.', type: 'error' });
+    if (Number(amountReceived) !== billTotal) {
+      setToast({ message: 'Amount received must exactly equal the grand total.', type: 'error' });
       return;
     }
 
-    // Set mock receipt data for print step
-    setReceiptData({
-      name: patientName,
-      samplesSelected: selectedSamples,
-      paymentDate: new Date(),
-    });
     setPaymentConfirmed(true);
-    setToast({ message: 'Payment confirmed. Printing receipt.', type: 'success' });
-  };
-
-  // Proceed to Step 3: Patient details after receipt modal closes/proceeds
-  const handleProceedToRegistration = () => {
-    setReceiptData(null);
+    setToast({ message: 'Payment confirmed. Continue to patient registration.', type: 'success' });
     setWizardStep(3);
   };
 
@@ -306,7 +454,8 @@ export default function ReceptionPage() {
         address: patientAddress.trim(),
         registrationType,
         referralHospital: registrationType === 'Referral' ? finalHospital : '',
-        sampleTypes: selectedSampleIds,
+        laboratoryTests: selectedSampleIds,
+        patientCategory: serviceDiscountType === 'Counseling Only' ? 'Regular Patient' : serviceDiscountType,
         paymentMethod,
         counsellingOnly,
         serviceType: counsellingOnly ? 'Counseling Only' : 'Laboratory Test',
@@ -320,6 +469,7 @@ export default function ReceptionPage() {
         body: JSON.stringify(payload),
       });
 
+
       setToast({
         message: counsellingOnly
           ? 'Counselling Registered Successfully'
@@ -330,6 +480,9 @@ export default function ReceptionPage() {
       // Show receipt popup with final generated patient record
       if (!counsellingOnly) {
         setReceiptData(result.patient);
+        if (testSettings.stockManagementMode === 'Manual') {
+          setManualStockPatient(result.patient);
+        }
       }
 
       // Reset state & load dashboard
@@ -526,63 +679,32 @@ export default function ReceptionPage() {
         <div className="registration-wizard">
           <div>
             
-            {/* STEP 1: SAMPLE TYPE SELECTION */}
+            {/* STEP 1: LABORATORY TEST TYPE SELECTION */}
             {wizardStep === 1 && (
               <div className="wizard-step-panel">
-                <h2>Step 1 — Sample Type Selection</h2>
-                <div style={{ marginBottom: 'var(--space-4)' }}>
-                  <label className="switch" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-                    <input
-                      type="checkbox"
-                      checked={counsellingOnly}
-                      onChange={e => {
-                        setCounsellingOnly(e.target.checked);
-                        // Clear error and reason when toggling mode
-                        setCounsellingReason('');
-                        setCounsellingReasonError('');
-                      }}
-                    />
-                    Counselling Only (Skip Billing/Payment & Receipt Printing)
-                  </label>
-                </div>
-
-                {counsellingOnly ? (
-                  <div className="form-grid" style={{ display: 'grid', gap: 'var(--space-3)' }}>
-                    <div className="alert success"><strong>Free Counseling Service</strong><br/>Service: Counseling Only &nbsp; | &nbsp; Cost: FREE &nbsp; | &nbsp; Grand Total: 0.00 ETB<br/>No laboratory tests, sample collection, payment, receipt, or laboratory report will be created.</div>
-                    <div className="form-group">
-                      <label>
-                        Counselling Type <span style={{ color: 'var(--color-error)' }}>*</span>
-                      </label>
-                      <select
-                        value={counsellingReason}
-                        onChange={e => {
-                          setCounsellingReason(e.target.value);
-                          if (e.target.value) setCounsellingReasonError('');
-                        }}
-                        style={counsellingReasonError ? { borderColor: 'var(--color-error)', outline: '2px solid var(--color-error)' } : {}}
-                      >
-                        <option value="">— Select Counseling Type —</option>
-                        {['Unavailable Test', 'Doctor Consultation', 'Future Appointment', 'Medical Advice'].map(x => (
-                          <option key={x} value={x}>{x}</option>
-                        ))}
-                      </select>
-                      {counsellingReasonError && (
-                        <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>
-                          ⚠ {counsellingReasonError}
-                        </p>
-                      )}
-                    </div>
-                    <div className="form-group">
-                      <label>Notes / Advice Details</label>
-                      <textarea value={counsellingNotes} onChange={e => setCounsellingNotes(e.target.value)} rows="3" />
-                    </div>
-                  </div>
-                ) : (
-                  <>
+                <h2>Step 1 — Laboratory Test Type Selection</h2>
+                <>
                     <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-on-surface-variant)', marginBottom: 'var(--space-3)' }}>
-                      Select the requested laboratory sample types:
+                      Select requested laboratory tests. Specimens are assigned automatically and remain hidden at Reception.
                     </p>
-                    <div className="sample-selection-grid">
+                    <div className="lab-reception-tools">
+                      <label className="lab-reception-search"><span aria-hidden="true">⌕</span><input value={testSearch} onChange={e => setTestSearch(e.target.value)} placeholder="Search test name, category or keyword" aria-label="Search laboratory tests" /></label>
+                      <div className="lab-reception-filters" role="toolbar" aria-label="Laboratory test filters">{['All','Popular','Recently Added','Referral','Active','Selected'].map(item => <button key={item} type="button" className={testFilter === item ? 'active' : ''} onClick={() => setTestFilter(item)}>{item}</button>)}</div>
+                    </div>
+                    <div className="laboratory-test-selector">
+                      {visibleTestCategories.map(category => {
+                        const expanded = expandedCategories.includes(category._id);
+                        return <section key={category._id} className={`laboratory-category-card ${expanded ? 'expanded' : ''}`}>
+                          <button type="button" className="laboratory-category-header" aria-expanded={expanded} onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}>
+                            <style>{`.laboratory-category-header>span:nth-of-type(n+4){display:none}`}</style>
+                            <span className="lab-reception-category-icon">🧪</span><span className="lab-reception-category-copy"><small>Laboratory category</small><strong>{category.name}</strong><em>{category.tests.length} tests · {category.tests.filter(test => test.status === 'Active').length} active</em></span><span className="lab-category-toggle">{expanded ? '⌃' : '⌄'}<small>{expanded ? 'Collapse' : 'Expand'}</small></span>
+                            <span>Laboratory · {category.name}</span><span>{expanded ? 'Collapse' : 'Expand'}</span>
+                          </button>
+                          {expanded && <div className="laboratory-category-content">{(category.tests || []).map(test => <label key={test._id} className={`laboratory-test-option ${selectedSampleIds.includes(test._id) ? 'selected' : ''}`}><input type="checkbox" checked={selectedSampleIds.includes(test._id)} onChange={() => handleToggleSample(test._id)} /><span>{test.name}</span><strong>{KES_TO_ETB(test.price)}</strong></label>)}</div>}
+                        </section>;
+                      })}
+                    </div>
+                    {false && <div className="sample-selection-grid">
                       {samples.map((s) => (
                         <div
                           key={s._id}
@@ -602,9 +724,8 @@ export default function ReceptionPage() {
                           <span className="sample-price">{KES_TO_ETB(s.price)}</span>
                         </div>
                       ))}
-                    </div>
-                  </>
-                )}
+                    </div>}
+                </>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
                   <button
@@ -624,6 +745,13 @@ export default function ReceptionPage() {
               <div className="wizard-step-panel">
                 <h2>Step 2 — Receive Payment</h2>
                 
+                <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
+                  <label>Service &amp; Discount Type</label>
+                  <select value={serviceDiscountType} onChange={e => { const next = e.target.value; setServiceDiscountType(next); setCounsellingOnly(next === 'Counseling Only'); setAmountReceived(''); }}>
+                    <option>Regular Patient</option><option>Staff Member</option><option>Collaborator</option><option>Counseling Only</option>
+                  </select>
+                  <small>{serviceDiscountType === 'Counseling Only' ? `Counseling fee: ${KES_TO_ETB(billTotal)}` : discountPercent ? `${discountPercent}% discount applied: ${KES_TO_ETB(discountAmount)}` : 'Standard laboratory service pricing.'}</small>
+                </div>
                 <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                   <div className="form-group">
                     <label>Payment Method</label>
@@ -661,7 +789,7 @@ export default function ReceptionPage() {
                     ← Back to Samples
                   </button>
                   <button className="primary-button" onClick={handleConfirmPayment}>
-                    Confirm Payment & Print Receipt
+                    Confirm Payment
                   </button>
                 </div>
               </div>
@@ -711,7 +839,6 @@ export default function ReceptionPage() {
                         <option value="">Select Sex</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
-                        <option value="Other">Other</option>
                       </select>
                     </div>
 
@@ -776,8 +903,8 @@ export default function ReceptionPage() {
 
           {/* WIZARD RIGHT SIDEBAR: LIVE BILL SUMMARY */}
           <div>
-            <div className="bill-summary-card">
-              <h3>Receipt Bill Summary</h3>
+            <div className="bill-summary-card lab-bill-summary">
+              <div className="lab-bill-heading"><span>▣</span><div><small>Live billing</small><h3>Receipt Bill Summary</h3></div></div>
               <hr style={{ border: 'none', borderTop: '1px dashed var(--color-outline-variant)', marginBottom: '12px' }} />
               
               <div className="bill-items-list">
@@ -791,14 +918,10 @@ export default function ReceptionPage() {
                 ))}
               </div>
 
+              <div className="lab-bill-breakdown"><div><span>Selected Tests</span><strong>{selectedSampleIds.length}</strong></div><div><span>Subtotal</span><strong>{KES_TO_ETB(billSubtotal)}</strong></div><div><span>Discount</span><strong>− {KES_TO_ETB(discountAmount)}</strong></div><div><span>Counseling Fee</span><strong>{counsellingOnly && testSettings.counselingStatus === 'Paid' ? KES_TO_ETB(testSettings.counselingPrice) : KES_TO_ETB(0)}</strong></div></div>
               <div className="bill-item total">
                 <span>Grand Total</span>
                 <strong>{KES_TO_ETB(billTotal)}</strong>
-              </div>
-              
-              <div style={{ marginTop: '12px', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
-                <div>Selected Tests: <strong>{selectedSampleIds.length}</strong></div>
-                <div>Discount: <strong>0.00 ETB</strong></div>
               </div>
             </div>
           </div>
@@ -967,6 +1090,167 @@ export default function ReceptionPage() {
         </div>
       )}
 
+      {/* ═══ VIEW 3: PATIENT HISTORY SEARCH ═══ */}
+      {view === 'patients' && (
+        <section className="table-card">
+          <div className="table-title">
+            <h2>Patient Registry</h2>
+            <div className="export-buttons">
+              <button onClick={() => download('/reception/exports/patients.csv', token)}>CSV</button>
+              <button onClick={() => download('/reception/exports/patients.pdf', token)}>PDF</button>
+            </div>
+          </div>
+          {patients.length ? (
+            <div className="sample-types-table-wrapper">
+              <table className="sample-types-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Barcode</th>
+                    <th>Phone</th>
+                    <th>Samples</th>
+                    <th>Payment</th>
+                    <th>Registered Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {patients.map(p => (
+                    <tr key={p._id}>
+                      <td><strong>{p.name}</strong><span>{p.patientId}</span></td>
+                      <td>{p.phone}</td>
+                      <td>{p.sampleTypes?.map(s => s.name).join(', ') || 'Counselling'}</td>
+                      <td>{p.paymentStatus}</td>
+                      <td>{new Date(p.registrationDate).toLocaleString()}</td>
+                      <td>
+                        <button className="secondary-button" onClick={() => handleShowHistory(p)}>History Details</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="empty">Enter keywords above to search patient database.</p>}
+        </section>
+      )}
+
+      {/* ═══ VIEW 4: APPROVED REPORTS ═══ */}
+      {view === 'reports' && (
+        <section className="table-card">
+          <div className="table-title">
+            <h2>Approved Diagnostics Reports</h2>
+            <div className="export-buttons">
+              <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
+              <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
+            </div>
+          </div>
+          {reports.length ? (
+            <div className="sample-types-table-wrapper">
+              <table className="sample-types-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Test Results</th>
+                    <th>Approved By</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map(r => (
+                    <tr key={r._id}>
+                      <td>{r.patient?.name}<span>{r.patient?.patientId}</span></td>
+                      <td>{r.patient?.barcode || r.patient?.patientId}</td>
+                      <td>{r.results?.map(x => `${x.sampleName}: ${x.result}`).join('; ')}</td>
+                      <td>{r.approvedBy?.fullName || '—'}<span>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span></td>
+                      <td>{r.status}</td>
+                      <td>
+                        <button className="secondary-button" onClick={() => download(`/final-reports/${r._id}.pdf`, token)}>Export PDF</button>{' '}<button className="primary-button" disabled={busy} onClick={() => handlePrintA4Report(r._id)}>{busy ? 'Printing…' : 'Print A4 Report'}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
+        </section>
+      )}
+
+      {/* ═══ VIEW 5: COUNSELLING RECORDS HISTORY ═══ */}
+      {view === 'counselling' && (
+        <section className="table-card">
+          <div className="table-title">
+            <h2>Counselling Log</h2>
+            <div className="export-buttons">
+              <button onClick={() => download('/reception/exports/counselling.csv', token)}>CSV</button>
+              <button onClick={() => download('/reception/exports/counselling.pdf', token)}>PDF</button>
+            </div>
+          </div>
+          {counselling.length ? (
+            <div className="sample-types-table-wrapper">
+              <table className="sample-types-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Counselling Reason</th>
+                    <th>Notes</th>
+                    <th>Registrar Agent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {counselling.map(x => (
+                    <tr key={x._id}>
+                      <td>{x.patient?.name}<span>{x.patient?.patientId}</span></td>
+                      <td>{x.reason}</td>
+                      <td>{x.notes || '—'}</td>
+                      <td>{x.registeredBy?.fullName} · {new Date(x.createdDate).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="empty">No counselling cases registered.</p>}
+        </section>
+      )}
+      {/* ═══ POPUP: PATIENT DETAIL HISTORY MODAL ═══ */}
+      {history && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '520px', borderRadius: 'var(--radius-lg)' }}>
+            <header className="modal-header">
+              <h2>Patient History</h2>
+              <button className="close-button" onClick={() => setHistory(null)}>&times;</button>
+            </header>
+            <div className="modal-body" style={{ padding: 'var(--space-4) 0' }}>
+              <p><strong>Patient Name:</strong> {history.patient.name} ({history.patient.patientId})</p>
+              
+              <h3 style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', marginTop: 'var(--space-4)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                Previous Visit Timeline
+              </h3>
+              <ul style={{ paddingLeft: '20px', fontSize: 'var(--text-sm)', marginTop: '6px' }}>
+                {history.previousVisits?.map(x => (
+                  <li key={x._id} style={{ marginBottom: '4px' }}>
+                    {x.patientId} · {new Date(x.registrationDate).toLocaleDateString()}
+                  </li>
+                )) || <li>No previous visits recorded</li>}
+              </ul>
+
+              <h3 style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', marginTop: 'var(--space-4)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                Counselling Records
+              </h3>
+              <p style={{ fontSize: 'var(--text-sm)' }}>{history.counselling?.length || 0} file(s) on record</p>
+
+              <h3 style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', marginTop: 'var(--space-4)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                Laboratory Reports
+              </h3>
+              <p style={{ fontSize: 'var(--text-sm)' }}>{history.reports?.length || 0} diagnostics report(s)</p>
+            </div>
+            <footer className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="secondary-button" onClick={() => setHistory(null)}>Close</button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {/* ═══ POPUP: POS THERMAL RECEIPT PRINT MODAL ═══ */}
       {receiptData && (
         <ThermalReceiptModal
@@ -979,7 +1263,18 @@ export default function ReceptionPage() {
             cashier: user.fullName
           }}
           token={token}
-          onClose={receiptData._id ? () => setReceiptData(null) : handleProceedToRegistration}
+          onClose={() => setReceiptData(null)}
+        />
+      )}
+
+      {/* ═══ POPUP: MANUAL STOCK UPDATE MODAL ═══ */}
+      {manualStockPatient && (
+        <ManualStockUpdateModal
+          patient={manualStockPatient}
+          stockItems={stockItems}
+          token={token}
+          onClose={() => setManualStockPatient(null)}
+          setToast={setToast}
         />
       )}
 
