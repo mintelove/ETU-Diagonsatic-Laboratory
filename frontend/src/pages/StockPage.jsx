@@ -240,17 +240,19 @@ export default function StockPage() {
         {isReception && (
           <div style={{ margin: '10px 0 4px 0' }}>
             {isLocked && countdown && (
-              <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', fontSize: '0.8rem', color: '#b45309', fontWeight: 700 }}>
+              <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '10px', padding: '10px 12px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', fontSize: '0.82rem', color: '#b45309', fontWeight: 700 }}>
                   <span>🔒 Already Edited Today</span>
-                  <span>Available again in: <b>{countdown.short}</b></span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', background: 'rgba(245, 158, 11, 0.2)', padding: '2px 8px', borderRadius: '6px', color: '#92400e' }}>
+                    {countdown.short}
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', textAlign: 'center' }}>
-                  Available to edit again in <b>{countdown.full}</b>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #475569)', marginTop: '6px', textAlign: 'center', fontWeight: 600 }}>
+                  ⏳ Available again in: <span style={{ color: '#b45309' }}>{countdown.full}</span>
                 </div>
                 {i.receptionEditedOn && (
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2px' }}>
-                    Last edited: {new Date(i.receptionEditedOn).toLocaleTimeString()}
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary, #64748b)', textAlign: 'center', marginTop: '4px' }}>
+                    Last edited today at {new Date(i.receptionEditedOn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
               </div>
@@ -259,23 +261,34 @@ export default function StockPage() {
             {itemReq && (
               <div style={{ marginTop: '6px' }}>
                 {itemReq.status === 'Pending' && (
-                  <div style={{ fontSize: '0.78rem', color: '#d97706', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '8px 10px', borderRadius: '8px', fontWeight: 600 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>⏳ Pending Admin Approval</span>
+                  <div style={{ fontSize: '0.8rem', color: '#b45309', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.35)', padding: '9px 12px', borderRadius: '10px', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                      <span>⏳ Approval Pending</span>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Submitted: {new Date(itemReq.createdDate).toLocaleTimeString()}
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary, #475569)', marginTop: '2px' }}>
+                      Waiting for Admin approval
                     </div>
                   </div>
                 )}
                 {itemReq.status === 'Approved' && (
-                  <div style={{ fontSize: '0.78rem', color: '#16a34a', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '8px 10px', borderRadius: '8px', fontWeight: 600 }}>
-                    ✓ Approved – Ready to Edit. You can now edit this item.
+                  <div style={{ fontSize: '0.8rem', color: '#15803d', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.35)', padding: '9px 12px', borderRadius: '10px', fontWeight: 700 }}>
+                    <div>✓ Admin Approved</div>
+                    <div style={{ fontSize: '0.74rem', color: '#166534', fontWeight: 500, marginTop: '2px' }}>
+                      You can now edit this item.
+                    </div>
                   </div>
                 )}
                 {itemReq.status === 'Rejected' && (
-                  <div style={{ fontSize: '0.78rem', color: '#dc2626', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '8px 10px', borderRadius: '8px', fontWeight: 600 }}>
-                    ✕ Request Rejected.{itemReq.comments ? ` Reason: ${itemReq.comments}` : ''}
+                  <div style={{ fontSize: '0.8rem', color: '#b91c1c', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '9px 12px', borderRadius: '10px', fontWeight: 600 }}>
+                    <div style={{ fontWeight: 700 }}>✕ Request Rejected</div>
+                    <div style={{ fontSize: '0.76rem', marginTop: '2px' }}>
+                      Your request to edit this item was rejected by the Admin.
+                    </div>
+                    {itemReq.comments && (
+                      <div style={{ fontSize: '0.74rem', marginTop: '4px', fontStyle: 'italic', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                        Reason: {itemReq.comments}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -291,17 +304,17 @@ export default function StockPage() {
               <>
                 {isLocked ? (
                   itemReq?.status === 'Pending' ? (
-                    <button className="secondary" disabled style={{ opacity: 0.75, fontSize: '0.78rem', padding: '5px 10px', cursor: 'not-allowed' }}>
-                      ⏳ Request Pending
+                    <button className="secondary" disabled style={{ opacity: 0.8, fontSize: '0.78rem', padding: '6px 12px', cursor: 'not-allowed', background: 'rgba(234, 179, 8, 0.15)', color: '#d97706', border: '1px solid rgba(234, 179, 8, 0.4)', borderRadius: '8px', fontWeight: 600 }}>
+                      Request Pending
                     </button>
                   ) : (
-                    <button className="secondary" style={{ background: 'var(--color-primary-container, rgba(2, 132, 199, 0.15))', color: 'var(--color-primary, #0284c7)', borderColor: 'var(--color-primary)', fontWeight: 600, fontSize: '0.78rem', padding: '5px 10px' }} onClick={() => openApprovalModal(i)}>
+                    <button className="secondary" style={{ background: 'var(--color-primary-container, rgba(2, 132, 199, 0.15))', color: 'var(--color-primary, #0284c7)', borderColor: 'var(--color-primary)', fontWeight: 700, fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px' }} onClick={() => openApprovalModal(i)}>
                       🔐 Request Admin Approval
                     </button>
                   )
                 ) : (
                   <>
-                    <button className="text-action" onClick={() => { setSelected(i); setMode('form'); }}>Edit</button>
+                    <button className="text-action" onClick={() => { setSelected(i); setMode('form'); }}>Edit Stock</button>
                     <button className="text-action" onClick={() => quantity(i)}>Add stock</button>
                   </>
                 )}
@@ -458,11 +471,11 @@ export default function StockPage() {
           }}
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.55)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             display: 'flex',
             alignItems: 'center',
-            justify: 'center',
+            justifyContent: 'center',
             position: 'fixed',
             top: 0,
             left: 0,
@@ -476,57 +489,71 @@ export default function StockPage() {
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '520px',
+              maxWidth: '540px',
               width: '100%',
               maxHeight: '90vh',
               overflowY: 'auto',
               borderRadius: '20px',
-              background: 'var(--card-bg, rgba(255, 255, 255, 0.95))',
+              background: 'var(--card-bg, rgba(255, 255, 255, 0.96))',
               border: '1px solid var(--card-border, #e2e8f0)',
               padding: '24px',
-              boxShadow: '0 20px 30px -10px rgba(0, 0, 0, 0.35)',
+              boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.4)',
               color: 'var(--text-primary, #0f172a)'
             }}
           >
-            <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-              <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--color-heading, var(--text-primary))', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--card-border, #e2e8f0)', paddingBottom: '12px' }}>
+              <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--color-primary, #075c91)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>🔐</span> Request Admin Approval
               </h2>
               <button className="close-button" onClick={() => setRequestModalItem(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>×</button>
             </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--color-surface-bright, rgba(14, 116, 144, 0.08))', padding: '14px 16px', borderRadius: '12px', marginBottom: '18px', border: '1px solid var(--card-border, #cbd5e1)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--color-surface-bright, rgba(14, 116, 144, 0.06))', padding: '14px 16px', borderRadius: '14px', marginBottom: '18px', border: '1px solid var(--card-border, #cbd5e1)' }}>
               <div>
-                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>STOCK ITEM</small>
-                <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{requestModalItem.itemName}</strong>
+                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Stock Item</small>
+                <strong style={{ fontSize: '1.05rem', color: 'var(--text-primary, #0f172a)' }}>{requestModalItem.itemName}</strong>
                 <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Code: {requestModalItem.itemCode}</span>
               </div>
+
               <div>
-                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>STATUS</small>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#b45309' }}>Editing Restricted</span>
+                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Current Quantity</small>
+                <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{requestModalItem.remainingQuantity} {requestModalItem.unit}</strong>
               </div>
+
               <div>
-                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>CURRENT QUANTITY</small>
-                <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{requestModalItem.remainingQuantity} {requestModalItem.unit}</strong>
+                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Requested Action</small>
+                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--color-primary, #075c91)' }}>Edit Stock</span>
               </div>
+
               <div>
-                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>AVAILABLE AGAIN IN</small>
-                <strong style={{ fontSize: '0.9rem', color: 'var(--color-primary, #0284c7)' }}>
-                  {formatCountdown(requestModalItem.receptionEditedOn, now)?.full || 'Tomorrow'}
-                </strong>
+                <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Branch</small>
+                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user?.branchName || requestModalItem.branchName || 'Main'}</span>
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed var(--card-border, #cbd5e1)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Your Daily Edit Limit</small>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#b45309' }}>🔒 Already Used Today</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <small style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Available Again In</small>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--color-primary, #0284c7)', fontFamily: 'monospace' }}>
+                    {formatCountdown(requestModalItem.receptionEditedOn, now)?.short || 'Tomorrow'}
+                  </strong>
+                </div>
               </div>
             </div>
 
             <form onSubmit={submitRequestApproval} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem', fontWeight: 600 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 Reason for Request (Required) *
                 <textarea required value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Enter detailed reason for requesting additional edit permission..." rows={3} style={{ padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--input-border, #cbd5e1)', background: 'var(--input-bg, #fff)', color: 'var(--input-color, #000)', fontSize: '0.9rem' }} />
               </label>
 
               <div className="form-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                <button type="button" className="secondary" onClick={() => setRequestModalItem(null)} style={{ padding: '8px 18px', borderRadius: '8px' }}>Cancel</button>
-                <button type="submit" className="primary" disabled={busy || !requestReason.trim()} style={{ padding: '8px 22px', borderRadius: '8px' }}>
-                  {busy ? 'Sending…' : 'Submit Request'}
+                <button type="button" className="secondary" onClick={() => setRequestModalItem(null)} style={{ padding: '9px 20px', borderRadius: '10px', fontWeight: 600 }}>Cancel</button>
+                <button type="submit" className="primary" disabled={busy || !requestReason.trim()} style={{ padding: '9px 24px', borderRadius: '10px', fontWeight: 700 }}>
+                  {busy ? 'Sending…' : 'Send Request'}
                 </button>
               </div>
             </form>
