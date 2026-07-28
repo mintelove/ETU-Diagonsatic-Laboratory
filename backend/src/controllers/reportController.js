@@ -89,7 +89,7 @@ export async function getTransactionsReport(req, res, next) {
     let patients = await Patient.find(query)
       .populate('registeredBy', 'fullName username role')
       .populate('collectedBy', 'fullName username role')
-      .populate('laboratoryTests', 'name category')
+      .populate({ path: 'laboratoryTests', select: 'name category', populate: { path: 'category', select: 'name' } })
       .populate('sampleTypes', 'name price')
       .sort({ registrationDate: -1 })
       .lean();
@@ -100,6 +100,7 @@ export async function getTransactionsReport(req, res, next) {
         .populate('collector', 'fullName username role')
         .lean(),
       LabReport.find({ patient: { $in: patientIds } })
+        .populate({ path: 'laboratoryTests', select: 'name category', populate: { path: 'category', select: 'name' } })
         .sort({ createdDate: -1 })
         .lean()
     ]);

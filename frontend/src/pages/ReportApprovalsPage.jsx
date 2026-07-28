@@ -4,38 +4,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 
+import ReportPreview from '../components/ReportPreview.jsx';
 import { FlagBadge } from '../utils/flagHelper.jsx';
-
-function ReportPreview({ report }) {
-  const patient = report.patient || {};
-  const categoriesMap = new Map();
-  (patient.laboratoryTests || []).forEach(t => {
-    const catName = t?.category?.name || 'GENERAL LABORATORY';
-    const testName = t?.name || (typeof t === 'string' && !t.match(/^[a-f0-9]{24}$/i) ? t : '');
-    if (!testName) return;
-    if (!categoriesMap.has(catName)) categoriesMap.set(catName, []);
-    categoriesMap.get(catName).push(testName);
-  });
-
-  return <section className="table-card" style={{ marginTop: 0 }}>
-    <p className="eyebrow">Laboratory report review</p><h2>ETU Diagnostic Laboratory</h2>
-    <div className="form-grid"><p><strong>Patient Name:</strong> {patient.name}</p><p><strong>Patient ID:</strong> {patient.patientId}</p><p><strong>Collector:</strong> {report.technician?.fullName || '—'}</p><p><strong>Submitted:</strong> {new Date(report.submittedDate || report.updatedDate).toLocaleString()}</p>{patient.referralHospital && <><p><strong>Referral Hospital Name:</strong> {patient.referralHospital}</p><p><strong>Referral Hospital Address:</strong> {patient.address || '—'}</p></>}</div>
-    
-    <div style={{ margin: '14px 0' }}>
-      <h4 style={{ margin: '0 0 6px', color: 'var(--color-primary)', fontSize: '0.85rem', textTransform: 'uppercase' }}>REQUESTED LABORATORY TEST TYPES</h4>
-      {categoriesMap.size > 0 ? Array.from(categoriesMap.entries()).map(([cat, tests]) => (
-        <div key={cat} style={{ marginBottom: 8 }}>
-          <strong style={{ display: 'block', fontSize: '0.8rem', color: '#516a75' }}>{cat}</strong>
-          <ul style={{ margin: '2px 0 6px 18px', padding: 0 }}>{tests.map(tn => <li key={tn} style={{ fontWeight: 600 }}>{tn}</li>)}</ul>
-        </div>
-      )) : <p>No test types recorded.</p>}
-    </div>
-
-    <p><strong>Equipment:</strong> {report.equipment?.join(', ') || '—'}</p>
-    <table><thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference value</th><th>Flag</th></tr></thead><tbody>{report.results?.map((row, index) => <tr key={`${row.sampleName}-${index}`}><td><strong>{row.sampleName}</strong></td><td>{row.result}</td><td>{row.unit || '—'}</td><td>{row.referenceValue || '—'}</td><td><FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} /></td></tr>)}</tbody></table>
-    {report.comments && <p style={{ marginTop: 12 }}><strong>Collector comments:</strong> {report.comments}</p>}
-  </section>;
-}
 
 export default function ReportApprovalsPage() {
   const { token, user } = useAuth();
