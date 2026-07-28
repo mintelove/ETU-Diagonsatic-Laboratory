@@ -157,7 +157,7 @@ export default function AppLayout() {
 
         <div className="user-card">
           <strong>{user.fullName}</strong>
-          <span>{t(user.role)}</span>
+          <span>{t(user.role)} • 📍 {user.branchName || 'Main'}</span>
         </div>
       </aside>
 
@@ -190,8 +190,8 @@ export default function AppLayout() {
             >
               {preferences.theme === 'light' ? '◐' : '☀'}
             </button>
-            <span className="profile-chip" title={`${user.fullName} — ${t(user.role)}`}>
-              ♙ <b>{user.fullName}</b> <span className="profile-role">({t(user.role)})</span>
+            <span className="profile-chip" title={`${user.fullName} — ${t(user.role)} (${user.branchName || 'Main'} Branch)`}>
+              ♙ <b>{user.fullName}</b> <span className="profile-role">({t(user.role)})</span> <small style={{ marginLeft: '4px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem' }}>📍 {user.branchName || 'Main'}</small>
             </span>
             <button className="logout-button" onClick={logout}>
               {t('signOut')}

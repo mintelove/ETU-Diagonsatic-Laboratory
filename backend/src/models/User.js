@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true, trim: true, match: /^\+?[0-9]{7,15}$/ },
   email: { type: String, trim: true, lowercase: true, sparse: true, unique: true, match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
   role: { type: String, enum: ROLE_VALUES, required: true, default: ROLES.RECEPTION },
+  branchName: { type: String, enum: ['Main', 'Otona'], default: 'Main', required: true },
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
   lastLogin: { type: Date, default: null },
   profilePhoto: { type: String, default: '' },
@@ -22,6 +23,6 @@ userSchema.pre('save', async function hashPassword(next) {
 });
 userSchema.methods.comparePassword = function (candidate) { return bcrypt.compare(candidate, this.password); };
 userSchema.methods.toSafeObject = function () {
-  return { id: this._id, fullName: this.fullName, username: this.username, phone: this.phone, email: this.email || '', role: this.role, status: this.status, lastLogin: this.lastLogin, profilePhoto: this.profilePhoto || '', preferences: this.preferences || {}, createdDate: this.createdDate, updatedDate: this.updatedDate };
+  return { id: this._id, fullName: this.fullName, username: this.username, phone: this.phone, email: this.email || '', role: this.role, branchName: this.branchName || 'Main', status: this.status, lastLogin: this.lastLogin, profilePhoto: this.profilePhoto || '', preferences: this.preferences || {}, createdDate: this.createdDate, updatedDate: this.updatedDate };
 };
 export default mongoose.model('User', userSchema);

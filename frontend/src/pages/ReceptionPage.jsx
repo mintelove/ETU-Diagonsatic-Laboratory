@@ -13,7 +13,18 @@ import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 
 const KES_TO_ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
-const formatDate = value => value ? new Date(value).toLocaleDateString() : '—';
+const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
+const categoryIcons = {
+  'HEMATOLOGY and IMMUNO HEMATOLOGY': '🩸',
+  'CLINICAL CHEMISTRY and IMMUNOASSAY TESTS': '🧪',
+  'URINE AND BODY FLUID ANALYSIS': '🔬',
+  'PARASITOLOGY': '🦠',
+  'MICROBIOLOGY': '🧫',
+  'SEROLOGICAL TESTS': '🧬',
+  'REFERRAL TESTS': '🏥',
+  'OTHER TESTS': '⚡'
+};
+
 const ReceptionClock = memo(function ReceptionClock() { const [now,setNow]=useState(()=>new Date()); useEffect(()=>{const id=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(id)},[]); return <p className="intro">{now.toLocaleDateString('en-KE',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · {now.toLocaleTimeString('en-KE')}</p>; });
 
 // Toast Notification Local Component
@@ -35,6 +46,7 @@ function Toast({ message, type, onClose }) {
   );
 }
 
+// POS Manual Stock Update Modal Component
 // POS Manual Stock Update Modal Component
 function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast }) {
   const [deductions, setDeductions] = useState(() => {
@@ -75,15 +87,29 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
     return Array.from(map.values());
   });
   const [saving, setSaving] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const handleQtyChange = (itemId, val) => {
-    setDeductions(prev => prev.map(d => (d.item === itemId || `${d.item}_${d.testName}` === itemId) ? { ...d, quantityDeducted: Math.max(0, Number(val) || 0) } : d));
+  const handleQtyChange = (key, val) => {
+    setDeductions(prev => prev.map(d => {
+      const dKey = `${d.item}_${d.testName}`;
+      return (dKey === key || String(d.item) === String(key)) ? { ...d, quantityDeducted: Math.max(0, Number(val) || 0) } : d;
+    }));
+  };
+
+  const activeDeductions = useMemo(() => deductions.filter(d => d.quantityDeducted > 0), [deductions]);
+
+  const handleProceedToConfirm = () => {
+    if (activeDeductions.length === 0) {
+      setToast({ message: 'Please enter a quantity greater than 0 for at least one stock item.', type: 'error' });
+      return;
+    }
+    setShowConfirmation(true);
   };
 
   const handleConfirm = async () => {
+    if (saving) return;
     setSaving(true);
     try {
-      const activeDeductions = deductions.filter(d => d.quantityDeducted > 0);
       if (activeDeductions.length === 0) {
         onClose();
         return;
@@ -98,7 +124,7 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
           deductions: activeDeductions.map(d => ({ item: d.item, quantityDeducted: d.quantityDeducted, testName: d.testName }))
         })
       });
-      setToast({ message: 'Manual stock update confirmed & deducted.', type: 'success' });
+      setToast({ message: 'Manual stock update confirmed & deducted successfully.', type: 'success' });
       onClose();
     } catch (e) {
       setToast({ message: e.message || 'Failed to update manual stock.', type: 'error' });
@@ -110,60 +136,107 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
   const testNamesList = (patient.laboratoryTests || []).map(t => t.name || t).filter(Boolean).join(', ') || 'Selected Tests';
 
   return (
-    <div className="pm-modal-backdrop" style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
-      <article className="pm-modal" style={{ maxWidth: '560px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <h2 style={{ margin: 0, color: 'var(--color-primary,#075c91)', fontSize: '16px', fontWeight: 700 }}>Manual Stock Update</h2>
-          <button onClick={onClose} disabled={saving} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#607985', padding: '0 4px', lineHeight: 1 }}>×</button>
-        </div>
-        <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#516a75', lineHeight: '1.4' }}>
-          <strong>Patient:</strong> {patient.name} ({patient.patientId}) · <strong>Tests:</strong> {testNamesList}
-        </p>
-        
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '12px', border: '1px solid #e0e0e0', borderRadius: '6px', maxHeight: '55vh' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-              <tr style={{ background: '#075c91', color: '#fff', textAlign: 'left' }}>
-                <th style={{ padding: '6px 8px' }}>Stock Item</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Current</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Req.</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Deduct Qty</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Remaining</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deductions.map(d => {
-                const remainingAfter = d.currentQuantity - d.quantityDeducted;
-                return (
-                  <tr key={d.item} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                    <td style={{ padding: '5px 8px', fontWeight: 600 }}>{d.itemName}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>{d.currentQuantity}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>{d.requiredQuantity}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>
-                      <input
-                        type="number"
-                        min="0"
-                        value={d.quantityDeducted}
-                        onChange={e => handleQtyChange(d.item, e.target.value)}
-                        style={{ width: '60px', padding: '2px 5px', textAlign: 'right', borderRadius: '4px', border: '1px solid #ccc', fontSize: '12px' }}
-                      />
-                    </td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right', color: remainingAfter < 0 ? '#c52626' : '#203640', fontWeight: 600 }}>
-                      {remainingAfter}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+    <div className="manual-stock-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
+      <article className="manual-stock-modal">
+        <div className="manual-stock-header">
+          <h2>📦 Manual Stock Deduction</h2>
+          <button className="manual-stock-close" onClick={onClose} disabled={saving} title="Close">&times;</button>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
-          <button className="secondary-button" onClick={onClose} disabled={saving} style={{ padding: '6px 14px', fontSize: '12px' }}>Skip / Close</button>
-          <button className="primary-button" onClick={handleConfirm} disabled={saving} style={{ padding: '6px 14px', fontSize: '12px' }}>
-            {saving ? 'Deducting...' : 'Confirm Stock Deduction'}
-          </button>
+        <div className="manual-stock-patient-banner">
+          <div><strong>Completed Patient Transaction:</strong> {patient.name} ({patient.patientId})</div>
+          <div><strong>Laboratory Tests:</strong> {testNamesList}</div>
         </div>
+
+        {!showConfirmation ? (
+          <>
+            <div className="manual-stock-table-wrap">
+              <table className="manual-stock-table">
+                <thead>
+                  <tr>
+                    <th>Stock Item</th>
+                    <th style={{ textAlign: 'right' }}>Current</th>
+                    <th style={{ textAlign: 'right' }}>Req.</th>
+                    <th style={{ textAlign: 'right' }}>Deduct Qty</th>
+                    <th style={{ textAlign: 'right' }}>Remaining</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deductions.map(d => {
+                    const remainingAfter = d.currentQuantity - d.quantityDeducted;
+                    const rowKey = `${d.item}_${d.testName}`;
+                    return (
+                      <tr key={rowKey}>
+                        <td style={{ fontWeight: 600 }}>{d.itemName}</td>
+                        <td style={{ textAlign: 'right' }}>{d.currentQuantity}</td>
+                        <td style={{ textAlign: 'right' }}>{d.requiredQuantity}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            className="manual-stock-input"
+                            value={d.quantityDeducted}
+                            onChange={e => handleQtyChange(rowKey, e.target.value)}
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right', color: remainingAfter < 0 ? '#ef4444' : 'inherit', fontWeight: 600 }}>
+                          {remainingAfter}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="manual-stock-actions">
+              <button className="secondary-button" onClick={onClose} disabled={saving} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                Cancel
+              </button>
+              <button className="primary-button" onClick={handleProceedToConfirm} disabled={saving} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                Review & Confirm
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="manual-stock-confirm-box">
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--color-primary, #075c91)' }}>
+                Please Confirm Stock Deduction
+              </h3>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.82rem', color: 'var(--color-on-surface-variant, #607985)' }}>
+                Verify the stock items and quantities to be deducted for patient <strong>{patient.name}</strong> ({patient.patientId}):
+              </p>
+
+              {activeDeductions.map(d => {
+                const remainingAfter = d.currentQuantity - d.quantityDeducted;
+                return (
+                  <div key={`${d.item}_${d.testName}`} className="manual-stock-confirm-item">
+                    <div>
+                      <strong>Stock Item:</strong> {d.itemName}
+                      {d.testName && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)' }}>For test: {d.testName}</small>}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div><strong>Quantity to Deduct:</strong> {d.quantityDeducted} unit(s)</div>
+                      <small style={{ color: remainingAfter < 0 ? '#ef4444' : 'var(--color-on-surface-variant)' }}>
+                        New Remaining: {remainingAfter}
+                      </small>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="manual-stock-actions">
+              <button className="secondary-button" onClick={() => setShowConfirmation(false)} disabled={saving} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                Cancel
+              </button>
+              <button className="primary-button" onClick={handleConfirm} disabled={saving} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                {saving ? 'Deducting Stock...' : 'Confirm Deduction'}
+              </button>
+            </div>
+          </>
+        )}
       </article>
     </div>
   );
@@ -182,7 +255,7 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
   const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) ? new Date(rawDate) : new Date();
   const dateStr = validDate.toLocaleDateString();
   const timeStr = validDate.toLocaleTimeString();
-  const sampleList = isReprint ? (patientData.laboratoryTests || patientData.sampleTypes) : patientData.samplesSelected;
+  const sampleList = (isReprint ? (patientData.laboratoryTests || patientData.sampleTypes) : patientData.samplesSelected) || [];
 
   const handlePrint = async () => {
     if (printing) return;
@@ -283,6 +356,7 @@ export default function ReceptionPage() {
   const [view, setView] = useState('dashboard');
   const [q, setQ] = useState('');
   const [history, setHistory] = useState(null);
+  const [selectedCounselling, setSelectedCounselling] = useState(null);
 
   // Notifications/Toasts
   const [toast, setToast] = useState(null);
@@ -560,7 +634,7 @@ export default function ReceptionPage() {
       <header className="dash-header">
         <div>
           <p className="eyebrow">Reception Workspace</p>
-          <h1>Welcome, {user.fullName}</h1>
+          <h1>Welcome, {user.fullName} <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 Branch: {user.branchName || 'Main'}</span></h1>
           <ReceptionClock />
         </div>
         <input
@@ -694,14 +768,55 @@ export default function ReceptionPage() {
                     <div className="laboratory-test-selector">
                       {visibleTestCategories.map(category => {
                         const expanded = expandedCategories.includes(category._id);
-                        return <section key={category._id} className={`laboratory-category-card ${expanded ? 'expanded' : ''}`}>
-                          <button type="button" className="laboratory-category-header" aria-expanded={expanded} onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}>
-                            <style>{`.laboratory-category-header>span:nth-of-type(n+4){display:none}`}</style>
-                            <span className="lab-reception-category-icon">🧪</span><span className="lab-reception-category-copy"><small>Laboratory category</small><strong>{category.name}</strong><em>{category.tests.length} tests · {category.tests.filter(test => test.status === 'Active').length} active</em></span><span className="lab-category-toggle">{expanded ? '⌃' : '⌄'}<small>{expanded ? 'Collapse' : 'Expand'}</small></span>
-                            <span>Laboratory · {category.name}</span><span>{expanded ? 'Collapse' : 'Expand'}</span>
-                          </button>
-                          {expanded && <div className="laboratory-category-content">{(category.tests || []).map(test => <label key={test._id} className={`laboratory-test-option ${selectedSampleIds.includes(test._id) ? 'selected' : ''}`}><input type="checkbox" checked={selectedSampleIds.includes(test._id)} onChange={() => handleToggleSample(test._id)} /><span>{test.name}</span><strong>{KES_TO_ETB(test.price)}</strong></label>)}</div>}
-                        </section>;
+                        const selectedCount = (category.tests || []).filter(t => selectedSampleIds.includes(t._id)).length;
+                        const catIcon = categoryIcons[category.name] || '🧪';
+
+                        return (
+                          <section key={category._id} className={`laboratory-category-card ${expanded ? 'expanded' : ''}`}>
+                            <button
+                              type="button"
+                              className="laboratory-category-header"
+                              aria-expanded={expanded}
+                              onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}
+                            >
+                              <span className="lab-reception-category-icon">{catIcon}</span>
+                              <span className="lab-reception-category-copy">
+                                <small>Laboratory Category</small>
+                                <strong>{category.name}</strong>
+                                <em>
+                                  {category.tests.length} test{category.tests.length === 1 ? '' : 's'} available
+                                  {selectedCount > 0 && <b style={{ marginLeft: '6px', color: 'var(--color-primary)', fontWeight: 700 }}>({selectedCount} selected)</b>}
+                                </em>
+                              </span>
+                              <span className="lab-category-toggle">
+                                {expanded ? '▲' : '▼'}
+                                <small>{expanded ? 'Collapse' : 'Expand'}</small>
+                              </span>
+                            </button>
+
+                            {expanded && (
+                              <div className="laboratory-category-content">
+                                {(category.tests || []).map(test => {
+                                  const isSelected = selectedSampleIds.includes(test._id);
+                                  return (
+                                    <label key={test._id} className={`laboratory-test-option ${isSelected ? 'selected' : ''}`}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => handleToggleSample(test._id)}
+                                      />
+                                      <div className="lab-test-option-copy">
+                                        <strong>{test.name}</strong>
+                                        {test.description && <small>{test.description}</small>}
+                                      </div>
+                                      <strong className="lab-test-option-price">{KES_TO_ETB(test.price)}</strong>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </section>
+                        );
                       })}
                     </div>
                     {false && <div className="sample-selection-grid">
@@ -1195,6 +1310,7 @@ export default function ReceptionPage() {
                     <th>Counselling Reason</th>
                     <th>Notes</th>
                     <th>Registrar Agent</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1204,6 +1320,11 @@ export default function ReceptionPage() {
                       <td>{x.reason}</td>
                       <td>{x.notes || '—'}</td>
                       <td>{x.registeredBy?.fullName} · {new Date(x.createdDate).toLocaleString()}</td>
+                      <td>
+                        <button className="secondary-button" onClick={() => setSelectedCounselling(x)} style={{ fontSize: '11px', padding: '4px 10px' }}>
+                          View Details
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1211,6 +1332,43 @@ export default function ReceptionPage() {
             </div>
           ) : <p className="empty">No counselling cases registered.</p>}
         </section>
+      )}
+
+      {/* ═══ POPUP: COUNSELLING DETAIL MODAL ═══ */}
+      {selectedCounselling && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setSelectedCounselling(null); }}>
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <header className="modal-header">
+              <h2 style={{ fontSize: '1.2rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>💬</span> Counselling Record Details
+              </h2>
+              <button className="close-button" onClick={() => setSelectedCounselling(null)}>&times;</button>
+            </header>
+
+            <div style={{ background: 'var(--color-primary-light, rgba(7, 92, 145, 0.08))', border: '1px solid rgba(7, 92, 145, 0.18)', borderRadius: '12px', padding: '12px 16px', marginBottom: '14px', fontSize: '0.88rem' }}>
+              <div><strong>Patient Name:</strong> {selectedCounselling.patient?.name} ({selectedCounselling.patient?.patientId})</div>
+              <div><strong>Registered By:</strong> {selectedCounselling.registeredBy?.fullName || '—'} · {new Date(selectedCounselling.createdDate).toLocaleString()}</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.88rem' }}>
+              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
+                <strong>Counselling Reason:</strong>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--color-on-surface)' }}>{selectedCounselling.reason || 'Standard Counseling'}</p>
+              </div>
+
+              {selectedCounselling.notes && (
+                <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
+                  <strong>Counselling Notes & Recommendations:</strong>
+                  <p style={{ margin: '4px 0 0 0', color: 'var(--color-on-surface)' }}>{selectedCounselling.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+              <button className="secondary" onClick={() => setSelectedCounselling(null)}>Close Record</button>
+            </div>
+          </div>
+        </div>
       )}
       {/* ═══ POPUP: PATIENT DETAIL HISTORY MODAL ═══ */}
       {history && (

@@ -8,6 +8,7 @@ import StockItem from '../models/StockItem.js';
 import Patient from '../models/Patient.js';
 import SampleCollection from '../models/SampleCollection.js';
 import User from '../models/User.js';
+import LabReport from '../models/LabReport.js';
 import { stockLevel } from '../constants/stock.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,9 +75,12 @@ export async function getTransactionsReport(req, res, next) {
       reportDateLabel = selectedDateStr;
     }
 
+    const branchFilter = req.user.role !== 'Admin' ? (req.user.branchName || 'Main') : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : (req.query.branch && req.query.branch !== 'All' ? req.query.branch : null));
+
     const query = {
       registrationDate: { $gte: startDate, $lte: endDate }
     };
+    if (branchFilter) query.branchName = branchFilter;
 
     if (receptionist && receptionist !== 'all' && mongoose.Types.ObjectId.isValid(receptionist)) {
       query.registeredBy = receptionist;
@@ -91,13 +95,24 @@ export async function getTransactionsReport(req, res, next) {
       .lean();
 
     const patientIds = patients.map(p => p._id);
-    const collections = await SampleCollection.find({ patient: { $in: patientIds } })
-      .populate('collector', 'fullName username role')
-      .lean();
+    const [collections, reportsList] = await Promise.all([
+      SampleCollection.find({ patient: { $in: patientIds } })
+        .populate('collector', 'fullName username role')
+        .lean(),
+      LabReport.find({ patient: { $in: patientIds } })
+        .sort({ createdDate: -1 })
+        .lean()
+    ]);
 
     const collectionMap = new Map();
     collections.forEach(col => {
       collectionMap.set(String(col.patient), col);
+    });
+
+    const reportMap = new Map();
+    reportsList.forEach(rep => {
+      const pid = String(rep.patient);
+      if (!reportMap.has(pid)) reportMap.set(pid, rep);
     });
 
     if (collector && collector !== 'all' && mongoose.Types.ObjectId.isValid(collector)) {
@@ -110,6 +125,7 @@ export async function getTransactionsReport(req, res, next) {
 
     const transactions = patients.map(p => {
       const col = collectionMap.get(String(p._id));
+      const rep = reportMap.get(String(p._id));
       const collectorUser = p.collectedBy || col?.collector;
       const testsList = [
         ...(p.laboratoryTests || []).map(t => t.name),
@@ -125,6 +141,7 @@ export async function getTransactionsReport(req, res, next) {
         age: p.age,
         sex: p.sex,
         phone: p.phone,
+        branchName: p.branchName || 'Main',
         registrationDate: p.registrationDate,
         tests: testsList.length ? testsList.join(', ') : (p.serviceType || 'Counseling Only'),
         grandTotal: p.grandTotal || 0,
@@ -134,13 +151,23 @@ export async function getTransactionsReport(req, res, next) {
         receptionistId: p.registeredBy?._id,
         collector: collectorUser?.fullName || '—',
         collectorId: collectorUser?._id,
-        collectionStatus: col?.status || (collectorUser ? 'Completed' : 'Queued')
+        collectionStatus: col?.status || (collectorUser ? 'Completed' : 'Queued'),
+        report: rep ? {
+          _id: rep._id,
+          reportNumber: rep.reportNumber,
+          equipment: rep.equipment,
+          results: rep.results,
+          comments: rep.comments,
+          status: rep.status,
+          approvedDate: rep.approvedDate
+        } : null
       };
     });
 
+    const userBranchFilter = branchFilter ? { branchName: branchFilter } : {};
     const [receptionists, collectors] = await Promise.all([
-      User.find({ role: 'Reception' }).select('_id fullName username').sort({ fullName: 1 }).lean(),
-      User.find({ role: 'Sample Collector' }).select('_id fullName username').sort({ fullName: 1 }).lean()
+      User.find({ role: 'Reception', ...userBranchFilter }).select('_id fullName username branchName').sort({ fullName: 1 }).lean(),
+      User.find({ role: 'Sample Collector', ...userBranchFilter }).select('_id fullName username branchName').sort({ fullName: 1 }).lean()
     ]);
 
     const logoBase64 = getLogoBase64();

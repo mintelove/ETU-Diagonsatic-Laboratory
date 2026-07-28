@@ -29,9 +29,9 @@ function dateBounds() {
 }
 
 /* ── Helper: revenue aggregation with date match ────── */
-function revenueAgg(dateMatch) {
+function revenueAgg(dateMatch, branchMatch = {}) {
   return Patient.aggregate([
-    { $match: { paymentStatus: 'Paid', ...dateMatch } },
+    { $match: { paymentStatus: 'Paid', ...dateMatch, ...branchMatch } },
     { $group: { _id: null, total: { $sum: '$grandTotal' }, count: { $sum: 1 } } },
   ]);
 }
@@ -77,18 +77,21 @@ export async function dashboard(req, res, next) {
   try {
     const { todayStart, weekStart, monthStart, thirtyDaysAgo } = dateBounds();
 
+    const branch = req.user.role !== 'Admin' ? (req.user.branchName || 'Main') : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : (req.query.branch && req.query.branch !== 'All' ? req.query.branch : null));
+    const branchMatch = branch ? { branchName: branch } : {};
+
     const activeDateMatch = parseDateRange(req.query.dateFrom, req.query.dateTo);
     const hasCustomDate = !!activeDateMatch;
-    const patientDateMatch = hasCustomDate ? { registrationDate: activeDateMatch } : {};
-    const reportDateMatch = hasCustomDate ? { createdDate: activeDateMatch } : {};
+    const patientDateMatch = hasCustomDate ? { registrationDate: activeDateMatch, ...branchMatch } : branchMatch;
+    const reportDateMatch = hasCustomDate ? { createdDate: activeDateMatch, ...branchMatch } : branchMatch;
 
     // ─── Revenue aggregations (parallel) ──────────────
     const [dailyRev, weeklyRev, monthlyRev, totalRev, customRev] = await Promise.all([
-      revenueAgg({ registrationDate: activeDateMatch || { $gte: todayStart } }),
-      revenueAgg({ registrationDate: { $gte: weekStart } }),
-      revenueAgg({ registrationDate: { $gte: monthStart } }),
-      revenueAgg({}),
-      hasCustomDate ? revenueAgg({ registrationDate: activeDateMatch }) : Promise.resolve([]),
+      revenueAgg({ registrationDate: activeDateMatch || { $gte: todayStart } }, branchMatch),
+      revenueAgg({ registrationDate: { $gte: weekStart } }, branchMatch),
+      revenueAgg({ registrationDate: { $gte: monthStart } }, branchMatch),
+      revenueAgg({}, branchMatch),
+      hasCustomDate ? revenueAgg({ registrationDate: activeDateMatch }, branchMatch) : Promise.resolve([]),
     ]);
 
     // ─── Patient counts ───────────────────────────────

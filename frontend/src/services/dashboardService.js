@@ -16,6 +16,7 @@ export async function getDashboardData(filters = {}) {
   const params = {};
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
+  if (filters.branchName) params.branchName = filters.branchName;
   try {
     // Dashboard aggregation can be slow — use a longer timeout
     const { data } = await api.get('/dashboard', { params, timeout: 45000 });

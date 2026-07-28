@@ -84,6 +84,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [branchFilter, setBranchFilter] = useState('All');
   const [viewMode, setViewMode] = useState('cards');
 
   // Modal state
@@ -159,10 +160,11 @@ export default function UsersPage() {
 
       const matchesRole = roleFilter === 'All' || user.role === roleFilter;
       const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
+      const matchesBranch = branchFilter === 'All' || (user.branchName || 'Main') === branchFilter;
 
-      return matchesSearch && matchesRole && matchesStatus;
+      return matchesSearch && matchesRole && matchesStatus && matchesBranch;
     });
-  }, [users, search, roleFilter, statusFilter]);
+  }, [users, search, roleFilter, statusFilter, branchFilter]);
 
   // Actions
   function openCreateForm() {
@@ -307,6 +309,12 @@ export default function UsersPage() {
             </span>
           </div>
           <div className="detail-item">
+            <span className="detail-label">Branch</span>
+            <span className="detail-value">
+              <strong>📍 {user.branchName || 'Main'}</strong>
+            </span>
+          </div>
+          <div className="detail-item">
             <span className="detail-label">Status</span>
             <span className={`status-badge ${user.status.toLowerCase()}`}>
               <span className="status-dot" />
@@ -358,6 +366,7 @@ export default function UsersPage() {
             <tr>
               <th>User</th>
               <th>Role</th>
+              <th>Branch</th>
               <th>Phone</th>
               <th>Email</th>
               <th>Status</th>
@@ -382,6 +391,9 @@ export default function UsersPage() {
                   <span className={`role-badge ${roleClass(user.role)}`}>
                     {user.role}
                   </span>
+                </td>
+                <td>
+                  <strong>📍 {user.branchName || 'Main'}</strong>
                 </td>
                 <td>{user.phone}</td>
                 <td>{user.email || <span className="not-set">—</span>}</td>
@@ -537,6 +549,18 @@ export default function UsersPage() {
               </button>
             )
           )}
+        </div>
+
+        <div className="filter-group">
+          {['All', 'Main', 'Otona'].map((branch) => (
+            <button
+              key={branch}
+              className={`filter-chip ${branchFilter === branch ? 'active' : ''}`}
+              onClick={() => setBranchFilter(branch)}
+            >
+              {branch === 'All' ? 'All Branches' : `${branch} Branch`}
+            </button>
+          ))}
         </div>
 
         <div className="filter-group">

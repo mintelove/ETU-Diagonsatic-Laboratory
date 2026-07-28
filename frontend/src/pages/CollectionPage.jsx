@@ -93,6 +93,7 @@ export default function CollectionPage() {
     [message, setMessage] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
+    [branchFilter, setBranchFilter] = useState('All'),
     [allocationByTest, setAllocationByTest] = useState({});
 
   const safeQueue = useMemo(() => (Array.isArray(queue) ? queue.filter(x => x && x.patient) : []), [queue]);
@@ -134,9 +135,10 @@ export default function CollectionPage() {
 
   const load = async () => {
     try {
+      const qParam = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : '';
       const [d, q, e, s, tests] = await Promise.all([
-        api('/collection/dashboard', { token }).catch(() => null),
-        api('/collection/queue', { token }).catch(() => ({ queue: [] })),
+        api(`/collection/dashboard${qParam}`, { token }).catch(() => null),
+        api(`/collection/queue${qParam}`, { token }).catch(() => ({ queue: [] })),
         api('/report-entry/equipment', { token }).catch(() => ({ equipment: [], parameters: {}, equipmentDetails: {} })),
         api('/collection/stock', { token }).catch(() => ({ items: [] })),
         api('/laboratory-tests/catalog', { token }).catch(() => ({ categories: [] }))
@@ -152,7 +154,7 @@ export default function CollectionPage() {
   };
   useEffect(() => {
     load();
-  }, [token]);
+  }, [token, branchFilter]);
   useEffect(() => {
     subscribe('collection:change', load);
     return () => unsubscribe('collection:change', load);
@@ -346,13 +348,13 @@ export default function CollectionPage() {
       setBusy(false);
     }
   };
-  return <section className="page collection-page collector-page"><header className="dash-header"><div><p className="eyebrow">Laboratory technician workspace</p><h1>Welcome, {user.fullName}</h1><p className="intro">Review orders, collect samples, and produce accurate laboratory reports.</p></div></header>{error && <div className="alert error">{error}</div>}{message && <div className="alert success">{message}</div>}<div className="reception-tabs">{[['queue', `Patient queue (${queuedList.length})`], ['unfinished', `Unfinished collections (${unfinishedList.length})`], ['report', 'Result entry'], ['stock', 'Available stock']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}</button>)}</div>
+  return <section className="page collection-page collector-page"><header className="dash-header"><div><p className="eyebrow">Laboratory technician workspace</p><h1>Welcome, {user.fullName} <span className="collector-paid" style={{ marginLeft: '10px', fontSize: '0.85rem' }}>📍 Branch: {user.branchName || 'Main'}</span></h1><p className="intro">Review orders, collect samples, and produce accurate laboratory reports.</p></div></header>{error && <div className="alert error">{error}</div>}{message && <div className="alert success">{message}</div>}<div className="reception-tabs">{[['queue', `Patient queue (${queuedList.length})`], ['unfinished', `Unfinished collections (${unfinishedList.length})`], ['report', 'Result entry'], ['stock', 'Available stock']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}</button>)}</div>
 {tab === 'queue' && <><div className="enterprise-grid">{[['Today’s collections', dash?.summary.todayCollections], ['Pending collections', dash?.summary.pendingCollections], ['In progress', dash?.summary.inProgress], ['Pending approvals', dash?.summary.pendingApprovals]].map(([label, value]) => <article className="enterprise-card blue" key={label}><small>{label}</small><strong>{value ?? '—'}</strong></article>)}</div>
 {unfinishedList.length > 0 && (
-  <div style={{ background: '#fff8e6', border: '1px solid #ffe0b2', borderRadius: '12px', padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+  <div className="unfinished-banner">
     <div>
-      <strong style={{ color: '#b78103', display: 'block', fontSize: '14px' }}>⚡ {unfinishedList.length} Unfinished Collection{unfinishedList.length > 1 ? 's' : ''} In Progress</strong>
-      <span style={{ fontSize: '12px', color: '#7a5a02' }}>Active collections are automatically saved and ready to resume anytime.</span>
+      <strong>⚡ {unfinishedList.length} Unfinished Collection{unfinishedList.length > 1 ? 's' : ''} In Progress</strong>
+      <span>Active collections are automatically saved and ready to resume anytime.</span>
     </div>
     <button className="primary" style={{ background: '#e69c00', border: 'none' }} onClick={() => setTab('unfinished')}>View Unfinished Collections ({unfinishedList.length})</button>
   </div>

@@ -16,9 +16,18 @@ async function alertUsers(roles, message, entity) {
 
 export async function listRequests(req, res, next) {
   try {
-    const filter = req.user.role === 'Sample Collector' ? { requestedBy: req.user.id } : {};
+    const filter = {};
+    if (['Sample Collector', 'Reception'].includes(req.user.role)) {
+      filter.requestedBy = req.user.id;
+    }
     if (req.query.status) filter.status = req.query.status;
-    const requests = await ExtraStockRequest.find(filter).populate('patient', 'patientId name').populate('item', 'itemName itemCode unit').populate('requestedBy', 'fullName').populate('reviewedBy', 'fullName').sort({ createdDate: -1 }).limit(200);
+    const requests = await ExtraStockRequest.find(filter)
+      .populate('patient', 'patientId name')
+      .populate('item', 'itemName itemCode unit currentQuantity usedQuantity')
+      .populate('requestedBy', 'fullName username branchName role')
+      .populate('reviewedBy', 'fullName username')
+      .sort({ createdDate: -1 })
+      .limit(200);
     res.json({ requests });
   } catch (error) { next(error); }
 }
@@ -37,20 +46,54 @@ export async function reviewRequest(req, res, next) {
       request.comments = req.body.comments || '';
       request.reviewedBy = req.user.id;
       request.reviewedAt = new Date();
+
       if (decision === 'Approved') {
         const item = await StockItem.findById(request.item).session(session);
-        if (!item || item.status !== 'Active' || item.currentQuantity - item.usedQuantity < request.quantity) throw new AppError('Insufficient available stock to approve this request.', 422);
-        const previousQuantity = item.currentQuantity - item.usedQuantity;
-        item.usedQuantity += request.quantity;
-        await item.save({ session });
-        await StockHistory.create([{ item: item.id, action: 'Quantity Changed', user: req.user.id, previousQuantity, newQuantity: item.currentQuantity - item.usedQuantity, reason: `Approved extra request ${request.requestNumber}`, field: 'remainingQuantity' }], { session });
-        changedItem = item;
+        if (!item || item.status !== 'Active') throw new AppError('Stock item not found or inactive.', 422);
+
+        if (request.requestType === 'Stock Edit') {
+          item.receptionExtraEditGranted = true;
+          if (request.quantity > 0 && request.quantity !== (item.currentQuantity - item.usedQuantity)) {
+            const previousQuantity = item.currentQuantity - item.usedQuantity;
+            item.currentQuantity = request.quantity + item.usedQuantity;
+            await StockHistory.create([{
+              item: item.id,
+              action: 'Quantity Changed',
+              user: req.user.id,
+              previousQuantity,
+              newQuantity: item.currentQuantity - item.usedQuantity,
+              reason: `Approved stock edit request ${request.requestNumber}: ${request.reason}`,
+              field: 'remainingQuantity'
+            }], { session });
+          }
+          await item.save({ session });
+          changedItem = item;
+        } else {
+          // Extra Stock request for patient
+          if (item.currentQuantity - item.usedQuantity < request.quantity) {
+            throw new AppError('Insufficient available stock to approve this request.', 422);
+          }
+          const previousQuantity = item.currentQuantity - item.usedQuantity;
+          item.usedQuantity += request.quantity;
+          await item.save({ session });
+          await StockHistory.create([{
+            item: item.id,
+            action: 'Quantity Changed',
+            user: req.user.id,
+            previousQuantity,
+            newQuantity: item.currentQuantity - item.usedQuantity,
+            reason: `Approved extra request ${request.requestNumber}`,
+            field: 'remainingQuantity'
+          }], { session });
+          changedItem = item;
+        }
       }
       await request.save({ session });
-      await alertUsers(['Sample Collector'], `Extra request ${request.requestNumber} was ${decision.toLowerCase()}.`, request.id);
+      await alertUsers(['Sample Collector', 'Reception'], `Stock request ${request.requestNumber} was ${decision.toLowerCase()}.`, request.id);
     });
+
     if (changedItem) await notifyStockLevel(changedItem);
-    await recordActivity(req.user.id, `Extra stock request ${decision.toLowerCase()}`, 'ExtraStockRequest', req.params.id, decision, { role: req.user.role, ipAddress: req.ip });
+    await recordActivity(req.user.id, `Stock request ${decision.toLowerCase()}`, 'ExtraStockRequest', req.params.id, decision, { role: req.user.role, ipAddress: req.ip });
     emit('extraRequests:change', { action: decision.toLowerCase() });
     if (changedItem) emit('stock:change', { action: 'quantity' });
     res.json({ message: `Request ${decision.toLowerCase()}.` });

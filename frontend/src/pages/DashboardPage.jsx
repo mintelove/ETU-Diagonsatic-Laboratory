@@ -152,6 +152,7 @@ export default function DashboardPage() {
   const [singleDate, setSingleDate] = useState('');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [branchFilter, setBranchFilter] = useState('All');
   const [revenueView, setRevenueView] = useState('30d');
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -161,7 +162,9 @@ export default function DashboardPage() {
   const loadDashboard = useCallback(async (filters = {}) => {
     try {
       setError('');
-      const result = await getDashboardData(filters);
+      const params = { ...filters };
+      if (branchFilter !== 'All') params.branchName = branchFilter;
+      const result = await getDashboardData(params);
       setData(result);
     } catch (err) {
       let errorMessage;
@@ -184,7 +187,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [branchFilter]);
 
   /* ── Initial load + auto-refresh ───────────────────── */
   useEffect(() => {
@@ -395,8 +398,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ═══ DATE FILTER BAR ══════════════════════════ */}
+      {/* ═══ DATE & BRANCH FILTER BAR ══════════════════════════ */}
       <div className="dash-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {user?.role === 'Admin' && (
+          <div style={{ display: 'flex', gap: '6px', marginRight: '12px' }}>
+            {['All', 'Main', 'Otona'].map((b) => (
+              <button
+                key={b}
+                className={`filter-chip ${branchFilter === b ? 'active' : ''}`}
+                onClick={() => setBranchFilter(b)}
+              >
+                {b === 'All' ? '📍 All Branches' : `📍 ${b}`}
+              </button>
+            ))}
+          </div>
+        )}
+
         {['', 'today', 'yesterday', 'week', 'lastweek', 'month', 'lastmonth'].map(p => (
           <button
             key={p}

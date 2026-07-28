@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api.js';
+import { FlagBadge } from '../utils/flagHelper.jsx';
 
 function toISO(d) {
   const y = d.getFullYear();
@@ -31,10 +32,12 @@ export default function AdminReportsPage() {
   const [dateTo, setDateTo] = useState(toISO(new Date()));
   const [receptionist, setReceptionist] = useState('all');
   const [collector, setCollector] = useState('all');
+  const [branchName, setBranchName] = useState('all');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
 
   /* ── Date Range Validation ───────────────────────────── */
   useEffect(() => {
@@ -61,6 +64,7 @@ export default function AdminReportsPage() {
         receptionist,
         collector
       };
+      if (branchName !== 'all') params.branchName = branchName;
 
       if (reportMode === 'range') {
         params.dateFrom = dateFrom;
@@ -76,11 +80,23 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [reportMode, date, dateFrom, dateTo, receptionist, collector]);
+  }, [reportMode, date, dateFrom, dateTo, receptionist, collector, branchName]);
 
   useEffect(() => {
     loadReport();
   }, [loadReport]);
+
+  /* ── Auto-reset selected user if not present in current branch ── */
+  useEffect(() => {
+    if (data?.receptionists && receptionist !== 'all') {
+      const exists = data.receptionists.some(r => r._id === receptionist);
+      if (!exists) setReceptionist('all');
+    }
+    if (data?.collectors && collector !== 'all') {
+      const exists = data.collectors.some(c => c._id === collector);
+      if (!exists) setCollector('all');
+    }
+  }, [branchName, data?.receptionists, data?.collectors, receptionist, collector]);
 
   /* ── Print / PDF Export Handler ────────────────────── */
   const handlePrint = () => {
@@ -104,6 +120,8 @@ export default function AdminReportsPage() {
       ? 'All Sample Collectors'
       : (data.collectors?.find(c => c._id === collector)?.fullName || 'Selected Sample Collector');
 
+    const branchLabel = branchName === 'all' ? 'All Branches' : `${branchName} Branch`;
+
     const logoHtml = data.logoBase64
       ? `<img src="${data.logoBase64}" alt="ETU Logo" style="max-height: 80px; width: auto; display: block; margin: 0 auto 10px; object-fit: contain;" />`
       : `<div style="font-size: 26px; font-weight: bold; color: #075c91; text-align: center;">ETU</div>`;
@@ -115,6 +133,7 @@ export default function AdminReportsPage() {
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">
           <b>${safe(t.patientName)}</b><br/><small style="color: #607d8b;">${safe(t.patientId)} (${t.age} / ${t.sex})</small>
         </td>
+        <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">📍 ${safe(t.branchName || 'Main')}</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">${safe(t.tests)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7; text-align: right; font-weight: 600;">ETB ${(t.grandTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">${safe(t.paymentMethod)} (${safe(t.paymentStatus)})</td>
@@ -136,7 +155,7 @@ export default function AdminReportsPage() {
           .header { text-align: center; border-bottom: 2px solid #075c91; padding-bottom: 12px; margin-bottom: 15px; }
           .header h1 { margin: 5px 0; color: #075c91; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px; }
           .header h2 { margin: 0; color: #455a64; font-size: 14px; font-weight: 500; }
-          .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #f0f7fb; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #d0e4f0; font-size: 13px; }
+          .meta-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; background: #f0f7fb; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #d0e4f0; font-size: 13px; }
           .meta-item strong { display: block; color: #075c91; font-size: 11px; text-transform: uppercase; }
           table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 15px; }
           th { background: #075c91; color: white; padding: 9px 8px; text-align: left; font-size: 11px; text-transform: uppercase; }
@@ -159,8 +178,9 @@ export default function AdminReportsPage() {
         </div>
         <div class="meta-grid">
           <div class="meta-item"><strong>${reportMode === 'range' ? 'Report Period' : 'Report Date'}</strong>${reportMode === 'range' ? `${dateFrom} — ${dateTo}` : date}</div>
-          <div class="meta-item"><strong>Receptionist Filter</strong>${recName}</div>
-          <div class="meta-item"><strong>Sample Collector Filter</strong>${colName}</div>
+          <div class="meta-item"><strong>Branch Name</strong>${branchLabel}</div>
+          <div class="meta-item"><strong>User (Receptionist)</strong>${recName}</div>
+          <div class="meta-item"><strong>Sample Collector</strong>${colName}</div>
           <div class="meta-item"><strong>Generated At</strong>${new Date().toLocaleString()}</div>
         </div>
         ${rowsHtml ? `
@@ -344,6 +364,22 @@ export default function AdminReportsPage() {
             </>
           )}
 
+          {/* Branch Dropdown */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
+              📍 Branch Name
+            </label>
+            <select
+              value={branchName}
+              onChange={e => setBranchName(e.target.value)}
+              style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
+            >
+              <option value="all">All Branches</option>
+              <option value="Main">Main Branch</option>
+              <option value="Otona">Otona Branch</option>
+            </select>
+          </div>
+
           {/* Receptionist Dropdown */}
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
@@ -410,6 +446,9 @@ export default function AdminReportsPage() {
           <span style={{ background: '#e3f2fd', color: '#0277bd', padding: '3px 10px', borderRadius: '12px', fontWeight: 600, fontSize: '12px' }}>
             {reportMode === 'range' ? `Period: ${dateFrom} — ${dateTo}` : `Date: ${date}`}
           </span>
+          <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: '12px', fontWeight: 600, fontSize: '12px' }}>
+            Branch: {branchName === 'all' ? 'All Branches' : `${branchName} Branch`}
+          </span>
           <span style={{ background: '#e0f2f1', color: '#00695c', padding: '3px 10px', borderRadius: '12px', fontWeight: 600, fontSize: '12px' }}>
             Receptionist: {selectedRecLabel}
           </span>
@@ -474,12 +513,14 @@ export default function AdminReportsPage() {
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>#</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Receipt / ID</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Patient Information</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Branch</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Requested Tests</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right' }}>Grand Total</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Payment Info</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Receptionist</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Sample Collector</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>Collection Status</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -491,6 +532,7 @@ export default function AdminReportsPage() {
                       <strong>{t.patientName}</strong>
                       <div style={{ fontSize: '11px', color: 'var(--color-on-surface-variant,#607d8b)' }}>{t.patientId} · {t.age} yrs / {t.sex}</div>
                     </td>
+                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>📍 {t.branchName || 'Main'}</td>
                     <td style={{ padding: '10px 12px', color: 'var(--color-on-surface,#263238)' }}>{t.tests}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#2e7d32' }}>
                       ETB {t.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -506,6 +548,15 @@ export default function AdminReportsPage() {
                       <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: t.collectionStatus === 'Completed' ? '#e0f2f1' : '#f3e5f5', color: t.collectionStatus === 'Completed' ? '#004d40' : '#4a148c', fontWeight: 600 }}>
                         {t.collectionStatus}
                       </span>
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <button
+                        className="filter-chip"
+                        style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, border: '1px solid var(--color-primary, #075c91)', color: 'var(--color-primary, #075c91)', background: 'transparent' }}
+                        onClick={() => setSelectedTransaction(t)}
+                      >
+                        View Details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -523,6 +574,91 @@ export default function AdminReportsPage() {
           </div>
         )}
       </section>
+
+      {/* ═══ TRANSACTION DETAIL GLASSMORPHISM MODAL ═══ */}
+      {selectedTransaction && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setSelectedTransaction(null); }}>
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <header className="modal-header">
+              <h2 style={{ fontSize: '1.2rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📑</span> Transaction Record — {selectedTransaction.transactionId}
+              </h2>
+              <button className="close-button" onClick={() => setSelectedTransaction(null)}>&times;</button>
+            </header>
+
+            <div style={{ background: 'var(--color-primary-light, rgba(7, 92, 145, 0.08))', border: '1px solid rgba(7, 92, 145, 0.18)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '0.88rem' }}>
+                <div><strong>Patient Name:</strong> {selectedTransaction.patientName}</div>
+                <div><strong>Patient Code:</strong> {selectedTransaction.patientId}</div>
+                <div><strong>Age / Sex:</strong> {selectedTransaction.age} yrs / {selectedTransaction.sex}</div>
+                <div><strong>Branch:</strong> 📍 {selectedTransaction.branchName || 'Main'}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
+              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Billing & Payment</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div><strong>Grand Total:</strong> ETB {selectedTransaction.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                  <div><strong>Payment Method:</strong> {selectedTransaction.paymentMethod}</div>
+                  <div><strong>Payment Status:</strong> {selectedTransaction.paymentStatus}</div>
+                  <div><strong>Receptionist:</strong> {selectedTransaction.receptionist}</div>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Sample Collection & Processing</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div><strong>Sample Collector:</strong> {selectedTransaction.collector}</div>
+                  <div><strong>Collection Status:</strong> {selectedTransaction.collectionStatus}</div>
+                  <div><strong>Date:</strong> {selectedTransaction.date ? new Date(selectedTransaction.date).toLocaleString() : '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
+              <h4 style={{ margin: '0 0 6px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Requested Laboratory Tests</h4>
+              <p style={{ margin: 0, fontWeight: 600 }}>{selectedTransaction.tests}</p>
+            </div>
+
+            {selectedTransaction.report?.results && selectedTransaction.report.results.length > 0 && (
+              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>
+                  Laboratory Test Results & Flags
+                </h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--color-background, #f4f8fa)', borderBottom: '1px solid #cfd8dc' }}>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Parameter</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Result</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>SI Unit</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Reference Value</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center' }}>Flag</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedTransaction.report.results.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #eceff1' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>{row.sampleName}</td>
+                        <td style={{ padding: '6px 8px' }}>{row.result}</td>
+                        <td style={{ padding: '6px 8px', color: '#607d8b' }}>{row.unit || '—'}</td>
+                        <td style={{ padding: '6px 8px', color: '#607d8b' }}>{row.referenceValue || '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                          <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+              <button className="secondary" onClick={() => setSelectedTransaction(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

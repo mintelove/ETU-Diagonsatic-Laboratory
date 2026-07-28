@@ -16,6 +16,7 @@ const initialFormState = {
   phone: '',
   email: '',
   role: 'Reception',
+  branchName: 'Main',
 };
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -43,6 +44,7 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
         phone: user.phone || '',
         email: user.email || '',
         role: user.role || 'Reception',
+        branchName: user.branchName || 'Main',
       });
       setPhotoPreview(user.profilePhoto ? `${API_BASE}/${user.profilePhoto}` : '');
       setPhotoFile(null);
@@ -94,6 +96,10 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
 
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newErrors.email = 'Provide a valid email address.';
+    }
+
+    if (!['Main', 'Otona'].includes(form.branchName)) {
+      newErrors.branchName = 'Please select a valid branch.';
     }
 
     setErrors(newErrors);
@@ -152,6 +158,7 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
         phone: form.phone.trim(),
         email: form.email.trim() || undefined,
         role: form.role,
+        branchName: form.branchName,
       };
 
       if (isEditMode) {
@@ -279,6 +286,20 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
                   <option value="Sample Collector">Sample Collector</option>
                   <option value="Approver">Approver</option>
                 </select>
+              </div>
+
+              {/* Branch Name */}
+              <div className="form-field">
+                <label htmlFor="branchName">Branch Name</label>
+                <select
+                  id="branchName"
+                  value={form.branchName}
+                  onChange={(e) => setForm({ ...form, branchName: e.target.value })}
+                >
+                  <option value="Main">Main</option>
+                  <option value="Otona">Otona</option>
+                </select>
+                {errors.branchName && <span className="field-error">{errors.branchName}</span>}
               </div>
 
               {/* Password (Only on Create) */}
