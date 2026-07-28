@@ -32,7 +32,7 @@ function formatCountdown(targetDate, now) {
   const pad = n => String(n).padStart(2, '0');
   return {
     short: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
-    full: `${hours}h ${minutes}m ${seconds}s`
+    full: `${hours} Hours ${minutes} Minutes ${seconds} Seconds`
   };
 }
 
