@@ -4,6 +4,7 @@ import Category from '../models/Category.js';
 import SampleType from '../models/SampleType.js';
 import LabReport from '../models/LabReport.js';
 import LaboratorySettings from '../models/LaboratorySettings.js';
+import { seedParameterCatalog } from './parameterCatalogSeeder.js';
 
 const MAX_CONNECTION_ATTEMPTS = Math.max(1, Number(process.env.MONGODB_CONNECT_RETRIES || 3));
 const RETRY_DELAY_MS = Math.max(0, Number(process.env.MONGODB_CONNECT_RETRY_DELAY_MS || 3000));
@@ -192,6 +193,9 @@ export async function connectDatabase() {
   } catch (error) {
     console.error('Error during public sharing token migration for existing approved reports:', error.message);
   }
+
+  // Seed master laboratory parameter catalog into MongoDB if empty
+  await seedParameterCatalog();
 }
 
 export async function disconnectDatabase() {
