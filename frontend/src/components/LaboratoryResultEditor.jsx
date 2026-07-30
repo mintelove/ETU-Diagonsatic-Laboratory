@@ -1,406 +1,584 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { calculateFlag } from '../utils/flagHelper.jsx';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { FlagBadge, calculateFlag } from '../utils/flagHelper.jsx';
 
-export function LaboratoryResultEditor({
+const CATEGORY_META = {
+  'HEMATOLOGY': { icon: '🩸', themeClass: 'cat-theme-hematology', bgGradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' },
+  'CLINICAL CHEMISTRY': { icon: '🧪', themeClass: 'cat-theme-chemistry', bgGradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' },
+  'CHEMISTRY': { icon: '🧪', themeClass: 'cat-theme-chemistry', bgGradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' },
+  'URINALYSIS': { icon: '🟡', themeClass: 'cat-theme-urinalysis', bgGradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
+  'URINE ANALYSIS': { icon: '🟡', themeClass: 'cat-theme-urinalysis', bgGradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
+  'PARASITOLOGY': { icon: '🔬', themeClass: 'cat-theme-parasitology', bgGradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' },
+  'MICROBIOLOGY': { icon: '🧫', themeClass: 'cat-theme-microbiology', bgGradient: 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)' },
+  'SEROLOGY': { icon: '🧬', themeClass: 'cat-theme-serology', bgGradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' },
+  'HORMONE': { icon: '🏥', themeClass: 'cat-theme-hormone', bgGradient: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' },
+  'HORMONES': { icon: '🏥', themeClass: 'cat-theme-hormone', bgGradient: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' },
+  'COAGULATION': { icon: '🩸', themeClass: 'cat-theme-coagulation', bgGradient: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)' },
+  'REFERRAL': { icon: '🩺', themeClass: 'cat-theme-referral', bgGradient: 'linear-gradient(135deg, #6b7280 0%, #374151 100%)' },
+  'OTHER': { icon: '📦', themeClass: 'cat-theme-other', bgGradient: 'linear-gradient(135deg, #475569 0%, #334155 100%)' }
+};
+
+function getCategoryMeta(catName) {
+  const norm = String(catName || '').trim().toUpperCase();
+  for (const [key, meta] of Object.entries(CATEGORY_META)) {
+    if (norm.includes(key) || key.includes(norm)) return meta;
+  }
+  return CATEGORY_META['OTHER'];
+}
+
+export default function LaboratoryResultEditor({
   patient,
-  catalog,
-  equipmentData,
+  catalog = [],
   reportData,
-  onReportChange,
-  isSubmitting,
+  onChange,
   onSaveDraft,
   onGeneratePreview,
   onSubmitApproval,
-  previewReport
+  busy,
+  isSavingDraft,
+  isGeneratingPreview,
+  isSubmitting,
+  // Equipment mode props
+  equipmentData = { equipment: [], equipmentDetails: {} },
+  onPickEquipment,
+  otherOpen,
+  setOtherOpen,
+  otherEquipmentForm,
+  onAddOtherEquipment
 }) {
-  // Mode selection: 'result' (Mode 1 - Default) or 'equipment' (Mode 2 - Optional)
-  const [mode, setMode] = useState('result');
-  const [categories, setCategories] = useState([]);
-  const [loadingCatalog, setLoadingCatalog] = useState(true);
-  const [openCategories, setOpenCategories] = useState({});
-  const [urinalysisTab, setUrinalysisTab] = useState('chemical'); // 'chemical' or 'microscopy'
-  const [otherEquipOpen, setOtherEquipOpen] = useState(false);
-  const [otherEquipForm, setOtherEquipForm] = useState({ name: '', manufacturer: '', model: '', department: '', remarks: '' });
+  const [entryMode, setEntryMode] = useState('result'); // 'result' (default) or 'equipment'
+  const [selectedCategories, setSelectedCategories] = useState([]); // Array of selected categories to display in selection order
+  const [urinalysisSubTab, setUrinalysisSubTab] = useState('Chemical Analysis');
   const inputsRef = useRef([]);
 
-  // Fetch Parameter Catalog from backend
-  useEffect(() => {
-    async function fetchCatalog() {
-      try {
-        setLoadingCatalog(true);
-        const res = await fetch('/api/report-entry/catalog', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('etu_token') || ''}`
-          }
-        });
-        const data = await res.json();
-        if (res.ok && data.categories) {
-          setCategories(data.categories);
-          // Expand categories by default
-          const initialOpen = {};
-          data.categories.forEach(cat => {
-            initialOpen[cat.name] = true;
-          });
-          setOpenCategories(initialOpen);
-        }
-      } catch (err) {
-        console.error('Failed to load laboratory parameter catalog:', err);
-      } finally {
-        setLoadingCatalog(false);
-      }
+  // Map patient's requested test names & categories
+  const requestedInfo = useMemo(() => {
+    if (!patient || !Array.isArray(patient.laboratoryTests)) {
+      return { names: new Set(), categories: new Set() };
     }
-    fetchCatalog();
-  }, []);
-
-  const resultsMap = useMemo(() => {
-    const map = new Map();
-    (reportData?.results || []).forEach((r, idx) => {
-      if (r && r.sampleName) {
-        map.set(r.sampleName, { ...r, index: idx });
+    const names = new Set();
+    const categories = new Set();
+    patient.laboratoryTests.forEach(t => {
+      if (typeof t === 'string') {
+        names.add(t);
+      } else if (typeof t === 'object' && t) {
+        if (t.name) names.add(t.name);
+        const catName = t.category?.name || '';
+        if (catName) categories.add(catName.toUpperCase());
       }
     });
+    return { names, categories };
+  }, [patient]);
+
+  // Group catalog parameters by category
+  const categoriesGrouped = useMemo(() => {
+    const map = new Map();
+    (catalog || []).forEach(p => {
+      const cat = p.category || 'OTHER';
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat).push(p);
+    });
     return map;
-  }, [reportData?.results]);
+  }, [catalog]);
 
-  const handleResultChange = (paramName, field, value, unit = '', referenceValue = '', normalMin = null, normalMax = null) => {
-    const currentResults = [...(reportData?.results || [])];
-    const existingIndex = currentResults.findIndex(r => r.sampleName === paramName);
+  const categoryList = useMemo(() => Array.from(categoriesGrouped.keys()), [categoriesGrouped]);
 
-    let updatedItem;
-    if (existingIndex >= 0) {
-      updatedItem = { ...currentResults[existingIndex], [field]: value };
+  // Auto-select ALL categories containing requested tests on load
+  useEffect(() => {
+    if (categoryList.length > 0 && selectedCategories.length === 0) {
+      const requestedCats = categoryList.filter(c => {
+        const norm = c.toUpperCase();
+        return Array.from(requestedInfo.categories).some(rc => norm.includes(rc) || rc.includes(norm));
+      });
+      if (requestedCats.length > 0) {
+        setSelectedCategories(requestedCats);
+      } else {
+        setSelectedCategories([categoryList[0]]);
+      }
+    }
+  }, [categoryList, requestedInfo, selectedCategories.length]);
+
+  // Toggle category selection in selection order
+  const toggleCategory = (catName) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(catName)) {
+        return prev.filter(c => c !== catName);
+      } else {
+        return [...prev, catName];
+      }
+    });
+  };
+
+  // Handle result changes
+  const handleResultChange = (paramName, field, value, defaultUnit = '', defaultRef = '') => {
+    const results = Array.isArray(reportData?.results) ? [...reportData.results] : [];
+    const index = results.findIndex(r => r.sampleName === paramName);
+
+    if (index >= 0) {
+      const updated = { ...results[index], [field]: value };
+      if (field === 'result') {
+        updated.flag = calculateFlag(value, updated.referenceValue || defaultRef);
+      }
+      results[index] = updated;
     } else {
-      updatedItem = {
+      const newItem = {
         sampleName: paramName,
         result: field === 'result' ? value : '',
-        unit: unit || '',
-        referenceValue: referenceValue || '',
+        unit: field === 'unit' ? value : defaultUnit,
+        referenceValue: field === 'referenceValue' ? value : defaultRef,
         remarks: field === 'remarks' ? value : '',
-        flag: ''
+        flag: field === 'result' ? calculateFlag(value, defaultRef) : ''
       };
+      results.push(newItem);
     }
-
-    // Auto calculate flag whenever result changes
-    if (updatedItem.result !== '') {
-      let calcFlag = '';
-      const numVal = Number(String(updatedItem.result).replace(',', '.'));
-      if (Number.isFinite(numVal)) {
-        if (typeof normalMin === 'number' && numVal < normalMin) calcFlag = 'L';
-        else if (typeof normalMax === 'number' && numVal > normalMax) calcFlag = 'H';
-        else calcFlag = calculateFlag(updatedItem.result, updatedItem.referenceValue);
-      } else {
-        calcFlag = calculateFlag(updatedItem.result, updatedItem.referenceValue);
-      }
-      updatedItem.flag = calcFlag;
-    } else {
-      updatedItem.flag = '';
-    }
-
-    if (existingIndex >= 0) {
-      currentResults[existingIndex] = updatedItem;
-    } else {
-      currentResults.push(updatedItem);
-    }
-
-    onReportChange({ ...reportData, results: currentResults });
+    onChange({ ...reportData, results });
   };
 
-  const toggleCategory = (catName) => {
-    setOpenCategories(prev => ({ ...prev, [catName]: !prev[catName] }));
+  // Helper to add custom row
+  const handleAddCustomRow = () => {
+    const results = Array.isArray(reportData?.results) ? [...reportData.results] : [];
+    results.push({
+      sampleName: '',
+      result: '',
+      unit: '',
+      referenceValue: '',
+      remarks: '',
+      flag: ''
+    });
+    onChange({ ...reportData, results });
   };
 
-  // Keyboard navigation: Enter or Down Arrow moves to next input box
+  // Helper to remove row
+  const handleRemoveRow = (index) => {
+    const results = Array.isArray(reportData?.results) ? [...reportData.results] : [];
+    results.splice(index, 1);
+    onChange({ ...reportData, results });
+  };
+
+  // Quick lookup helper for result item
+  const getResultItem = (paramName, defaultUnit = '', defaultRef = '') => {
+    const item = (reportData?.results || []).find(r => r.sampleName === paramName);
+    return {
+      result: item?.result || '',
+      unit: item?.unit || defaultUnit,
+      referenceValue: item?.referenceValue || defaultRef,
+      flag: item?.flag || (item?.result ? calculateFlag(item.result, item?.referenceValue || defaultRef) : ''),
+      remarks: item?.remarks || ''
+    };
+  };
+
+  // Keyboard navigation
   const handleKeyDown = (e, index) => {
     if (e.key === 'Enter' || e.key === 'ArrowDown') {
       e.preventDefault();
-      const nextInput = inputsRef.current[index + 1];
-      if (nextInput) nextInput.focus();
+      const next = inputsRef.current[index + 1];
+      if (next) next.focus();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const prevInput = inputsRef.current[index - 1];
-      if (prevInput) prevInput.focus();
+      const prev = inputsRef.current[index - 1];
+      if (prev) prev.focus();
     }
   };
 
-  // Equipment Mode handlers
-  const toggleEquipment = (eqName) => {
-    const isSelected = (reportData.equipment || []).includes(eqName);
-    const eqParams = equipmentData?.parameters?.[eqName] || [];
-    const newEqList = isSelected
-      ? (reportData.equipment || []).filter(e => e !== eqName)
-      : [...(reportData.equipment || []), eqName];
-
-    let newResults = [...(reportData.results || [])];
-    if (isSelected) {
-      newResults = newResults.filter(r => !eqParams.some(p => p.sampleName === r.sampleName));
-    } else {
-      eqParams.forEach(p => {
-        if (!newResults.some(r => r.sampleName === p.sampleName)) {
-          newResults.push({
-            sampleName: p.sampleName,
-            result: '',
-            unit: p.unit || '',
-            referenceValue: p.referenceValue || '',
-            remarks: '',
-            flag: ''
-          });
-        }
-      });
-    }
-
-    onReportChange({ ...reportData, equipment: newEqList, results: newResults });
-  };
-
-  const handleAddOtherEquipment = () => {
-    if (!otherEquipForm.name.trim()) return;
-    const nameStr = `Other Equipment: ${otherEquipForm.name}${otherEquipForm.model ? ` (${otherEquipForm.model})` : ''}`;
-    const newEq = [...(reportData.equipment || []), nameStr];
-    onReportChange({ ...reportData, equipment: newEq });
-    setOtherEquipOpen(false);
-    setOtherEquipForm({ name: '', manufacturer: '', model: '', department: '', remarks: '' });
-  };
-
-  let globalInputIndex = 0;
+  let inputCounter = 0;
 
   return (
-    <div className="lims-result-editor-container">
-      {/* Mode Switcher Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '12px 18px', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-        <div>
-          <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Result Entry Mode</span>
-          <h3 style={{ margin: '2px 0 0', fontSize: '1.05rem', color: '#075c91', fontWeight: 700 }}>
-            {mode === 'result' ? '🧪 Laboratory Result Mode' : '⚙ Equipment Mode'}
-          </h3>
+    <div className="lims-result-entry-system" style={{ marginTop: '16px' }}>
+      
+      {/* RESULT ENTRY MODE TOGGLE BAR */}
+      <div className="mode-toggle-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: '#ffffff', padding: '12px 18px', borderRadius: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>Result Entry Mode:</strong>
+          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>({selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} active)</span>
         </div>
         <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
           <button
             type="button"
-            className={mode === 'result' ? 'primary' : 'secondary'}
-            onClick={() => setMode('result')}
-            style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '8px' }}
+            className={entryMode === 'result' ? 'primary' : 'secondary'}
+            onClick={() => setEntryMode('result')}
+            style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', border: 'none' }}
           >
-            🧪 Laboratory Result Mode
+            🧪 Multi-Category Result Mode (Default)
           </button>
           <button
             type="button"
-            className={mode === 'equipment' ? 'primary' : 'secondary'}
-            onClick={() => setMode('equipment')}
-            style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '8px' }}
+            className={entryMode === 'equipment' ? 'primary' : 'secondary'}
+            onClick={() => setEntryMode('equipment')}
+            style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', border: 'none' }}
           >
-            ⚙ Equipment Mode
+            ⚙ Equipment Mode (Optional)
           </button>
         </div>
       </div>
 
-      {/* MODE 1: LABORATORY RESULT MODE (DEFAULT) */}
-      {mode === 'result' && (
-        <div className="lims-result-mode">
-          {loadingCatalog ? (
-            <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '12px' }}>
-              <div className="lims-spinner" style={{ width: '36px', height: '36px', margin: '0 auto 12px', border: '3px solid #e2e8f0', borderTopColor: '#075c91', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading ETU Laboratory Parameter Catalog…</p>
+      {/* MODE 2: EQUIPMENT MODE */}
+      {entryMode === 'equipment' && (
+        <div className="equipment-mode-section">
+          {/* Equipment Selection Heading & Cards Grid */}
+          <div className="equipment-heading">
+            <div>
+              <p className="eyebrow">Analyzer selection</p>
+              <h3>Equipment used</h3>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {categories.map((cat) => {
-                const isOpen = openCategories[cat.name] !== false;
-                const isUrinalysis = cat.name.toUpperCase() === 'URINALYSIS';
+            <span>{reportData.equipment?.length || 0} selected</span>
+          </div>
 
-                // Filter urinalysis parameters by tab
-                let displayParams = cat.parameters || [];
-                if (isUrinalysis) {
-                  displayParams = (cat.parameters || []).filter(p => {
-                    const sub = (p.subcategory || '').toLowerCase();
-                    return urinalysisTab === 'chemical'
-                      ? sub.includes('chemical') || !sub
-                      : sub.includes('microscopy');
-                  });
-                }
+          <div className="equipment-card-grid" style={{ marginBottom: '20px' }}>
+            {(equipmentData.equipment || []).map(name => {
+              const detail = equipmentData.equipmentDetails?.[name] || {};
+              const isChosen = (reportData.equipment || []).includes(name);
+              return (
+                <button
+                  type="button"
+                  key={name}
+                  className={`equipment-card ${isChosen ? 'chosen' : ''}`}
+                  onClick={() => onPickEquipment(name)}
+                >
+                  <i>{detail.icon || '🧪'}</i>
+                  <span>
+                    <strong>{name}</strong>
+                    <small>{detail.type}</small>
+                    <em>{detail.manufacturer} · {detail.automation}</em>
+                  </span>
+                  <b>{detail.parameterCount || 0} parameters</b>
+                </button>
+              );
+            })}
+            <button type="button" className="equipment-card other" onClick={() => setOtherOpen(true)}>
+              <i>＋</i>
+              <span>
+                <strong>Other Equipment</strong>
+                <small>Register a custom analyzer</small>
+                <em>Unlimited custom parameters</em>
+              </span>
+            </button>
+          </div>
 
+          {/* Other Equipment Form */}
+          {otherOpen && otherEquipmentForm}
+
+          {/* Restored Equipment Parameter Results Table */}
+          <div className="result-editor-head" style={{ marginTop: '24px' }}>
+            <div>
+              <h3>Equipment Parameters</h3>
+              <p>Parameters populated by selected laboratory equipment analyzer.</p>
+            </div>
+            <button type="button" className="secondary" onClick={handleAddCustomRow}>
+              ＋ Add Parameter
+            </button>
+          </div>
+
+          <div className="professional-results" style={{ marginBottom: '24px' }}>
+            {Array.isArray(reportData.results) && reportData.results.length > 0 ? (
+              reportData.results.map((row, i) => {
+                const flag = row.flag || calculateFlag(row.result, row.referenceValue);
+                const currentIndex = inputCounter++;
                 return (
-                  <div key={cat.name} style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                    {/* Collapsible Card Header */}
-                    <button
-                      type="button"
-                      onClick={() => toggleCategory(cat.name)}
-                      style={{ width: '100%', padding: '14px 20px', background: '#f8fafc', border: 'none', borderBottom: isOpen ? '1px solid #e2e8f0' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '1.1rem' }}>🩸</span>
-                        <strong style={{ fontSize: '0.95rem', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{cat.name}</strong>
-                        <span style={{ fontSize: '0.75rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
-                          {cat.parameters?.length || 0} parameters
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '0.9rem', color: '#64748b' }}>{isOpen ? '▲' : '▼'}</span>
+                  <article className="parameter-row" key={i}>
+                    <label>
+                      Parameter
+                      <input
+                        value={row.sampleName || ''}
+                        onChange={e => {
+                          const results = [...reportData.results];
+                          results[i] = { ...results[i], sampleName: e.target.value };
+                          onChange({ ...reportData, results });
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Result
+                      <input
+                        ref={el => (inputsRef.current[currentIndex] = el)}
+                        value={row.result || ''}
+                        onKeyDown={e => handleKeyDown(e, currentIndex)}
+                        onChange={e => {
+                          const results = [...reportData.results];
+                          const val = e.target.value;
+                          results[i] = { ...results[i], result: val, flag: calculateFlag(val, results[i].referenceValue) };
+                          onChange({ ...reportData, results });
+                        }}
+                      />
+                    </label>
+                    <label>
+                      SI Unit
+                      <input
+                        value={row.unit || ''}
+                        onChange={e => {
+                          const results = [...reportData.results];
+                          results[i] = { ...results[i], unit: e.target.value };
+                          onChange({ ...reportData, results });
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Reference Range
+                      <input
+                        value={row.referenceValue || ''}
+                        onChange={e => {
+                          const results = [...reportData.results];
+                          results[i] = { ...results[i], referenceValue: e.target.value };
+                          onChange({ ...reportData, results });
+                        }}
+                      />
+                    </label>
+                    <span className={`flag-badge ${flag || 'blank'}`}>
+                      <FlagBadge flag={flag} result={row.result} referenceValue={row.referenceValue} />
+                    </span>
+                    <button type="button" className="remove-parameter" onClick={() => handleRemoveRow(i)}>
+                      ×
                     </button>
-
-                    {isOpen && (
-                      <div style={{ padding: '16px 20px' }}>
-                        {/* Urinalysis Dual Tabs */}
-                        {isUrinalysis && (
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px' }}>
-                            <button
-                              type="button"
-                              onClick={() => setUrinalysisTab('chemical')}
-                              style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', background: urinalysisTab === 'chemical' ? '#075c91' : '#f1f5f9', color: urinalysisTab === 'chemical' ? '#fff' : '#334155', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
-                            >
-                              🧪 Chemical Analysis
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setUrinalysisTab('microscopy')}
-                              style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', background: urinalysisTab === 'microscopy' ? '#075c91' : '#f1f5f9', color: urinalysisTab === 'microscopy' ? '#fff' : '#334155', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
-                            >
-                              🔬 Urine Microscopy
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Parameter Table */}
-                        <div style={{ overflowX: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                            <thead>
-                              <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                                <th style={{ padding: '10px 12px', width: '28%', color: '#334155', fontWeight: 700 }}>Parameter / Test</th>
-                                <th style={{ padding: '10px 12px', width: '25%', color: '#334155', fontWeight: 700 }}>Result</th>
-                                <th style={{ padding: '10px 12px', width: '15%', color: '#334155', fontWeight: 700 }}>SI Unit</th>
-                                <th style={{ padding: '10px 12px', width: '20%', color: '#334155', fontWeight: 700 }}>Reference Range</th>
-                                <th style={{ padding: '10px 12px', width: '12%', color: '#334155', fontWeight: 700, textAlign: 'center' }}>Flag</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {displayParams.map((p) => {
-                                const existing = resultsMap.get(p.parameterName) || {};
-                                const currentVal = existing.result !== undefined ? existing.result : '';
-                                const currentFlag = existing.flag || '';
-                                const inputIndex = globalInputIndex++;
-
-                                return (
-                                  <tr key={p._id || p.parameterName} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                    <td style={{ padding: '8px 12px' }}>
-                                      <strong style={{ color: '#0f172a' }}>{p.parameterName}</strong>
-                                      {p.subcategory && <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem' }}>{p.subcategory}</small>}
-                                    </td>
-                                    <td style={{ padding: '8px 12px' }}>
-                                      <input
-                                        ref={el => inputsRef.current[inputIndex] = el}
-                                        type="text"
-                                        value={currentVal}
-                                        onChange={(e) => handleResultChange(p.parameterName, 'result', e.target.value, p.unit, p.referenceValue, p.normalMin, p.normalMax)}
-                                        onKeyDown={(e) => handleKeyDown(e, inputIndex)}
-                                        placeholder="Enter result..."
-                                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: 600, color: '#075c91', outline: 'none' }}
-                                      />
-                                    </td>
-                                    <td style={{ padding: '8px 12px', color: '#475569' }}>{p.unit || '—'}</td>
-                                    <td style={{ padding: '8px 12px', color: '#475569' }}>{p.referenceValue || '—'}</td>
-                                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                                      {currentFlag ? (
-                                        <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 800, background: currentFlag === 'H' ? '#fee2e2' : currentFlag === 'L' ? '#fef3c7' : '#dcfce7', color: currentFlag === 'H' ? '#dc2626' : currentFlag === 'L' ? '#d97706' : '#16a34a' }}>
-                                          {currentFlag === 'H' ? 'High (H)' : currentFlag === 'L' ? 'Low (L)' : 'Normal (N)'}
-                                        </span>
-                                      ) : (
-                                        <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>—</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    <label className="parameter-remarks">
+                      Remarks
+                      <input
+                        value={row.remarks || ''}
+                        onChange={e => {
+                          const results = [...reportData.results];
+                          results[i] = { ...results[i], remarks: e.target.value };
+                          onChange({ ...reportData, results });
+                        }}
+                      />
+                    </label>
+                  </article>
                 );
-              })}
-            </div>
-          )}
+              })
+            ) : (
+              <p className="empty" style={{ padding: '20px', textAlign: 'center', background: '#f8fafc', borderRadius: '8px' }}>
+                Select an equipment analyzer above or click "＋ Add Parameter" to begin result entry.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
-      {/* MODE 2: EQUIPMENT MODE (OPTIONAL) */}
-      {mode === 'equipment' && (
-        <div className="lims-equipment-mode" style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <h4 style={{ margin: 0, color: '#075c91' }}>⚙ Equipment Selection</h4>
-            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.85rem' }}>Select automated laboratory equipment to map parameters into this report.</p>
+      {/* MODE 1: LABORATORY MULTI-CATEGORY RESULT MODE (Default) */}
+      {entryMode === 'result' && (
+        <div className="laboratory-result-mode-section">
+          
+          {/* 10 DECORATED MAIN CATEGORY SELECTION CARDS */}
+          <div style={{ marginBottom: '10px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>
+              🧪 SELECT INVESTIGATION CATEGORIES ({selectedCategories.length} SELECTED)
+            </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-            {(equipmentData?.equipment || []).map(eqName => {
-              const detail = equipmentData?.equipmentDetails?.[eqName] || {};
-              const isSelected = (reportData.equipment || []).includes(eqName);
+          <div className="lims-category-grid">
+            {categoryList.map(catName => {
+              const isSelected = selectedCategories.includes(catName);
+              const meta = getCategoryMeta(catName);
+              const paramsInCat = categoriesGrouped.get(catName) || [];
+              const isRequested = paramsInCat.some(p => requestedInfo.names.has(p.parameterName)) ||
+                Array.from(requestedInfo.categories).some(rc => catName.toUpperCase().includes(rc) || rc.includes(catName.toUpperCase()));
+
               return (
                 <button
-                  key={eqName}
+                  key={catName}
                   type="button"
-                  onClick={() => toggleEquipment(eqName)}
-                  style={{ padding: '14px', borderRadius: '10px', border: isSelected ? '2px solid #075c91' : '1px solid #e2e8f0', background: isSelected ? '#f0f9ff' : '#f8fafc', cursor: 'pointer', textAlign: 'left', display: 'flex', gap: '10px', alignItems: 'center' }}
+                  onClick={() => toggleCategory(catName)}
+                  className={`lims-cat-card ${meta.themeClass} ${isSelected ? 'selected' : ''}`}
                 >
-                  <span style={{ fontSize: '1.4rem' }}>{detail.icon || '🧪'}</span>
-                  <div>
-                    <strong style={{ display: 'block', fontSize: '0.88rem', color: '#0f172a' }}>{eqName}</strong>
-                    <small style={{ color: '#64748b', fontSize: '0.75rem' }}>{detail.type || 'Analyzer'}</small>
+                  <div className="lims-cat-card-header">
+                    <div className="lims-cat-icon-title">
+                      <span className="lims-cat-icon">{meta.icon}</span>
+                      <span className="lims-cat-title">{catName}</span>
+                    </div>
+                    <span className="lims-cat-badge-select">
+                      {isSelected ? '✓' : '+'}
+                    </span>
+                  </div>
+
+                  <div className="lims-cat-card-footer">
+                    <span>{paramsInCat.length} parameters</span>
+                    {isRequested && (
+                      <span className="lims-cat-req-badge">★ Requested</span>
+                    )}
                   </div>
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={() => setOtherEquipOpen(true)}
-              style={{ padding: '14px', borderRadius: '10px', border: '1px dashed #075c91', background: '#ffffff', cursor: 'pointer', textAlign: 'center', color: '#075c91', fontWeight: 600, fontSize: '0.88rem' }}
-            >
-              ＋ Register Custom Equipment
-            </button>
           </div>
 
-          {otherEquipOpen && (
-            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #cbd5e1', marginBottom: '20px' }}>
-              <h4 style={{ margin: '0 0 12px' }}>Register Custom Analyzer</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-                <input type="text" placeholder="Equipment Name *" value={otherEquipForm.name} onChange={e => setOtherEquipForm({ ...otherEquipForm, name: e.target.value })} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="Manufacturer" value={otherEquipForm.manufacturer} onChange={e => setOtherEquipForm({ ...otherEquipForm, manufacturer: e.target.value })} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="Model" value={otherEquipForm.model} onChange={e => setOtherEquipForm({ ...otherEquipForm, model: e.target.value })} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" className="primary" onClick={handleAddOtherEquipment}>Add Equipment</button>
-                <button type="button" className="secondary" onClick={() => setOtherEquipOpen(false)}>Cancel</button>
-              </div>
+          {/* RENDER INDEPENDENT RESULT SECTIONS FOR EVERY SELECTED CATEGORY */}
+          {selectedCategories.length > 0 ? (
+            selectedCategories.map(catName => {
+              const meta = getCategoryMeta(catName);
+              const rawParams = categoriesGrouped.get(catName) || [];
+              const catParams = (catName === 'URINALYSIS' || catName === 'URINE ANALYSIS')
+                ? rawParams.filter(p => (p.subcategory || 'Chemical Analysis') === urinalysisSubTab)
+                : rawParams;
+
+              return (
+                <div key={catName} className="lims-category-section-card">
+                  
+                  {/* Category Header with Gradient */}
+                  <div className="lims-category-section-header" style={{ background: meta.bgGradient }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{catName}</h3>
+                        <small style={{ opacity: 0.85, fontSize: '0.78rem' }}>{rawParams.length} parameters in this investigation category</small>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {/* Urinalysis Subtabs if active */}
+                      {(catName === 'URINALYSIS' || catName === 'URINE ANALYSIS') && (
+                        <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.2)', padding: '3px', borderRadius: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setUrinalysisSubTab('Chemical Analysis')}
+                            style={{ padding: '4px 10px', fontSize: '0.76rem', fontWeight: 700, borderRadius: '6px', background: urinalysisSubTab === 'Chemical Analysis' ? '#ffffff' : 'transparent', color: urinalysisSubTab === 'Chemical Analysis' ? '#0f172a' : '#ffffff', border: 'none', cursor: 'pointer' }}
+                          >
+                            Chemical Analysis
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setUrinalysisSubTab('Urine Microscopy')}
+                            style={{ padding: '4px 10px', fontSize: '0.76rem', fontWeight: 700, borderRadius: '6px', background: urinalysisSubTab === 'Urine Microscopy' ? '#ffffff' : 'transparent', color: urinalysisSubTab === 'Urine Microscopy' ? '#0f172a' : '#ffffff', border: 'none', cursor: 'pointer' }}
+                          >
+                            Urine Microscopy
+                          </button>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleAddCustomRow}
+                        style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        ＋ Add Parameter
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Parameter Table */}
+                  <div style={{ overflowX: 'auto', padding: '16px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                          <th style={{ padding: '10px 12px', fontWeight: 700 }}>Parameter / Test</th>
+                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '160px' }}>Result</th>
+                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '110px' }}>SI Unit</th>
+                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '150px' }}>Reference Range</th>
+                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '90px', textAlign: 'center' }}>Flag</th>
+                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '180px' }}>Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {catParams.map(paramObj => {
+                          const pName = paramObj.parameterName;
+                          const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue);
+                          const isOrdered = requestedInfo.names.has(pName);
+                          const currentIndex = inputCounter++;
+
+                          return (
+                            <tr key={pName} style={{ borderBottom: '1px solid #f1f5f9', background: isOrdered ? '#f0f9ff' : 'transparent' }}>
+                              
+                              {/* Parameter Name */}
+                              <td style={{ padding: '10px 12px' }}>
+                                <strong style={{ color: isOrdered ? '#0369a1' : '#0f172a', display: 'block' }}>
+                                  {pName}
+                                  {isOrdered && <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: '#bae6fd', color: '#0369a1', padding: '1px 6px', borderRadius: '4px' }}>Requested</span>}
+                                </strong>
+                              </td>
+
+                              {/* Result Input */}
+                              <td style={{ padding: '6px 12px' }}>
+                                <input
+                                  ref={el => (inputsRef.current[currentIndex] = el)}
+                                  type="text"
+                                  value={rowData.result}
+                                  placeholder="Enter result"
+                                  onKeyDown={e => handleKeyDown(e, currentIndex)}
+                                  onChange={e => handleResultChange(pName, 'result', e.target.value, paramObj.unit, paramObj.referenceValue)}
+                                  style={{ width: '100%', padding: '6px 10px', fontSize: '0.88rem', fontWeight: 700, borderRadius: '6px', border: rowData.flag === 'H' ? '2px solid #ef4444' : rowData.flag === 'L' ? '2px solid #eab308' : '1px solid #cbd5e1', outline: 'none' }}
+                                />
+                              </td>
+
+                              {/* SI Unit */}
+                              <td style={{ padding: '6px 12px' }}>
+                                <input
+                                  type="text"
+                                  value={rowData.unit}
+                                  placeholder={paramObj.unit || '—'}
+                                  onChange={e => handleResultChange(pName, 'unit', e.target.value, paramObj.unit, paramObj.referenceValue)}
+                                  style={{ width: '100%', padding: '6px 8px', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569' }}
+                                />
+                              </td>
+
+                              {/* Reference Range */}
+                              <td style={{ padding: '6px 12px' }}>
+                                <input
+                                  type="text"
+                                  value={rowData.referenceValue}
+                                  placeholder={paramObj.referenceValue || '—'}
+                                  onChange={e => handleResultChange(pName, 'referenceValue', e.target.value, paramObj.unit, paramObj.referenceValue)}
+                                  style={{ width: '100%', padding: '6px 8px', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569' }}
+                                />
+                              </td>
+
+                              {/* Automatic Flag Badge */}
+                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                <FlagBadge flag={rowData.flag} result={rowData.result} referenceValue={rowData.referenceValue} />
+                              </td>
+
+                              {/* Remarks */}
+                              <td style={{ padding: '6px 12px' }}>
+                                <input
+                                  type="text"
+                                  value={rowData.remarks}
+                                  placeholder="Remarks..."
+                                  onChange={e => handleResultChange(pName, 'remarks', e.target.value, paramObj.unit, paramObj.referenceValue)}
+                                  style={{ width: '100%', padding: '6px 8px', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569' }}
+                                />
+                              </td>
+
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ padding: '32px', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px dashed #cbd5e1', marginBottom: '24px' }}>
+              <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px' }}>🧪</span>
+              <h4 style={{ margin: '0 0 4px', color: '#0f172a' }}>No Investigation Categories Selected</h4>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '0.88rem' }}>Click on one or more category cards above to select investigations and open result sheets.</p>
             </div>
           )}
+
         </div>
       )}
 
-      {/* Collector Comments Section */}
-      <div style={{ marginTop: '20px', background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-        <label style={{ display: 'block', fontWeight: 700, color: '#0f172a', marginBottom: '6px', fontSize: '0.88rem' }}>
-          Collector Comments / Pathologist Notes
+      {/* Technician Comments */}
+      <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '14px', padding: '16px', border: '1px solid #e2e8f0' }}>
+        <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', marginBottom: '6px' }}>
+          Collector / Technologist Comments
         </label>
         <textarea
-          rows="3"
           value={reportData.comments || ''}
-          onChange={(e) => onReportChange({ ...reportData, comments: e.target.value })}
-          placeholder="Add any sample collection or observation notes here..."
-          style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+          placeholder="Add clinical observations, specimen conditions, or technologist notes..."
+          onChange={e => onChange({ ...reportData, comments: e.target.value })}
+          style={{ width: '100%', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.88rem', minHeight: '80px' }}
         />
       </div>
 
-      {/* Form Action Controls */}
+      {/* Action Buttons */}
       <div className="form-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <button type="button" className="secondary" disabled={isSubmitting} onClick={onSaveDraft}>
-          💾 Save Draft
+        <button className="secondary" type="button" disabled={busy || isSavingDraft} onClick={onSaveDraft}>
+          {isSavingDraft ? '⏳ Saving Draft…' : '💾 Save Draft Report'}
         </button>
-        <button type="button" className="secondary" disabled={isSubmitting} onClick={onGeneratePreview}>
-          👁 Preview Report
+        <button className="secondary" type="button" disabled={busy || isGeneratingPreview} onClick={onGeneratePreview}>
+          {isGeneratingPreview ? '⏳ Generating Preview…' : '📄 Review Report'}
         </button>
-        <button type="button" className="primary" disabled={isSubmitting || !previewReport} onClick={onSubmitApproval}>
-          🚀 Submit for Approval
+        <button className="primary" type="button" disabled={busy || isSubmitting} onClick={onSubmitApproval}>
+          {isSubmitting ? '🚀 Submitting Report…' : '🚀 Submit for Approval'}
         </button>
       </div>
+
     </div>
   );
 }
-
-export default LaboratoryResultEditor;

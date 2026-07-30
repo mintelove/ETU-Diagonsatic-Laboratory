@@ -161,6 +161,151 @@ export default function LaboratoryTestsPage() {
         <section className="lab-test-toolbar"><div><h2>Tests in this category</h2><p>Update pricing or availability directly, then save without leaving the list.</p></div><div className="lab-toolbar-actions"><label className="lab-sort">Sort by<select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="name">Test name</option><option value="price">Price</option><option value="status">Status</option></select></label><button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>＋ Add test</button></div></section>
         <div className="lab-test-table" role="region" aria-label="Laboratory tests"><div className="lab-test-head"><span>Laboratory test</span><span>Price</span><span>Details</span><span>Status</span><span>Actions</span></div>{matches.map(test => <article className="lab-test-row" key={test._id}><div className="lab-test-name"><i>🧪</i><span><label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label><input id={`test-name-${test._id}`} value={test.name} readOnly disabled /><label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label><input id={`test-description-${test._id}`} value={test.description || 'Routine laboratory investigation'} readOnly disabled /></span></div><div className="lab-inline-price"><label><span className="sr-only">Price for {test.name}</span><input type="number" value={test.price} readOnly disabled /></label><b>ETB</b></div><span className="lab-specimen">{test.requiredSampleTypes?.map(sample => sample.name).join(', ') || 'Not mapped'}</span><label className={`lab-status-select ${test.status === 'Active' ? 'active' : ''}`}><span className="sr-only">Status for {test.name}</span><select value={test.status} disabled readOnly><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label><div className="lab-row-actions"><button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button><button className="danger" onClick={() => removeTest(test)}>Delete</button></div></article>)}{!matches.length && <div className="lab-empty"><span>🧪</span><h3>No Laboratory Tests Available</h3><p>There are no tests matching this view.</p><button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth' })}>Add First Test</button></div>}</div>
         <section id="new-lab-test" className="lab-management-forms"><form className="lab-form-card" onSubmit={saveTest}><div><p className="eyebrow">Catalogue entry</p><h2>Add laboratory test</h2></div><div className="form-grid"><label>Test name<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label><label>Category<select value={form.category || selected._id} onChange={event => setForm({ ...form, category: event.target.value })}>{data.categories.map(category => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label><label>Price (ETB)<input type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: +event.target.value })} /></label><label>Required specimen<select multiple value={form.requiredSampleTypes} onChange={event => setForm({ ...form, requiredSampleTypes: [...event.target.selectedOptions].map(option => option.value) })}>{data.samples.map(sample => <option key={sample._id} value={sample._id}>{sample.name}</option>)}</select></label><label className="wide">Description<textarea value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label></div><button className="primary">Add Test</button></form><form className="lab-form-card lab-settings-card" onSubmit={saveSettings}><div><p className="eyebrow">Billing settings</p><h2>Discount & counseling</h2></div><div className="form-grid"><label>Staff discount %<input type="number" min="0" max="100" value={data.settings.staffDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, staffDiscount: +event.target.value } })} /></label><label>Collaborator discount %<input type="number" min="0" max="100" value={data.settings.collaboratorDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, collaboratorDiscount: +event.target.value } })} /></label><label>Counseling fee<select value={data.settings.counselingStatus || 'Free'} onChange={event => setData({ ...data, settings: { ...data.settings, counselingStatus: event.target.value } })}><option>Free</option><option>Paid</option></select></label><label>Counseling price (ETB)<input type="number" min="0" value={data.settings.counselingPrice ?? 0} onChange={event => setData({ ...data, settings: { ...data.settings, counselingPrice: +event.target.value } })} /></label></div><button className="primary">Save Settings</button></form></section>
+
+        {/* Master Parameter Catalog & Reference Range Management */}
+        <section className="lab-form-card" style={{ marginTop: '24px', width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <p className="eyebrow">Reference Range Management</p>
+              <h2>Master Parameter Catalog & Normal Ranges</h2>
+            </div>
+            <button className="secondary" type="button" onClick={() => setParamTabOpen(!paramTabOpen)}>
+              {paramTabOpen ? 'Collapse Catalog' : '⚙ Manage Parameter Reference Ranges'}
+            </button>
+          </div>
+          
+          {paramTabOpen && (
+            <div style={{ marginTop: '16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '16px' }}>
+                Configure SI units, reference ranges, display names, and numeric threshold boundaries for automatic L/H flagging.
+              </p>
+
+              {/* Add New Parameter Form */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await api('/report-entry/parameters', { token, method: 'POST', body: JSON.stringify(paramForm) });
+                    setMessage('New parameter added to master catalog.');
+                    setParamForm({ parameterName: '', category: 'HEMATOLOGY', subcategory: '', unit: '', referenceValue: '', normalMin: '', normalMax: '' });
+                    loadParams();
+                  } catch (err) { setMessage(err.message); }
+                }}
+                style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}
+              >
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#075c91' }}>＋ Add New Catalog Parameter</h4>
+                <div className="form-grid" style={{ gap: '10px' }}>
+                  <label>Parameter Name<input required value={paramForm.parameterName} onChange={e => setParamForm({ ...paramForm, parameterName: e.target.value })} placeholder="e.g. HGB" /></label>
+                  <label>Category
+                    <select value={paramForm.category} onChange={e => setParamForm({ ...paramForm, category: e.target.value })}>
+                      {['HEMATOLOGY', 'CLINICAL CHEMISTRY', 'COAGULATION TEST', 'SERUM ELECTROLYTE', 'HORMONE', 'SEROLOGY & IMMUNOHEMATOLOGY', 'URINALYSIS', 'BACTERIOLOGY / PARASITOLOGY', 'BODY FLUID ANALYSIS', 'SEMEN ANALYSIS'].map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </label>
+                  <label>Subcategory<input value={paramForm.subcategory} onChange={e => setParamForm({ ...paramForm, subcategory: e.target.value })} placeholder="e.g. Chemical Analysis" /></label>
+                  <label>SI Unit<input value={paramForm.unit} onChange={e => setParamForm({ ...paramForm, unit: e.target.value })} placeholder="e.g. g/dL" /></label>
+                  <label>Reference Range<input value={paramForm.referenceValue} onChange={e => setParamForm({ ...paramForm, referenceValue: e.target.value })} placeholder="e.g. 12.0–17.0" /></label>
+                  <label>Normal Min (Low)<input type="number" step="any" value={paramForm.normalMin} onChange={e => setParamForm({ ...paramForm, normalMin: e.target.value })} placeholder="e.g. 12.0" /></label>
+                  <label>Normal Max (High)<input type="number" step="any" value={paramForm.normalMax} onChange={e => setParamForm({ ...paramForm, normalMax: e.target.value })} placeholder="e.g. 17.0" /></label>
+                </div>
+                <button className="primary" style={{ marginTop: '12px' }}>Add Parameter</button>
+              </form>
+
+              {/* Parameter Table */}
+              <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 10px' }}>Category</th>
+                      <th style={{ padding: '8px 10px' }}>Parameter</th>
+                      <th style={{ padding: '8px 10px' }}>SI Unit</th>
+                      <th style={{ padding: '8px 10px' }}>Reference Range</th>
+                      <th style={{ padding: '8px 10px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paramList.map(p => (
+                      <tr key={p._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px 10px' }}><strong>{p.category}</strong> {p.subcategory && <small style={{ color: '#64748b' }}>({p.subcategory})</small>}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 700 }}>{p.parameterName}</td>
+                        <td style={{ padding: '8px 10px' }}>{p.unit || '—'}</td>
+                        <td style={{ padding: '8px 10px' }}>{p.referenceValue || '—'}</td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <button
+                            type="button"
+                            className="secondary"
+                            style={{ fontSize: '0.75rem', padding: '4px 8px', marginRight: '6px' }}
+                            onClick={() => setEditingParam({ ...p })}
+                          >
+                            Edit Range
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary danger"
+                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                            onClick={async () => {
+                              if (confirm(`Delete ${p.parameterName}?`)) {
+                                try {
+                                  await api(`/report-entry/parameters/${p._id}`, { token, method: 'DELETE' });
+                                  setMessage('Parameter deleted.');
+                                  loadParams();
+                                } catch (err) { setMessage(err.message); }
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Edit Parameter Modal */}
+        {editingParam && (
+          <div className="lab-drawer-backdrop" onClick={() => setEditingParam(null)}>
+            <form
+              className="lab-edit-drawer"
+              style={{ maxWidth: '500px' }}
+              onClick={e => e.stopPropagation()}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await api(`/report-entry/parameters/${editingParam._id}`, {
+                    token,
+                    method: 'PUT',
+                    body: JSON.stringify(editingParam)
+                  });
+                  setMessage('Parameter reference range updated successfully.');
+                  setEditingParam(null);
+                  loadParams();
+                } catch (err) { setMessage(err.message); }
+              }}
+            >
+              <header>
+                <div>
+                  <p className="eyebrow">Parameter Catalog</p>
+                  <h2>Edit Reference Range</h2>
+                </div>
+                <button type="button" className="modal-close" onClick={() => setEditingParam(null)}>×</button>
+              </header>
+              <div className="lab-drawer-body">
+                <label>Parameter Name<input required value={editingParam.parameterName} onChange={e => setEditingParam({ ...editingParam, parameterName: e.target.value })} /></label>
+                <label>SI Unit<input value={editingParam.unit || ''} onChange={e => setEditingParam({ ...editingParam, unit: e.target.value })} /></label>
+                <label>Reference Range<input value={editingParam.referenceValue || ''} onChange={e => setEditingParam({ ...editingParam, referenceValue: e.target.value })} /></label>
+                <label>Normal Min (Low Threshold)<input type="number" step="any" value={editingParam.normalMin ?? ''} onChange={e => setEditingParam({ ...editingParam, normalMin: e.target.value })} /></label>
+                <label>Normal Max (High Threshold)<input type="number" step="any" value={editingParam.normalMax ?? ''} onChange={e => setEditingParam({ ...editingParam, normalMax: e.target.value })} /></label>
+              </div>
+              <footer>
+                <button type="button" onClick={() => setEditingParam(null)}>Cancel</button>
+                <button className="primary">Save Changes</button>
+              </footer>
+            </form>
+          </div>
+        )}
       </> : <div className="lab-empty"><h2>Select a category</h2></div>}</main>
     </div>
     {editingTest && editForm && <div className="lab-drawer-backdrop" role="presentation" onClick={closeEdit}><form className="lab-edit-drawer" aria-label="Edit laboratory test" onClick={event => event.stopPropagation()} onSubmit={saveEdit}><header><div><p className="eyebrow">Laboratory catalogue</p><h2>Edit laboratory test</h2><span>Update the complete test definition.</span></div><button type="button" className="modal-close" aria-label="Close edit drawer" disabled={savingEdit} onClick={closeEdit}>×</button></header><div className="lab-drawer-body"><label>Test Name<input required value={editForm.name} onChange={event => setEditForm({ ...editForm, name: event.target.value })} /></label><label>Price (ETB)<input required type="number" min="0" step="0.01" value={editForm.price} onChange={event => setEditForm({ ...editForm, price: event.target.value })} /></label><label>Main Category<select value={editForm.categoryId} onChange={event => setEditForm({ ...editForm, categoryId: event.target.value })}>{data.categories.map(category => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label><label>Status<select value={editForm.status} onChange={event => setEditForm({ ...editForm, status: event.target.value })}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label><label>Description<textarea value={editForm.description} onChange={event => setEditForm({ ...editForm, description: event.target.value })} /></label><div className="wide"><strong>Default consumables</strong>{editForm.consumables.map((c,i)=><div className="form-grid" key={i}><select value={c.item} onChange={e=>setEditForm({...editForm,consumables:editForm.consumables.map((x,n)=>n===i?{...x,item:e.target.value}:x)})}><option value="">Choose stock item</option>{data.stockItems.map(item=><option key={item._id} value={item._id}>{item.itemName}</option>)}</select><input type="number" min="1" value={c.quantity} onChange={e=>setEditForm({...editForm,consumables:editForm.consumables.map((x,n)=>n===i?{...x,quantity:e.target.value}:x)})}/><button type="button" onClick={()=>setEditForm({...editForm,consumables:editForm.consumables.filter((_,n)=>n!==i)})}>Remove</button></div>)}<button type="button" onClick={()=>setEditForm({...editForm,consumables:[...editForm.consumables,{item:'',quantity:1}]})}>+ Add consumable</button></div></div><footer><button type="button" disabled={savingEdit} onClick={closeEdit}>Cancel</button><button className="primary" disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Save changes'}</button></footer></form></div>}

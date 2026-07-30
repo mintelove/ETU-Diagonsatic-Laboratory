@@ -3,30 +3,28 @@ import { requireAuth, allowRoles } from '../middleware/auth.js';
 import { ROLES } from '../constants/roles.js';
 import {
   parameters,
-  getCatalog,
-  listAdminParameters,
+  catalog,
+  draft,
+  generate,
+  getAllParameters,
   createParameter,
   updateParameter,
-  deleteParameter,
-  draft,
-  generate
+  deleteParameter
 } from '../controllers/reportEntryController.js';
 
 const router = Router();
 router.use(requireAuth);
 
-// Catalog endpoints — accessible by Sample Collector & Admin
-router.get('/catalog', allowRoles(ROLES.SAMPLE_COLLECTOR, ROLES.ADMIN), getCatalog);
+// Collector / Admin shared endpoints
 router.get('/equipment', allowRoles(ROLES.SAMPLE_COLLECTOR, ROLES.ADMIN), parameters);
-
-// Patient draft & generate endpoints — Sample Collector
+router.get('/catalog', allowRoles(ROLES.SAMPLE_COLLECTOR, ROLES.ADMIN, ROLES.RECEPTION, ROLES.APPROVER), catalog);
 router.get('/patients/:patientId/draft', allowRoles(ROLES.SAMPLE_COLLECTOR), draft);
 router.post('/patients/:patientId/generate', allowRoles(ROLES.SAMPLE_COLLECTOR), generate);
 
-// Admin Parameter Management CRUD — Admin only
-router.get('/admin/parameters', allowRoles(ROLES.ADMIN), listAdminParameters);
-router.post('/admin/parameters', allowRoles(ROLES.ADMIN), createParameter);
-router.put('/admin/parameters/:id', allowRoles(ROLES.ADMIN), updateParameter);
-router.delete('/admin/parameters/:id', allowRoles(ROLES.ADMIN), deleteParameter);
+// Admin parameter catalog management
+router.get('/parameters', allowRoles(ROLES.ADMIN), getAllParameters);
+router.post('/parameters', allowRoles(ROLES.ADMIN), createParameter);
+router.put('/parameters/:id', allowRoles(ROLES.ADMIN), updateParameter);
+router.delete('/parameters/:id', allowRoles(ROLES.ADMIN), deleteParameter);
 
 export default router;

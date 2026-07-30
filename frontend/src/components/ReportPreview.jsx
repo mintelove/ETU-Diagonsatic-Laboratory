@@ -124,40 +124,88 @@ export function ReportPreview({ report }) {
         <strong>Equipment Used:</strong> {report.equipment?.join(', ') || 'Standard Analyzer'}
       </p>
 
-      {/* Test Parameters & Results Table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px' }}>
-        <thead>
-          <tr>
-            <th>Parameter</th>
-            <th>Result</th>
-            <th>SI Unit</th>
-            <th>Reference Range</th>
-            <th style={{ textAlign: 'center' }}>Flag</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.results && report.results.length > 0 ? (
-            report.results.map((row, i) => (
-              <tr key={`${row.sampleName}-${i}`}>
-                <td>
-                  <strong>{row.sampleName}</strong>
-                  {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
-                </td>
-                <td><strong>{row.result}</strong></td>
-                <td>{row.unit || '—'}</td>
-                <td>{row.referenceValue || '—'}</td>
-                <td style={{ textAlign: 'center' }}>
-                  <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="5" style={{ fontStyle: 'italic', textAlign: 'center' }}>No test results recorded for this report.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {/* Test Parameters & Results Table — grouped by category */}
+      {(() => {
+        const results = report.results || [];
+        if (!results.length) {
+          return (
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px' }}>
+              <thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th style={{ textAlign: 'center' }}>Flag</th></tr></thead>
+              <tbody><tr><td colSpan="5" style={{ fontStyle: 'italic', textAlign: 'center' }}>No test results recorded for this report.</td></tr></tbody>
+            </table>
+          );
+        }
+
+        // Build a map from parameter name → category name using laboratoryTests
+        const paramCatMap = {};
+        const rawTests = Array.isArray(report?.laboratoryTests) ? report.laboratoryTests : (Array.isArray(p?.laboratoryTests) ? p.laboratoryTests : []);
+        rawTests.forEach(t => {
+          if (!t || typeof t !== 'object') return;
+          const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
+          // Map test parameters to their category
+          if (Array.isArray(t.parameters)) {
+            t.parameters.forEach(pm => {
+              const pName = typeof pm === 'string' ? pm : (pm?.name || pm?.sampleName || '');
+              if (pName) paramCatMap[pName] = catName;
+            });
+          }
+          // Also map test name itself
+          if (t.name) paramCatMap[t.name] = catName;
+        });
+
+        // Group results by category
+        const groups = new Map();
+        results.forEach(row => {
+          const catName = paramCatMap[row.sampleName] || 'OTHER';
+          if (!groups.has(catName)) groups.set(catName, []);
+          groups.get(catName).push(row);
+        });
+
+        return Array.from(groups.entries()).map(([catName, rows]) => (
+          <div key={catName} style={{ marginBottom: '16px' }}>
+            <h4 style={{
+              margin: '0 0 6px',
+              padding: '7px 14px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, var(--color-primary, #075c91) 0%, #0ea5e9 100%)',
+              color: '#ffffff',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}>
+              {catName}
+            </h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Result</th>
+                  <th>SI Unit</th>
+                  <th>Reference Range</th>
+                  <th style={{ textAlign: 'center' }}>Flag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={`${row.sampleName}-${i}`}>
+                    <td>
+                      <strong>{row.sampleName}</strong>
+                      {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
+                    </td>
+                    <td><strong>{row.result}</strong></td>
+                    <td>{row.unit || '—'}</td>
+                    <td>{row.referenceValue || '—'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ));
+      })()}
 
       {/* Public Sharing Banner */}
       {isApproved ? (

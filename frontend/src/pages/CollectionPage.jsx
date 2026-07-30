@@ -84,6 +84,7 @@ export default function CollectionPage() {
     [selected, setSelected] = useState(),
     [report, setReport] = useState(emptyReport),
     [generated, setGenerated] = useState(),
+    [previewOpen, setPreviewOpen] = useState(false),
     [otherOpen, setOtherOpen] = useState(false),
     [other, setOther] = useState(emptyOther),
     [editingParameters, setEditingParameters] = useState(false),
@@ -95,7 +96,8 @@ export default function CollectionPage() {
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [branchFilter, setBranchFilter] = useState('All'),
-    [allocationByTest, setAllocationByTest] = useState({});
+    [allocationByTest, setAllocationByTest] = useState({}),
+    [paramCatalog, setParamCatalog] = useState([]);
 
   const safeQueue = useMemo(() => (Array.isArray(queue) ? queue.filter(x => x && x.patient) : []), [queue]);
   const queuedList = useMemo(() => safeQueue.filter(x => x.collection?.status === 'Queued'), [safeQueue]);
@@ -126,7 +128,8 @@ export default function CollectionPage() {
         api(`/collection/patients/${selected._id}/report`, {
           token,
           method: 'PUT',
-          body: JSON.stringify(report)
+          body: JSON.stringify(report),
+          showLoading: false
         }).catch(() => {});
       }
     }, 1200);
@@ -137,18 +140,20 @@ export default function CollectionPage() {
   const load = async () => {
     try {
       const qParam = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : '';
-      const [d, q, e, s, tests] = await Promise.all([
+      const [d, q, e, s, tests, pCat] = await Promise.all([
         api(`/collection/dashboard${qParam}`, { token }).catch(() => null),
         api(`/collection/queue${qParam}`, { token }).catch(() => ({ queue: [] })),
         api('/report-entry/equipment', { token }).catch(() => ({ equipment: [], parameters: {}, equipmentDetails: {} })),
         api('/collection/stock', { token }).catch(() => ({ items: [] })),
-        api('/laboratory-tests/catalog', { token }).catch(() => ({ categories: [] }))
+        api('/laboratory-tests/catalog', { token }).catch(() => ({ categories: [] })),
+        api('/report-entry/catalog', { token }).catch(() => ({ catalog: [] }))
       ]);
       setDash(d);
       setQueue(Array.isArray(q?.queue) ? q.queue : []);
       setEquipment(e || { equipment: [], parameters: {}, equipmentDetails: {} });
       setStock(Array.isArray(s?.items) ? s.items : []);
       setCatalog(Array.isArray(tests?.categories) ? tests.categories : []);
+      setParamCatalog(Array.isArray(pCat?.catalog) ? pCat.catalog : []);
     } catch (e) {
       setError(e.message || 'Failed to load collection workspace.');
     }
@@ -305,49 +310,105 @@ export default function CollectionPage() {
   });
   const hideRow = i => setHidden([...hidden, i]);
   const restoreRow = i => setHidden(hidden.filter(n => n !== i));
-  const save = async submit => {
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const save = async (submit = false) => {
     if (!selected) return;
+    setError('');
+    setMessage('');
+    if (submit) setIsSubmitting(true);
+    else setIsSavingDraft(true);
     setBusy(true);
+
     try {
+      const cleanResults = (Array.isArray(report.results) ? report.results : []).filter(r => r && r.sampleName && String(r.sampleName).trim() && r.result !== undefined && r.result !== null && String(r.result).trim() !== '');
+      if (submit && cleanResults.length === 0) {
+        setError('Cannot submit report without laboratory results. Please enter at least one result.');
+        setIsSubmitting(false);
+        setBusy(false);
+        return;
+      }
+      const payload = {
+        ...report,
+        results: cleanResults
+      };
+
+      // 1. Save draft payload via PUT
       await api(`/collection/patients/${selected._id}/report`, {
         token,
         method: 'PUT',
-        body: JSON.stringify(report)
+        body: JSON.stringify(payload),
+        showLoading: true
       });
-      if (submit) await api(`/collection/patients/${selected._id}/report/submit`, {
-        token,
-        method: 'POST'
-      });
-      setMessage(submit ? 'Report submitted for approval.' : 'Draft report saved.');
+
       if (submit) {
+        // 2. Submit report via POST
+        await api(`/collection/patients/${selected._id}/report/submit`, {
+          token,
+          method: 'POST',
+          showLoading: true
+        });
+        setMessage('✅ Report submitted successfully for approval.');
         setSelected(null);
         setTab('queue');
+      } else {
+        setMessage('✅ Draft report saved successfully.');
       }
       load();
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'Failed to process report action.');
     } finally {
+      setIsSavingDraft(false);
+      setIsSubmitting(false);
       setBusy(false);
     }
   };
+
   const generate = async () => {
+    if (!selected) return;
+    setError('');
+    setMessage('');
+    setIsGeneratingPreview(true);
     setBusy(true);
+
     try {
+      const cleanResults = (Array.isArray(report.results) ? report.results : []).filter(r => r && r.sampleName && String(r.sampleName).trim() && r.result !== undefined && r.result !== null && String(r.result).trim() !== '');
+      const payload = { ...report, results: cleanResults };
       await api(`/collection/patients/${selected._id}/report`, {
         token,
         method: 'PUT',
-        body: JSON.stringify(report)
+        body: JSON.stringify(payload),
+        showLoading: false
       });
-      setGenerated((await api(`/report-entry/patients/${selected._id}/generate`, {
+      const res = await api(`/report-entry/patients/${selected._id}/generate`, {
         token,
-        method: 'POST'
-      })).report);
-      setMessage('Laboratory report generated for review.');
+        method: 'POST',
+        showLoading: false
+      });
+      setGenerated(res.report);
+      setPreviewOpen(true);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'Failed to generate report preview.');
     } finally {
+      setIsGeneratingPreview(false);
       setBusy(false);
     }
+  };
+
+  // Group results by category for the preview modal
+  const groupResultsByCategory = (results) => {
+    if (!results || !results.length) return [];
+    const groups = new Map();
+    results.forEach(row => {
+      // Find which category this parameter belongs to from the paramCatalog
+      const catParam = (paramCatalog || []).find(p => p.parameterName === row.sampleName);
+      const catName = catParam?.category || 'OTHER';
+      if (!groups.has(catName)) groups.set(catName, []);
+      groups.get(catName).push(row);
+    });
+    return Array.from(groups.entries());
   };
   return <section className="page collection-page collector-page"><header className="dash-header"><div><p className="eyebrow">Laboratory technician workspace</p><h1>Welcome, {user.fullName} <span className="collector-paid" style={{ marginLeft: '10px', fontSize: '0.85rem' }}>📍 Branch: {user.branchName || 'Main'}</span></h1><p className="intro">Review orders, collect samples, and produce accurate laboratory reports.</p></div></header>{error && <div className="alert error">{error}</div>}{message && <div className="alert success">{message}</div>}<div className="reception-tabs">{[['queue', `Patient queue (${queuedList.length})`], ['unfinished', `Unfinished collections (${unfinishedList.length})`], ['report', 'Result entry'], ['stock', 'Available stock']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}</button>)}</div>
 {tab === 'queue' && <><div className="enterprise-grid">{[['Today’s collections', dash?.summary.todayCollections], ['Pending collections', dash?.summary.pendingCollections], ['In progress', dash?.summary.inProgress], ['Pending approvals', dash?.summary.pendingApprovals]].map(([label, value]) => <article className="enterprise-card blue" key={label}><small>{label}</small><strong>{value ?? '—'}</strong></article>)}</div>
@@ -362,10 +423,99 @@ export default function CollectionPage() {
 )}
 <section className="collector-queue"><header><div><p className="eyebrow">Sample collection queue</p><h2>Patients awaiting laboratory work</h2></div></header><div className="collector-queue-list">{queuedList.length ? queuedList.map(row => <article className="collector-patient-card" key={row.patient._id}><div className="collector-patient-summary"><div className="collector-patient-avatar">{row.patient.name?.[0]}</div><div className="collector-patient-main"><h3>{row.patient.name}</h3><p>{row.patient.patientId} · {row.patient.age} · {row.patient.sex} · {row.patient.phone}</p></div><aside><span className="collector-paid" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>{row.patient.paymentStatus === 'Paid' ? 'Ready for Sample Collection' : 'Counseling'}</span><button className="primary" disabled={busy || row.collection.status === 'Completed'} onClick={() => start(row)}>{row.collection.status === 'In Progress' ? 'Continue Collection' : 'Start collection'}</button></aside></div><OrderedTests patient={row.patient} catalog={catalog} allocationByTest={row.allocationByTest || {}} /></article>) : <p className="empty">No queued patients awaiting sample collection.</p>}</div></section></>}
 {tab === 'unfinished' && <section className="collector-queue"><header><div><p className="eyebrow">Active & Recovered Work</p><h2>Unfinished Sample Collections</h2></div></header><div className="collector-queue-list">{unfinishedList.length ? unfinishedList.map(row => <article className="collector-patient-card" key={row.patient._id} style={{ borderLeft: '4px solid #e69c00' }}><div className="collector-patient-summary"><div className="collector-patient-avatar" style={{ background: '#fff3e0', color: '#e69c00' }}>⏳</div><div className="collector-patient-main"><h3>{row.patient.name} <small style={{ background: '#fff3e0', color: '#b78103', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>Unfinished</small></h3><p>{row.patient.patientId} · {row.patient.barcode || ''} · Started: {row.collection?.startedAt ? new Date(row.collection.startedAt).toLocaleString() : 'In Progress'}</p></div><aside><button className="primary" style={{ background: '#e69c00', border: 'none' }} disabled={busy} onClick={() => start(row)}>Continue Collection</button></aside></div><OrderedTests patient={row.patient} catalog={catalog} allocationByTest={row.allocationByTest || {}} /></article>) : <div className="empty-state"><h2>No unfinished collections</h2><p>When you start a sample collection, it will be automatically saved and displayed here if left incomplete.</p></div>}</div></section>}
-{tab === 'report' && <section className="reception-form collector-report"><div><p className="eyebrow">Laboratory report</p><h2>{selected ? `${selected.name} · ${selected.patientId}` : 'Select a patient from the queue'}</h2></div>{selected && <><OrderedTests patient={selected} catalog={catalog} allocationByTest={allocationByTest} /><LaboratoryResultEditor patient={selected} catalog={catalog} equipmentData={equipment} reportData={report} onReportChange={setReport} isSubmitting={busy} onSaveDraft={() => save(false)} onGeneratePreview={generate} onSubmitApproval={() => setConfirmSubmit(true)} previewReport={generated} />{generated && <section className="collector-preview" style={{ marginTop: '24px' }}><p className="eyebrow">Report preview · Pending approval</p><h2>ETU Diagnostic Laboratory</h2><table><thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference range</th><th>Flag</th></tr></thead><tbody>{generated.results.map((row, i) => <tr key={i}><td>{row.sampleName}</td><td>{row.result}</td><td>{row.unit || '—'}</td><td>{row.referenceValue}</td><td><span className={`flag-badge ${row.flag || flagFor(row) || 'blank'}`}>{row.flag || flagFor(row) || '—'}</span></td></tr>)}</tbody></table></section>}</>}</section>}
+{tab === 'report' && <section className="reception-form collector-report"><div><p className="eyebrow">Laboratory report</p><h2>{selected ? `${selected.name} · ${selected.patientId}` : 'Select a patient from the queue'}</h2></div>{selected && <><OrderedTests patient={selected} catalog={catalog} allocationByTest={allocationByTest} /><LaboratoryResultEditor patient={selected} catalog={paramCatalog} reportData={report} onChange={setReport} onSaveDraft={() => save(false)} onGeneratePreview={generate} onSubmitApproval={() => setConfirmSubmit(true)} busy={busy} isSavingDraft={isSavingDraft} isGeneratingPreview={isGeneratingPreview} isSubmitting={isSubmitting} equipmentData={equipment} onPickEquipment={pickEquipment} otherOpen={otherOpen} setOtherOpen={setOtherOpen} otherEquipmentForm={<div className="other-equipment-form"><h3>Other Equipment</h3><div className="form-grid">{[['name', 'Equipment Name'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['department', 'Department']].map(([key, label]) => <label key={key}>{label}<input value={other[key]} onChange={e => setOther({ ...other, [key]: e.target.value })} /></label>)}<label className="wide">Remarks<textarea value={other.remarks} onChange={e => setOther({ ...other, remarks: e.target.value })} /></label></div><div className="form-actions"><button type="button" className="secondary" onClick={() => setOtherOpen(false)}>Cancel</button><button type="button" className="primary" onClick={addOther}>Add equipment</button></div></div>} /></>}</section>}
 {tab === 'stock' && <section className="table-card"><h2>Available consumables</h2><table><thead><tr><th>Item</th><th>Code</th><th>Remaining</th><th>Status</th></tr></thead><tbody>{stock.map(item => <tr key={item._id}><td>{item.itemName}</td><td>{item.itemCode}</td><td>{item.remainingQuantity} {item.unit}</td><td>{item.remainingQuantity <= item.minimumThreshold ? 'Low stock' : 'Available'}</td></tr>)}</tbody></table></section>}
 {confirmSubmit && <div className="modal-backdrop"><div className="modal-content"><h2>Confirm report accuracy</h2><p>Please review the report carefully before submission.</p><div className="form-actions"><button className="secondary" onClick={() => setConfirmSubmit(false)}>Review again</button><button className="primary" onClick={() => {
             setConfirmSubmit(false);
             save(true);
-          }}>Submit for approval</button></div></div></div>}</section>;
+          }}>Submit for approval</button></div></div></div>}
+{previewOpen && generated && (
+  <div className="report-preview-overlay" onClick={() => setPreviewOpen(false)}>
+    <div className="report-preview-modal" onClick={e => e.stopPropagation()}>
+      <div className="report-preview-modal-header">
+        <div>
+          <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Preview</p>
+          <h2 style={{ margin: '4px 0 0', color: '#075c91' }}>ETU Diagnostic Laboratory</h2>
+        </div>
+        <button type="button" className="report-preview-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">&times;</button>
+      </div>
+
+      <div className="report-preview-modal-body">
+        {/* Patient Info */}
+        <div className="report-preview-patient-info">
+          <p><strong>Patient Name:</strong> {selected?.name || '—'}</p>
+          <p><strong>Patient ID:</strong> {selected?.patientId || '—'}</p>
+          <p><strong>Age / Sex:</strong> {selected?.age || '—'} / {selected?.sex || '—'}</p>
+          <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
+        </div>
+
+        {/* Equipment */}
+        {generated.equipment?.length > 0 && (
+          <p style={{ fontSize: '0.88rem', margin: '0 0 12px' }}>
+            <strong>Equipment Used:</strong> {generated.equipment.join(', ')}
+          </p>
+        )}
+
+        {/* Results grouped by category */}
+        {(() => {
+          const grouped = groupResultsByCategory(generated.results);
+          return grouped.map(([catName, rows], gi) => (
+            <div key={catName} className="report-preview-category-group">
+              <h4 className="report-preview-category-title">{catName}</h4>
+              <table className="report-preview-table">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Result</th>
+                    <th>SI Unit</th>
+                    <th>Reference Range</th>
+                    <th style={{ textAlign: 'center' }}>Flag</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={`${catName}-${i}`}>
+                      <td><strong>{row.sampleName}</strong></td>
+                      <td><strong>{row.result}</strong></td>
+                      <td>{row.unit || '—'}</td>
+                      <td>{row.referenceValue || '—'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`flag-badge ${row.flag || flagFor(row) || 'blank'}`}>
+                          {flagText(row.flag || flagFor(row))}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ));
+        })()}
+
+        {/* Comments */}
+        {generated.comments && (
+          <p style={{ margin: '12px 0 0', fontSize: '0.88rem' }}>
+            <strong>Collector Comments:</strong> {generated.comments}
+          </p>
+        )}
+      </div>
+
+      <div className="report-preview-modal-footer">
+        <button type="button" className="secondary" onClick={() => setPreviewOpen(false)}>Close Preview</button>
+        <button type="button" className="primary" onClick={() => { setPreviewOpen(false); setConfirmSubmit(true); }}>🚀 Proceed to Submit</button>
+      </div>
+    </div>
+  </div>
+)}
+{error && (
+  <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRadius: '10px', background: '#ef4444', color: '#ffffff', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', fontWeight: 600, fontSize: '0.9rem', maxWidth: '450px' }}>
+    <span>❌</span><span style={{ flex: 1 }}>{error}</span><button type="button" onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', padding: '0 4px' }}>×</button>
+  </div>
+)}
+{message && (
+  <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRadius: '10px', background: '#10b981', color: '#ffffff', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', fontWeight: 600, fontSize: '0.9rem', maxWidth: '450px' }}>
+    <span>✅</span><span style={{ flex: 1 }}>{message}</span><button type="button" onClick={() => setMessage('')} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', padding: '0 4px' }}>×</button>
+  </div>
+)}
+</section>;
 }

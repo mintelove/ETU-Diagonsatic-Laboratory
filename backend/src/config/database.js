@@ -194,7 +194,7 @@ export async function connectDatabase() {
     console.error('Error during public sharing token migration for existing approved reports:', error.message);
   }
 
-  // Seed master laboratory parameter catalog into MongoDB if empty
+  // Seed master laboratory parameters catalog
   await seedParameterCatalog();
 }
 

@@ -191,45 +191,75 @@ export function PublicReportViewer() {
             </div>
           )}
 
-          {/* Results Table Section */}
+          {/* Results Table Section — grouped by category */}
           <h3 style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             📋 Test Results & Observations
           </h3>
           
-          <div style={{ overflowX: 'auto', marginBottom: '24px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                  <th style={{ padding: '12px 14px', color: '#334155', fontWeight: 700 }}>Parameter</th>
-                  <th style={{ padding: '12px 14px', color: '#334155', fontWeight: 700 }}>Result</th>
-                  <th style={{ padding: '12px 14px', color: '#334155', fontWeight: 700 }}>SI Unit</th>
-                  <th style={{ padding: '12px 14px', color: '#334155', fontWeight: 700 }}>Reference Range</th>
-                  <th style={{ padding: '12px 14px', color: '#334155', fontWeight: 700, textAlign: 'center' }}>Flag</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resultsList.length > 0 ? (
-                  resultsList.map((row, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                      <td style={{ padding: '12px 14px' }}>
-                        <strong style={{ color: '#0f172a' }}>{row.parameter || row.sampleName || row.name}</strong>
-                        {row.remarks && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{row.remarks}</div>}
-                      </td>
-                      <td style={{ padding: '12px 14px', fontWeight: 700, color: '#075c91' }}>{row.result}</td>
-                      <td style={{ padding: '12px 14px', color: '#475569' }}>{row.unit || '—'}</td>
-                      <td style={{ padding: '12px 14px', color: '#475569' }}>{row.referenceValue || '—'}</td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>No test parameters recorded.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div style={{ marginBottom: '24px' }}>
+            {(() => {
+              if (!resultsList || resultsList.length === 0) {
+                return (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    No test parameters recorded.
+                  </div>
+                );
+              }
+
+              // Build parameter category map from report.tests
+              const paramCatMap = {};
+              (report.tests || []).forEach(t => {
+                if (!t) return;
+                const cName = (t.categoryName || 'GENERAL').toUpperCase();
+                const pName = t.testName || t.name || '';
+                if (pName) paramCatMap[pName] = cName;
+              });
+
+              const categoryGroups = new Map();
+              resultsList.forEach(row => {
+                const name = row.parameter || row.sampleName || row.name || '';
+                const catName = paramCatMap[name] || 'DIAGNOSTIC EXAMINATION';
+                if (!categoryGroups.has(catName)) categoryGroups.set(catName, []);
+                categoryGroups.get(catName).push(row);
+              });
+
+              return Array.from(categoryGroups.entries()).map(([catName, rows]) => (
+                <div key={catName} style={{ marginBottom: '20px' }}>
+                  <div style={{ padding: '8px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #075c91 0%, #0ea5e9 100%)', color: '#ffffff', fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    {catName}
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                          <th style={{ padding: '10px 12px', color: '#334155', fontWeight: 700 }}>Parameter</th>
+                          <th style={{ padding: '10px 12px', color: '#334155', fontWeight: 700 }}>Result</th>
+                          <th style={{ padding: '10px 12px', color: '#334155', fontWeight: 700 }}>SI Unit</th>
+                          <th style={{ padding: '10px 12px', color: '#334155', fontWeight: 700 }}>Reference Range</th>
+                          <th style={{ padding: '10px 12px', color: '#334155', fontWeight: 700, textAlign: 'center' }}>Flag</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '10px 12px' }}>
+                              <strong style={{ color: '#0f172a' }}>{row.parameter || row.sampleName || row.name}</strong>
+                              {row.remarks && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{row.remarks}</div>}
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 700, color: '#075c91' }}>{row.result}</td>
+                            <td style={{ padding: '10px 12px', color: '#475569' }}>{row.unit || '—'}</td>
+                            <td style={{ padding: '10px 12px', color: '#475569' }}>{row.referenceValue || '—'}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
 
           {/* Pathologist Comments */}
