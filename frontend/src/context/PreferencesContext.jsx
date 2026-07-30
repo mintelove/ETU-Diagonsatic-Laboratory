@@ -179,6 +179,7 @@ export function PreferencesProvider({ children }) {
             token,
             method: 'PATCH',
             body: JSON.stringify(updates),
+            isWrite: false, // Option 2: Theme/Language UI changes never show Green Checkmark
           });
           setPreferences((current) => ({ ...current, ...result.preferences }));
         } catch (error) {

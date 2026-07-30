@@ -1,28 +1,28 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const requestListeners = new Set();
-let activeMutationRequests = 0;
+let activeLoadingRequests = 0;
 
 export function subscribeToApiLoading(listener) {
   requestListeners.add(listener);
   return () => requestListeners.delete(listener);
 }
 
-function notifyLoadingChange(isError = false) {
+function notifyLoadingChange(isError = false, isWriteOperation = false) {
   requestListeners.forEach(fn => {
     try {
-      fn(activeMutationRequests > 0, activeMutationRequests, isError);
+      fn(activeLoadingRequests > 0, activeLoadingRequests, isError, isWriteOperation);
     } catch (_) {}
   });
 }
 
-// A stalled network request must never leave a Reception control permanently busy.
-// Callers can still supply their own signal; it is combined with the request timeout.
-export async function api(path, { token, signal, timeout = 15000, showLoading, ...options } = {}) {
+// A stalled network request must never leave a control permanently busy.
+// Mutating HTTP methods (POST, PUT, PATCH, DELETE) write to backend DB and trigger Option 1 (Processing -> Green Success Check).
+// Read operations (GET) or transient frontend calls trigger Option 2 (Processing -> Hide, NO Green Success Check).
+export async function api(path, { token, signal, timeout = 15000, showLoading, isWrite, ...options } = {}) {
   const method = (options.method || 'GET').toUpperCase();
-  // Mutating HTTP methods (POST, PUT, PATCH, DELETE) automatically trigger the global LIMS loading overlay.
-  // Standard GET requests do NOT trigger the full-screen overlay unless explicitly requested via showLoading: true.
-  const shouldTriggerLoading = showLoading !== undefined ? Boolean(showLoading) : method !== 'GET';
+  const isWriteOperation = isWrite !== undefined ? Boolean(isWrite) : (method !== 'GET');
+  const shouldTriggerLoading = showLoading !== undefined ? Boolean(showLoading) : isWriteOperation;
 
   const timeoutController = new AbortController();
   const timer = setTimeout(() => {
@@ -33,8 +33,8 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, .
     : timeoutController.signal;
 
   if (shouldTriggerLoading) {
-    activeMutationRequests++;
-    notifyLoadingChange(false);
+    activeLoadingRequests++;
+    notifyLoadingChange(false, isWriteOperation);
   }
 
   let isCurrentError = false;
@@ -62,8 +62,9 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, .
   } finally {
     clearTimeout(timer);
     if (shouldTriggerLoading) {
-      activeMutationRequests = Math.max(0, activeMutationRequests - 1);
-      notifyLoadingChange(isCurrentError);
+      activeLoadingRequests = Math.max(0, activeLoadingRequests - 1);
+      notifyLoadingChange(isCurrentError, isWriteOperation);
     }
   }
 }
+

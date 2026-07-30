@@ -22,7 +22,7 @@ export function LoadingProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    return subscribeToApiLoading((isApiLoading, activeCount, isError) => {
+    return subscribeToApiLoading((isApiLoading, activeCount, isError, isWriteOperation) => {
       clearTimer();
       if (isApiLoading) {
         setStatus('loading');
@@ -32,14 +32,17 @@ export function LoadingProvider({ children }) {
         if (isError) {
           // On error, immediately dismiss overlay so existing toast handles it
           setStatus('idle');
-        } else {
-          // On success, show green checkmark transition for 1.25s
+        } else if (isWriteOperation) {
+          // Option 1: On successful backend DB write, show green checkmark transition for 1.25s
           setStatus('success');
           setMessage('Completed Successfully');
-          setSubtitle('Your request has been processed successfully.');
+          setSubtitle('Your request has been saved and processed successfully.');
           dismissTimerRef.current = setTimeout(() => {
             setStatus('idle');
           }, 1250);
+        } else {
+          // Option 2: Read-only / Frontend loading completes without showing Green Checkmark
+          setStatus('idle');
         }
       }
     });
