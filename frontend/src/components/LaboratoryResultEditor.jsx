@@ -185,12 +185,12 @@ export default function LaboratoryResultEditor({
     <div className="lims-result-entry-system" style={{ marginTop: '16px' }}>
       
       {/* RESULT ENTRY MODE TOGGLE BAR */}
-      <div className="mode-toggle-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: '#ffffff', padding: '12px 18px', borderRadius: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+      <div className="mode-toggle-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: 'var(--card-bg, #ffffff)', padding: '12px 18px', borderRadius: '14px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--card-border, #e2e8f0)', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>Result Entry Mode:</strong>
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>({selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} active)</span>
+          <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary, #0f172a)' }}>Result Entry Mode:</strong>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>({selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} active)</span>
         </div>
-        <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px', background: 'var(--color-surface-dim, #f1f5f9)', padding: '4px', borderRadius: '10px' }}>
           <button
             type="button"
             className={entryMode === 'result' ? 'primary' : 'secondary'}
@@ -342,7 +342,7 @@ export default function LaboratoryResultEditor({
                 );
               })
             ) : (
-              <p className="empty" style={{ padding: '20px', textAlign: 'center', background: '#f8fafc', borderRadius: '8px' }}>
+              <p className="empty" style={{ padding: '20px', textAlign: 'center', background: 'var(--color-surface-dim, #f8fafc)', borderRadius: '8px', color: 'var(--text-muted, #64748b)' }}>
                 Select an equipment analyzer above or click "＋ Add Parameter" to begin result entry.
               </p>
             )}
@@ -356,7 +356,7 @@ export default function LaboratoryResultEditor({
           
           {/* 10 DECORATED MAIN CATEGORY SELECTION CARDS */}
           <div style={{ marginBottom: '10px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted, #64748b)', letterSpacing: '0.05em' }}>
               🧪 SELECT INVESTIGATION CATEGORIES ({selectedCategories.length} SELECTED)
             </span>
           </div>
@@ -414,8 +414,8 @@ export default function LaboratoryResultEditor({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
                       <div>
-                        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{catName}</h3>
-                        <small style={{ opacity: 0.85, fontSize: '0.78rem' }}>{rawParams.length} parameters in this investigation category</small>
+                        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>{catName}</h3>
+                        <small style={{ opacity: 0.9, fontSize: '0.78rem', color: '#ffffff' }}>{rawParams.length} parameters in this investigation category</small>
                       </div>
                     </div>
 
@@ -451,10 +451,10 @@ export default function LaboratoryResultEditor({
                   </div>
 
                   {/* Parameter Table */}
-                  <div style={{ overflowX: 'auto', padding: '16px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                  <div className="lims-table-container" style={{ overflowX: 'auto', padding: '16px' }}>
+                    <table className="lims-param-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                       <thead>
-                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                        <tr className="lims-param-thead-tr">
                           <th style={{ padding: '10px 12px', fontWeight: 700 }}>Parameter / Test</th>
                           <th style={{ padding: '10px 12px', fontWeight: 700, width: '160px' }}>Result</th>
                           <th style={{ padding: '10px 12px', fontWeight: 700, width: '110px' }}>SI Unit</th>
@@ -471,13 +471,13 @@ export default function LaboratoryResultEditor({
                           const currentIndex = inputCounter++;
 
                           return (
-                            <tr key={pName} style={{ borderBottom: '1px solid #f1f5f9', background: isOrdered ? '#f0f9ff' : 'transparent' }}>
+                            <tr key={pName} className={`lims-param-row ${isOrdered ? 'is-ordered' : ''}`}>
                               
                               {/* Parameter Name */}
                               <td style={{ padding: '10px 12px' }}>
-                                <strong style={{ color: isOrdered ? '#0369a1' : '#0f172a', display: 'block' }}>
+                                <strong className="param-title">
                                   {pName}
-                                  {isOrdered && <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: '#bae6fd', color: '#0369a1', padding: '1px 6px', borderRadius: '4px' }}>Requested</span>}
+                                  {isOrdered && <span className="param-req-badge">Requested</span>}
                                 </strong>
                               </td>
 
@@ -486,11 +486,14 @@ export default function LaboratoryResultEditor({
                                 <input
                                   ref={el => (inputsRef.current[currentIndex] = el)}
                                   type="text"
+                                  className="lims-result-input"
                                   value={rowData.result}
                                   placeholder="Enter result"
                                   onKeyDown={e => handleKeyDown(e, currentIndex)}
                                   onChange={e => handleResultChange(pName, 'result', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                  style={{ width: '100%', padding: '6px 10px', fontSize: '0.88rem', fontWeight: 700, borderRadius: '6px', border: rowData.flag === 'H' ? '2px solid #ef4444' : rowData.flag === 'L' ? '2px solid #eab308' : '1px solid #cbd5e1', outline: 'none' }}
+                                  style={{
+                                    border: rowData.flag === 'H' ? '2px solid #ef4444' : rowData.flag === 'L' ? '2px solid #eab308' : undefined
+                                  }}
                                 />
                               </td>
 
@@ -498,10 +501,10 @@ export default function LaboratoryResultEditor({
                               <td style={{ padding: '6px 12px' }}>
                                 <input
                                   type="text"
+                                  className="lims-unit-input"
                                   value={rowData.unit}
                                   placeholder={paramObj.unit || '—'}
                                   onChange={e => handleResultChange(pName, 'unit', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569' }}
                                 />
                               </td>
 
@@ -509,10 +512,10 @@ export default function LaboratoryResultEditor({
                               <td style={{ padding: '6px 12px' }}>
                                 <input
                                   type="text"
+                                  className="lims-ref-input"
                                   value={rowData.referenceValue}
                                   placeholder={paramObj.referenceValue || '—'}
                                   onChange={e => handleResultChange(pName, 'referenceValue', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569' }}
                                 />
                               </td>
 
@@ -525,10 +528,10 @@ export default function LaboratoryResultEditor({
                               <td style={{ padding: '6px 12px' }}>
                                 <input
                                   type="text"
+                                  className="lims-remarks-input"
                                   value={rowData.remarks}
                                   placeholder="Remarks..."
                                   onChange={e => handleResultChange(pName, 'remarks', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                  style={{ width: '100%', padding: '6px 8px', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#475569' }}
                                 />
                               </td>
 
@@ -543,10 +546,10 @@ export default function LaboratoryResultEditor({
               );
             })
           ) : (
-            <div style={{ padding: '32px', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px dashed #cbd5e1', marginBottom: '24px' }}>
+            <div className="lims-no-cat-selected">
               <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px' }}>🧪</span>
-              <h4 style={{ margin: '0 0 4px', color: '#0f172a' }}>No Investigation Categories Selected</h4>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.88rem' }}>Click on one or more category cards above to select investigations and open result sheets.</p>
+              <h4>No Investigation Categories Selected</h4>
+              <p>Click on one or more category cards above to select investigations and open result sheets.</p>
             </div>
           )}
 
@@ -554,15 +557,14 @@ export default function LaboratoryResultEditor({
       )}
 
       {/* Technician Comments */}
-      <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '14px', padding: '16px', border: '1px solid #e2e8f0' }}>
-        <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', marginBottom: '6px' }}>
+      <div className="lims-comments-box">
+        <label>
           Collector / Technologist Comments
         </label>
         <textarea
           value={reportData.comments || ''}
           placeholder="Add clinical observations, specimen conditions, or technologist notes..."
           onChange={e => onChange({ ...reportData, comments: e.target.value })}
-          style={{ width: '100%', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.88rem', minHeight: '80px' }}
         />
       </div>
 
