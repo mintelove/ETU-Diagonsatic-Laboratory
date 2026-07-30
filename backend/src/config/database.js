@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Category from '../models/Category.js';
 import SampleType from '../models/SampleType.js';
+import LabReport from '../models/LabReport.js';
+import LaboratorySettings from '../models/LaboratorySettings.js';
 
 const MAX_CONNECTION_ATTEMPTS = Math.max(1, Number(process.env.MONGODB_CONNECT_RETRIES || 3));
 const RETRY_DELAY_MS = Math.max(0, Number(process.env.MONGODB_CONNECT_RETRY_DELAY_MS || 3000));
@@ -163,6 +165,32 @@ export async function connectDatabase() {
     }
   } catch (error) {
     console.error('Error seeding default sample types:', error.message);
+  }
+
+  // Automatic token backfill migration for existing approved reports
+  try {
+    const labSettings = await LaboratorySettings.findOne({ key: 'default' }).lean();
+    const expiryDays = labSettings?.publicReportSharing?.defaultExpiryDays || 30;
+
+    const existingApproved = await LabReport.find({
+      status: { $in: ['Approved', 'Ready for Printing'] },
+      $or: [
+        { 'publicReport.token': { $exists: false } },
+        { 'publicReport.token': null },
+        { 'publicReport.token': '' }
+      ]
+    });
+
+    if (existingApproved.length > 0) {
+      console.log(`Found ${existingApproved.length} approved report(s) without public share token. Migrating...`);
+      for (const report of existingApproved) {
+        report.generatePublicToken(expiryDays);
+        await report.save();
+      }
+      console.log(`Successfully generated public sharing tokens for ${existingApproved.length} existing approved report(s).`);
+    }
+  } catch (error) {
+    console.error('Error during public sharing token migration for existing approved reports:', error.message);
   }
 }
 

@@ -61,6 +61,7 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
         const current = map.get(key) || {
           item: itemObj._id,
           itemName: itemObj.itemName,
+          unit: itemObj.unit || '',
           testName: tName,
           currentQuantity: itemObj.remainingQuantity ?? (itemObj.currentQuantity - itemObj.usedQuantity),
           requiredQuantity: 0,
@@ -77,6 +78,7 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
         map.set(String(s._id), {
           item: s._id,
           itemName: s.itemName,
+          unit: s.unit || '',
           testName: singleTestName,
           currentQuantity: s.remainingQuantity ?? (s.currentQuantity - s.usedQuantity),
           requiredQuantity: 0,
@@ -167,7 +169,10 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
                     const rowKey = `${d.item}_${d.testName}`;
                     return (
                       <tr key={rowKey}>
-                        <td style={{ fontWeight: 600 }}>{d.itemName}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          {d.itemName}
+                          {d.unit && <small style={{ display: 'inline-block', marginLeft: '5px', color: 'var(--color-on-surface-variant)', fontWeight: 400 }}>({d.unit})</small>}
+                        </td>
                         <td style={{ textAlign: 'right' }}>{d.currentQuantity}</td>
                         <td style={{ textAlign: 'right' }}>{d.requiredQuantity}</td>
                         <td style={{ textAlign: 'right' }}>
@@ -371,6 +376,8 @@ export default function ReceptionPage() {
   const [counsellingReason, setCounsellingReason] = useState('');
   const [counsellingReasonError, setCounsellingReasonError] = useState('');
   const [counsellingNotes, setCounsellingNotes] = useState('');
+  const [waitingPaymentList, setWaitingPaymentList] = useState([]);
+  const [selectedWaitingPaymentPatient, setSelectedWaitingPaymentPatient] = useState(null);
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState('Cash');
@@ -378,6 +385,7 @@ export default function ReceptionPage() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
   const [manualStockPatient, setManualStockPatient] = useState(null);
+  const [pendingManualStockPatient, setPendingManualStockPatient] = useState(null);
   const [stockItems, setStockItems] = useState([]);
 
   // Patient Registration Form State
@@ -411,41 +419,31 @@ export default function ReceptionPage() {
     }
   }, [token]);
 
+  const loadWaitingPayment = useCallback(async () => {
+    try {
+      const data = await api('/reception/waiting-payment', { token });
+      setWaitingPaymentList(data.patients || []);
+    } catch (_) { /* silent */ }
+  }, [token]);
+
   useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
+    loadWaitingPayment();
     return () => controller.abort();
-  }, [loadData]);
+  }, [loadData, loadWaitingPayment]);
+  // Real-time sync — refresh dashboard data on changes
+
   // Real-time sync — refresh dashboard data on changes
   useEffect(() => {
-    const refresh = () => loadData();
+    const refresh = () => { loadData(); loadWaitingPayment(); };
     subscribe('reception:change', refresh);
     subscribe('reports:change', refresh);
     return () => {
       unsubscribe('reception:change', refresh);
       unsubscribe('reports:change', refresh);
     };
-  }, [subscribe, unsubscribe, loadData]);
-
-  // Load counselling history when active
-  useEffect(() => {
-    if (view === 'counselling') {
-      const controller = new AbortController();
-      api('/reception/counselling?limit=50', { token, signal: controller.signal })
-        .then(x => setCounselling(x.records))
-        .catch(error => { if (error.name !== 'AbortError') setToast({ message: 'Unable to load counselling history.', type: 'error' }); });
-      return () => controller.abort();
-    }
-  }, [view, token]);
-
-  useEffect(() => {
-    if (view !== 'reports') return;
-    const controller = new AbortController();
-    api('/reception/reports?limit=30', { token, signal: controller.signal })
-      .then(x => setReports(x.reports))
-      .catch(error => { if (error.name !== 'AbortError') setToast({ message: 'Unable to load approved reports.', type: 'error' }); });
-    return () => controller.abort();
-  }, [view, token]);
+  }, [subscribe, unsubscribe, loadData, loadWaitingPayment]);
 
   // Live patient search
   useEffect(() => {
@@ -487,32 +485,88 @@ export default function ReceptionPage() {
     );
   };
 
-  // Step 2 -> 3: Validate payment, then continue to patient registration.
-  const handleConfirmPayment = () => {
-    if (counsellingOnly) {
-      setWizardStep(3); // Skip payment for counselling
+  const handleProceedToTestSelection = (e) => {
+    if (e) e.preventDefault();
+    if (!patientName.trim() || !patientAge || !patientSex || !patientPhone.trim()) {
+      setToast({ message: 'Please fill in all required patient details.', type: 'error' });
       return;
     }
-    if (selectedSampleIds.length === 0) {
-      setToast({ message: 'Please select at least one sample type.', type: 'error' });
+    if (registrationType === 'Referral' && !referralHospital) {
+      setToast({ message: 'Please select a referral hospital.', type: 'error' });
       return;
     }
-    if (Number(amountReceived) !== billTotal) {
-      setToast({ message: 'Amount received must exactly equal the grand total.', type: 'error' });
+    if (registrationType === 'Referral' && referralHospital === 'Other' && !otherHospital.trim()) {
+      setToast({ message: 'Please specify the referral hospital name.', type: 'error' });
+      return;
+    }
+    setWizardStep(2);
+  };
+
+  const handleProceedToPayment = () => {
+    if (!counsellingOnly && selectedSampleIds.length === 0) {
+      setToast({ message: 'Please select at least one laboratory test.', type: 'error' });
+      return;
+    }
+    setWizardStep(3);
+  };
+
+  const handleSelfAwareSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (submittingRef.current) return;
+    if (!patientName.trim() || !patientAge || !patientSex || !patientPhone.trim()) {
+      setToast({ message: 'Please fill in all required patient details.', type: 'error' });
       return;
     }
 
-    setPaymentConfirmed(true);
-    setToast({ message: 'Payment confirmed. Continue to patient registration.', type: 'success' });
-    setWizardStep(3);
+    submittingRef.current = true;
+    setBusy(true);
+    try {
+      const payload = {
+        name: patientName.trim(),
+        age: Number(patientAge),
+        sex: patientSex,
+        phone: patientPhone.trim(),
+        address: patientAddress.trim(),
+        registrationType: 'Self Aware',
+        referralHospital: '',
+        laboratoryTests: [],
+        patientCategory: 'Regular Patient',
+        paymentMethod: 'Cash',
+        serviceType: 'Laboratory Test'
+      };
+
+      await api('/reception/patients', {
+        token,
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setToast({
+        message: 'Self-Aware Patient Registered & Sent to Sample Collector Queue',
+        type: 'success'
+      });
+
+      resetForm();
+      loadData();
+      setView('dashboard');
+    } catch (err) {
+      setToast({ message: err.message || 'Failed to complete registration.', type: 'error' });
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
+    }
   };
 
   // Step 3: Complete Patient Registration and API Submit
   const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (submittingRef.current) return;
     if (!patientName.trim() || !patientAge || !patientSex || !patientPhone.trim()) {
       setToast({ message: 'Please fill in all required patient details.', type: 'error' });
+      return;
+    }
+    if (!counsellingOnly && Number(amountReceived) !== billTotal) {
+      setToast({ message: 'Amount received must exactly equal the grand total.', type: 'error' });
       return;
     }
 
@@ -543,31 +597,47 @@ export default function ReceptionPage() {
         body: JSON.stringify(payload),
       });
 
+      const successMsg = counsellingOnly
+        ? 'Counselling Registered Successfully'
+        : 'Patient Registered & Sent to Sample Collector Queue';
 
-      setToast({
-        message: counsellingOnly
-          ? 'Counselling Registered Successfully'
-          : 'Patient Registered & Sent to Sample Collector Queue',
-        type: 'success'
-      });
-
-      // Show receipt popup with final generated patient record
-      if (!counsellingOnly) {
-        setReceiptData(result.patient);
-        if (testSettings.stockManagementMode === 'Manual') {
-          setManualStockPatient(result.patient);
-        }
-      }
-
-      // Reset state & load dashboard
-      resetForm();
-      loadData();
-      setView('dashboard');
+      handlePostPayment(result.patient, successMsg, counsellingOnly);
     } catch (err) {
       setToast({ message: err.message || 'Failed to complete registration.', type: 'error' });
     } finally {
       submittingRef.current = false;
       setBusy(false);
+    }
+  };
+
+  const handlePostPayment = (patientRecord, successMessage, isCounselling = false) => {
+    setToast({
+      message: successMessage || `Payment completed for ${patientRecord.name}. Sent to Sample Collector Queue.`,
+      type: 'success'
+    });
+
+    if (!isCounselling) {
+      // Step 1: Open POS80 Thermal Receipt Modal immediately after payment
+      setReceiptData(patientRecord);
+
+      // Step 2: Queue Manual Stock Patient (will trigger AFTER receipt modal is closed)
+      if (testSettings.stockManagementMode === 'Manual') {
+        setPendingManualStockPatient(patientRecord);
+      }
+    }
+
+    setSelectedWaitingPaymentPatient(null);
+    resetForm();
+    loadData();
+    loadWaitingPayment();
+    setView('dashboard');
+  };
+
+  const handleCloseReceipt = () => {
+    setReceiptData(null);
+    if (pendingManualStockPatient) {
+      setManualStockPatient(pendingManualStockPatient);
+      setPendingManualStockPatient(null);
     }
   };
 
@@ -589,6 +659,47 @@ export default function ReceptionPage() {
     setReferralHospital('');
     setOtherHospital('');
     setPatientAddress('');
+    setSelectedWaitingPaymentPatient(null);
+  };
+
+  const handleOpenWaitingPayment = (patient) => {
+    setSelectedWaitingPaymentPatient(patient);
+    setPatientName(patient.name);
+    setPatientAge(patient.age);
+    setPatientSex(patient.sex);
+    setPatientPhone(patient.phone);
+    setRegistrationType('Self Aware');
+    setSelectedSampleIds((patient.laboratoryTests || []).map(t => String(t._id || t)));
+    setAmountReceived(String(patient.grandTotal || ''));
+    setWizardStep(3);
+    setView('register');
+  };
+
+  const handleCompleteWaitingPayment = async (e) => {
+    if (e) e.preventDefault();
+    if (submittingRef.current || !selectedWaitingPaymentPatient) return;
+    if (Number(amountReceived) !== billTotal) {
+      setToast({ message: 'Amount received must exactly equal the grand total.', type: 'error' });
+      return;
+    }
+
+    submittingRef.current = true;
+    setBusy(true);
+    try {
+      const result = await api(`/reception/patients/${selectedWaitingPaymentPatient._id}/complete-payment`, {
+        token,
+        method: 'POST',
+        body: JSON.stringify({ paymentMethod }),
+      });
+
+      const successMsg = `Payment completed for ${selectedWaitingPaymentPatient.name}. Returned to Sample Collector Queue.`;
+      handlePostPayment(result.patient, successMsg, false);
+    } catch (err) {
+      setToast({ message: err.message || 'Failed to complete payment.', type: 'error' });
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
+    }
   };
 
   const handlePrintReceiptAgain = (patient) => {
@@ -654,10 +765,11 @@ export default function ReceptionPage() {
       <div className="reception-tabs no-print" style={{ marginBottom: 'var(--space-6)' }}>
         {[['dashboard', '🏠 Dashboard'],
           ['register', '＋ Register Patient (POS)'],
+          ['waiting-payment', `💳 Waiting for Payment ${waitingPaymentList.length ? `(${waitingPaymentList.length})` : ''}`],
           ['patients', '🧑‍⚕️ Patient Search'],
           ['reports', '📝 Approved Reports'],
           ['counselling', '🗂️ Counselling History']].map(([id, label]) => (
-            <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
+            <button key={id} className={view === id ? 'active' : ''} onClick={() => { if (id !== 'register') setSelectedWaitingPaymentPatient(null); setView(id); }}>
               {label}
             </button>
           ))}
@@ -753,174 +865,18 @@ export default function ReceptionPage() {
         <div className="registration-wizard">
           <div>
             
-            {/* STEP 1: LABORATORY TEST TYPE SELECTION */}
+            {/* STEP 1: PATIENT REGISTRATION */}
             {wizardStep === 1 && (
               <div className="wizard-step-panel">
-                <h2>Step 1 — Laboratory Test Type Selection</h2>
-                <>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-on-surface-variant)', marginBottom: 'var(--space-3)' }}>
-                      Select requested laboratory tests. Specimens are assigned automatically and remain hidden at Reception.
-                    </p>
-                    <div className="lab-reception-tools">
-                      <label className="lab-reception-search"><span aria-hidden="true">⌕</span><input value={testSearch} onChange={e => setTestSearch(e.target.value)} placeholder="Search test name, category or keyword" aria-label="Search laboratory tests" /></label>
-                      <div className="lab-reception-filters" role="toolbar" aria-label="Laboratory test filters">{['All','Popular','Recently Added','Referral','Active','Selected'].map(item => <button key={item} type="button" className={testFilter === item ? 'active' : ''} onClick={() => setTestFilter(item)}>{item}</button>)}</div>
-                    </div>
-                    <div className="laboratory-test-selector">
-                      {visibleTestCategories.map(category => {
-                        const expanded = expandedCategories.includes(category._id);
-                        const selectedCount = (category.tests || []).filter(t => selectedSampleIds.includes(t._id)).length;
-                        const catIcon = categoryIcons[category.name] || '🧪';
-
-                        return (
-                          <section key={category._id} className={`laboratory-category-card ${expanded ? 'expanded' : ''}`}>
-                            <button
-                              type="button"
-                              className="laboratory-category-header"
-                              aria-expanded={expanded}
-                              onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}
-                            >
-                              <span className="lab-reception-category-icon">{catIcon}</span>
-                              <span className="lab-reception-category-copy">
-                                <small>Laboratory Category</small>
-                                <strong>{category.name}</strong>
-                                <em>
-                                  {category.tests.length} test{category.tests.length === 1 ? '' : 's'} available
-                                  {selectedCount > 0 && <b style={{ marginLeft: '6px', color: 'var(--color-primary)', fontWeight: 700 }}>({selectedCount} selected)</b>}
-                                </em>
-                              </span>
-                              <span className="lab-category-toggle">
-                                {expanded ? '▲' : '▼'}
-                                <small>{expanded ? 'Collapse' : 'Expand'}</small>
-                              </span>
-                            </button>
-
-                            {expanded && (
-                              <div className="laboratory-category-content">
-                                {(category.tests || []).map(test => {
-                                  const isSelected = selectedSampleIds.includes(test._id);
-                                  return (
-                                    <label key={test._id} className={`laboratory-test-option ${isSelected ? 'selected' : ''}`}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => handleToggleSample(test._id)}
-                                      />
-                                      <div className="lab-test-option-copy">
-                                        <strong>{test.name}</strong>
-                                        {test.description && <small>{test.description}</small>}
-                                      </div>
-                                      <strong className="lab-test-option-price">{KES_TO_ETB(test.price)}</strong>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </section>
-                        );
-                      })}
-                    </div>
-                    {false && <div className="sample-selection-grid">
-                      {samples.map((s) => (
-                        <div
-                          key={s._id}
-                          className={`sample-selection-card ${selectedSampleIds.includes(s._id) ? 'selected' : ''}`}
-                          onClick={() => handleToggleSample(s._id)}
-                        >
-                          <div className="card-header">
-                            <span style={{ fontSize: '1.2rem' }}>🧪</span>
-                            <input
-                              type="checkbox"
-                              checked={selectedSampleIds.includes(s._id)}
-                              onChange={() => {}} // click handled by card container
-                            />
-                          </div>
-                          <span className="sample-name">{s.name}</span>
-                          {s.description && <small className="sample-description">{s.description}</small>}
-                          <span className="sample-price">{KES_TO_ETB(s.price)}</span>
-                        </div>
-                      ))}
-                    </div>}
-                </>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
-                  <button
-                    className="primary-button"
-                    onClick={() => {
-                      setWizardStep(counsellingOnly ? 3 : 2);
-                    }}
-                  >
-                    {counsellingOnly ? 'Save Counselling Record →' : 'Proceed to Payment →'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 2: RECEIVE PAYMENT */}
-            {wizardStep === 2 && (
-              <div className="wizard-step-panel">
-                <h2>Step 2 — Receive Payment</h2>
-                
-                <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
-                  <label>Service &amp; Discount Type</label>
-                  <select value={serviceDiscountType} onChange={e => { const next = e.target.value; setServiceDiscountType(next); setCounsellingOnly(next === 'Counseling Only'); setAmountReceived(''); }}>
-                    <option>Regular Patient</option><option>Staff Member</option><option>Collaborator</option><option>Counseling Only</option>
-                  </select>
-                  <small>{serviceDiscountType === 'Counseling Only' ? `Counseling fee: ${KES_TO_ETB(billTotal)}` : discountPercent ? `${discountPercent}% discount applied: ${KES_TO_ETB(discountAmount)}` : 'Standard laboratory service pricing.'}</small>
-                </div>
-                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                  <div className="form-group">
-                    <label>Payment Method</label>
-                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                      <option value="Cash">Cash</option>
-                      <option value="Card">Card</option>
-                      <option value="Mobile Payment">Mobile Payment</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Amount Received (ETB)</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 2000"
-                      value={amountReceived}
-                      onChange={e => setAmountReceived(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--color-surface-container)', padding: 'var(--space-3)', borderRadius: '8px', marginTop: 'var(--space-4)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '4px' }}>
-                    <span>Amount Due:</span>
-                    <strong>{KES_TO_ETB(billTotal)}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
-                    <span>Change Balance:</span>
-                    <strong>{KES_TO_ETB(balanceDue)}</strong>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-5)' }}>
-                  <button className="secondary-button" onClick={() => setWizardStep(1)}>
-                    ← Back to Samples
-                  </button>
-                  <button className="primary-button" onClick={handleConfirmPayment}>
-                    Confirm Payment
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 3: PATIENT DETAILS REGISTRATION */}
-            {wizardStep === 3 && (
-              <div className="wizard-step-panel">
-                <h2>Step 3 — Patient Details</h2>
-                <form onSubmit={handleRegisterSubmit}>
+                <h2>Step 1 — Patient Registration</h2>
+                <form onSubmit={registrationType === 'Self Aware' ? handleSelfAwareSubmit : handleProceedToTestSelection}>
                   <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                     <div className="form-group">
                       <label>Patient Type</label>
                       <select value={registrationType} onChange={e => setRegistrationType(e.target.value)}>
                         <option value="Self">Self</option>
                         <option value="Referral">Referral</option>
+                        <option value="Self Aware">Self Aware</option>
                       </select>
                     </div>
 
@@ -1002,15 +958,164 @@ export default function ReceptionPage() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-5)' }}>
-                    <button type="button" className="secondary-button" onClick={() => counsellingOnly ? setWizardStep(1) : setWizardStep(2)}>
-                      ← Back
-                    </button>
-                    <button type="submit" disabled={busy} className="primary-button">
-                      {busy ? 'Saving patient...' : 'Complete Patient Registration'}
-                    </button>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
+                    {registrationType === 'Self Aware' ? (
+                      <button type="submit" disabled={busy} className="primary-button">
+                        {busy ? 'Registering...' : 'Register & Send to Sample Collector →'}
+                      </button>
+                    ) : (
+                      <button type="submit" className="primary-button">
+                        Continue to Step 2 — Laboratory Test Type Selection →
+                      </button>
+                    )}
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* STEP 2: LABORATORY TEST TYPE SELECTION */}
+            {wizardStep === 2 && (
+              <div className="wizard-step-panel">
+                <h2>Step 2 — Laboratory Test Type Selection</h2>
+                <>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-on-surface-variant)', marginBottom: 'var(--space-3)' }}>
+                      Select requested laboratory tests. Specimens are assigned automatically and remain hidden at Reception.
+                    </p>
+                    <div className="lab-reception-tools">
+                      <label className="lab-reception-search"><span aria-hidden="true">⌕</span><input value={testSearch} onChange={e => setTestSearch(e.target.value)} placeholder="Search test name, category or keyword" aria-label="Search laboratory tests" /></label>
+                      <div className="lab-reception-filters" role="toolbar" aria-label="Laboratory test filters">{['All','Popular','Recently Added','Referral','Active','Selected'].map(item => <button key={item} type="button" className={testFilter === item ? 'active' : ''} onClick={() => setTestFilter(item)}>{item}</button>)}</div>
+                    </div>
+                    <div className="laboratory-test-selector">
+                      {visibleTestCategories.map(category => {
+                        const expanded = expandedCategories.includes(category._id);
+                        const selectedCount = (category.tests || []).filter(t => selectedSampleIds.includes(t._id)).length;
+                        const catIcon = categoryIcons[category.name] || '🧪';
+
+                        return (
+                          <section key={category._id} className={`laboratory-category-card ${expanded ? 'expanded' : ''}`}>
+                            <button
+                              type="button"
+                              className="laboratory-category-header"
+                              aria-expanded={expanded}
+                              onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}
+                            >
+                              <span className="lab-reception-category-icon">{catIcon}</span>
+                              <span className="lab-reception-category-copy">
+                                <small>Laboratory Category</small>
+                                <strong>{category.name}</strong>
+                                <em>
+                                  {category.tests.length} test{category.tests.length === 1 ? '' : 's'} available
+                                  {selectedCount > 0 && <b style={{ marginLeft: '6px', color: 'var(--color-primary)', fontWeight: 700 }}>({selectedCount} selected)</b>}
+                                </em>
+                              </span>
+                              <span className="lab-category-toggle">
+                                {expanded ? '▲' : '▼'}
+                                <small>{expanded ? 'Collapse' : 'Expand'}</small>
+                              </span>
+                            </button>
+
+                            {expanded && (
+                              <div className="laboratory-category-content">
+                                {(category.tests || []).map(test => {
+                                  const isSelected = selectedSampleIds.includes(test._id);
+                                  return (
+                                    <label key={test._id} className={`laboratory-test-option ${isSelected ? 'selected' : ''}`}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => handleToggleSample(test._id)}
+                                      />
+                                      <div className="lab-test-option-copy">
+                                        <strong>{test.name}</strong>
+                                        {test.description && <small>{test.description}</small>}
+                                      </div>
+                                      <strong className="lab-test-option-price">{KES_TO_ETB(test.price)}</strong>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </section>
+                        );
+                      })}
+                    </div>
+                </>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-4)' }}>
+                  <button
+                    className="secondary-button"
+                    onClick={() => setWizardStep(1)}
+                  >
+                    ← Back to Step 1 — Patient Registration
+                  </button>
+                  <button
+                    className="primary-button"
+                    onClick={handleProceedToPayment}
+                  >
+                    Proceed to Step 3 — Payment →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: PAYMENT */}
+            {wizardStep === 3 && (
+              <div className="wizard-step-panel">
+                <h2>Step 3 — Payment</h2>
+                
+                <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
+                  <label>Service &amp; Discount Type</label>
+                  <select value={serviceDiscountType} onChange={e => { const next = e.target.value; setServiceDiscountType(next); setCounsellingOnly(next === 'Counseling Only'); setAmountReceived(''); }}>
+                    <option>Regular Patient</option><option>Staff Member</option><option>Collaborator</option><option>Counseling Only</option>
+                  </select>
+                  <small>{serviceDiscountType === 'Counseling Only' ? `Counseling fee: ${KES_TO_ETB(billTotal)}` : discountPercent ? `${discountPercent}% discount applied: ${KES_TO_ETB(discountAmount)}` : 'Standard laboratory service pricing.'}</small>
+                </div>
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                  <div className="form-group">
+                    <label>Payment Method</label>
+                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="Mobile Payment">Mobile Payment</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Amount Received (ETB)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 2000"
+                      value={amountReceived}
+                      onChange={e => setAmountReceived(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--color-surface-container)', padding: 'var(--space-3)', borderRadius: '8px', marginTop: 'var(--space-4)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '4px' }}>
+                    <span>Amount Due:</span>
+                    <strong>{KES_TO_ETB(billTotal)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
+                    <span>Change Balance:</span>
+                    <strong>{KES_TO_ETB(balanceDue)}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-5)' }}>
+                  <button className="secondary-button" onClick={() => selectedWaitingPaymentPatient ? setView('waiting-payment') : setWizardStep(2)}>
+                    {selectedWaitingPaymentPatient ? '← Back to Waiting Payment' : '← Back to Step 2 — Test Type Selection'}
+                  </button>
+                  {selectedWaitingPaymentPatient ? (
+                    <button className="primary-button" onClick={handleCompleteWaitingPayment} disabled={busy}>
+                      {busy ? 'Processing...' : 'Complete Payment →'}
+                    </button>
+                  ) : (
+                    <button className="primary-button" onClick={handleRegisterSubmit} disabled={busy}>
+                      {busy ? 'Processing...' : 'Confirm Payment & Complete Registration'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1163,6 +1268,60 @@ export default function ReceptionPage() {
               </table>
             </div>
           ) : <p className="empty">No counselling cases registered.</p>}
+        </section>
+      )}
+
+      {/* ═══ WAITING FOR PAYMENT QUEUE VIEW ═══ */}
+      {view === 'waiting-payment' && (
+        <section className="table-card">
+          <div className="table-title">
+            <div>
+              <h2>Self-Aware Patients — Waiting for Payment</h2>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-on-surface-variant)' }}>
+                Laboratory Test Types assigned by Sample Collector during Investigation. Proceed directly to Payment.
+              </span>
+            </div>
+          </div>
+          {waitingPaymentList.length ? (
+            <div className="sample-types-table-wrapper">
+              <table className="sample-types-table">
+                <thead>
+                  <tr>
+                    <th>Patient Name</th>
+                    <th>Patient ID</th>
+                    <th>Phone</th>
+                    <th>Selected Tests</th>
+                    <th>Grand Total</th>
+                    <th>Branch</th>
+                    <th>Receptionist</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {waitingPaymentList.map(p => (
+                    <tr key={p._id}>
+                      <td><strong>{p.name}</strong></td>
+                      <td><code>{p.patientId}</code></td>
+                      <td>{p.phone}</td>
+                      <td>{(p.laboratoryTests || []).map(t => t.name).join(', ') || '—'}</td>
+                      <td><strong>{KES_TO_ETB(p.grandTotal)}</strong></td>
+                      <td><span className="pm-badge">📍 {p.branchName || 'Main'}</span></td>
+                      <td>{p.registeredBy?.fullName || '—'}</td>
+                      <td>
+                        <button
+                          className="primary-button"
+                          onClick={() => handleOpenWaitingPayment(p)}
+                          style={{ padding: '4px 12px', fontSize: 'var(--text-xs)' }}
+                        >
+                          💳 Proceed to Payment →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="empty">No Self-Aware patients waiting for payment.</p>}
         </section>
       )}
 
@@ -1421,7 +1580,7 @@ export default function ReceptionPage() {
             cashier: user.fullName
           }}
           token={token}
-          onClose={() => setReceiptData(null)}
+          onClose={handleCloseReceipt}
         />
       )}
 

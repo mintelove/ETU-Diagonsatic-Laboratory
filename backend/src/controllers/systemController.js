@@ -8,6 +8,7 @@ import Notification from '../models/Notification.js';
 import ActivityLog from '../models/ActivityLog.js';
 import StockItem from '../models/StockItem.js';
 import SystemSetting from '../models/SystemSetting.js';
+import LaboratorySettings from '../models/LaboratorySettings.js';
 import { AppError } from '../utils/appError.js';
 import { emit } from '../services/sseService.js';
 
@@ -83,4 +84,43 @@ export async function executeReset(req, res, next) {
     emit('system:change', { action: 'reset' });
     res.json({ message:'Database Reset Completed Successfully', results, total });
   } catch (error) { next(error); }
+}
+
+export async function getPublicSharingSettings(req, res, next) {
+  try {
+    const settings = await LaboratorySettings.findOne({ key: 'default' });
+    const prs = settings?.publicReportSharing || {
+      enabled: true,
+      autoGenerateOnApproval: true,
+      defaultExpiryDays: 30,
+      allowPdfDownload: true
+    };
+    res.json({ publicReportSharing: prs });
+  } catch (e) { next(e); }
+}
+
+export async function updatePublicSharingSettings(req, res, next) {
+  try {
+    const { enabled, autoGenerateOnApproval, defaultExpiryDays, allowPdfDownload } = req.body;
+    const update = {};
+    if (typeof enabled === 'boolean') update['publicReportSharing.enabled'] = enabled;
+    if (typeof autoGenerateOnApproval === 'boolean') update['publicReportSharing.autoGenerateOnApproval'] = autoGenerateOnApproval;
+    if (typeof defaultExpiryDays === 'number' && defaultExpiryDays >= 0 && defaultExpiryDays <= 365) update['publicReportSharing.defaultExpiryDays'] = defaultExpiryDays;
+    if (typeof allowPdfDownload === 'boolean') update['publicReportSharing.allowPdfDownload'] = allowPdfDownload;
+    if (!Object.keys(update).length) throw new AppError('No valid settings provided.', 422);
+    const settings = await LaboratorySettings.findOneAndUpdate(
+      { key: 'default' },
+      { $set: update },
+      { new: true, upsert: true }
+    );
+    await ActivityLog.create({
+      action: 'Updated public report sharing settings',
+      entityType: 'SystemSettings',
+      user: req.user.id,
+      role: req.user.role,
+      ipAddress: req.ip,
+      details: JSON.stringify(update)
+    });
+    res.json({ publicReportSharing: settings.publicReportSharing });
+  } catch (e) { next(e); }
 }

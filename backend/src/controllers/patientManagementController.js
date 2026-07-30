@@ -18,7 +18,7 @@ function patientFilter(query, user) {
   const filter = {};
   const q = String(query.q || '').trim();
   if (q) filter.$or = ['patientId', 'name', 'phone', 'barcode', 'referralHospital'].map(field => ({ [field]: { $regex: q, $options: 'i' } }));
-  if (query.patientType && ['Self', 'Referral'].includes(query.patientType)) filter.registrationType = query.patientType;
+  if (query.patientType && ['Self', 'Referral', 'Self Aware'].includes(query.patientType)) filter.registrationType = query.patientType;
   if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
   if (query.sampleType) filter.sampleTypes = query.sampleType;
   if (query.referralHospital) filter.referralHospital = query.referralHospital;

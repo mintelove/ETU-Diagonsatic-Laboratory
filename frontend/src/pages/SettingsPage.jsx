@@ -33,6 +33,12 @@ export default function SettingsPage() {
   const [result, setResult] = useState(null);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [publicSharing, setPublicSharing] = useState({
+    enabled: true,
+    autoGenerateOnApproval: true,
+    defaultExpiryDays: 30,
+    allowPdfDownload: true
+  });
 
   useEffect(() => {
     if (preferences.customTheme) {
@@ -44,7 +50,29 @@ export default function SettingsPage() {
         })
         .catch(() => {});
     }
+
+    if (token) {
+      api('/system/public-sharing', { token })
+        .then(res => {
+          if (res?.publicReportSharing) setPublicSharing(res.publicReportSharing);
+        })
+        .catch(() => {});
+    }
   }, [preferences, token]);
+
+  const savePublicSharing = async () => {
+    try {
+      const res = await api('/system/public-sharing', {
+        token,
+        method: 'PUT',
+        body: JSON.stringify(publicSharing)
+      });
+      if (res?.publicReportSharing) setPublicSharing(res.publicReportSharing);
+      setNotice('Public report sharing settings updated successfully.');
+    } catch (e) {
+      setNotice(e.message || 'Failed to update public sharing settings.');
+    }
+  };
 
   const toggle = key => setSelected(v => v.includes(key) ? v.filter(x => x !== key) : [...v, key]);
 
@@ -188,6 +216,61 @@ export default function SettingsPage() {
               ⚡ Automatic Combination
             </button>
             <button className="secondary" onClick={resetTheme}>Reset to Default</button>
+          </div>
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <h2>🌐 Public Report Sharing System</h2>
+        <p className="intro" style={{ marginBottom: '1rem' }}>Configure automated token generation, expiry policy, and patient PDF download capabilities for approved laboratory reports.</p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', cursor: 'pointer', background: 'var(--color-surface-container, #f8fafc)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+            <input
+              type="checkbox"
+              checked={publicSharing.enabled}
+              onChange={e => setPublicSharing(p => ({ ...p, enabled: e.target.checked }))}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <span><strong>Enable Public Sharing</strong><br/><small style={{ color: 'var(--text-secondary)' }}>Allow unauthenticated public link access to approved reports.</small></span>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', cursor: 'pointer', background: 'var(--color-surface-container, #f8fafc)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+            <input
+              type="checkbox"
+              checked={publicSharing.autoGenerateOnApproval}
+              onChange={e => setPublicSharing(p => ({ ...p, autoGenerateOnApproval: e.target.checked }))}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <span><strong>Auto-Generate on Approval</strong><br/><small style={{ color: 'var(--text-secondary)' }}>Automatically issue secure token when report is approved.</small></span>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', cursor: 'pointer', background: 'var(--color-surface-container, #f8fafc)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+            <input
+              type="checkbox"
+              checked={publicSharing.allowPdfDownload}
+              onChange={e => setPublicSharing(p => ({ ...p, allowPdfDownload: e.target.checked }))}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <span><strong>Allow PDF Download</strong><br/><small style={{ color: 'var(--text-secondary)' }}>Enable public viewers to download PDF copies.</small></span>
+          </label>
+        </div>
+
+        <div className="settings-fields" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label style={{ flex: 1, minWidth: '220px' }}>Default Expiry Duration (Days)
+            <input
+              type="number"
+              min="0"
+              max="365"
+              value={publicSharing.defaultExpiryDays}
+              onChange={e => setPublicSharing(p => ({ ...p, defaultExpiryDays: parseInt(e.target.value) || 0 }))}
+              style={{ width: '100%', marginTop: '4px' }}
+            />
+            <small style={{ color: 'var(--text-secondary)' }}>0 = No expiration</small>
+          </label>
+
+          <div className="form-actions">
+            <button className="primary" onClick={savePublicSharing}>Save Sharing Settings</button>
           </div>
         </div>
       </section>

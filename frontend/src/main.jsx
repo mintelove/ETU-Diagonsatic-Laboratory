@@ -6,6 +6,8 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { PreferencesProvider } from './context/PreferencesContext.jsx';
 import { RealtimeProvider } from './context/RealtimeContext.jsx';
 
+import { LoadingProvider } from './context/LoadingContext.jsx';
+
 // Styling Architecture
 import './styles/variables.css';
 import './styles/base.css';
@@ -18,6 +20,7 @@ import './styles/pages/sampleTypes.css';
 import './styles/pages/reception.css';
 import './styles/pages/laboratory-tests.css';
 import './styles/pages/collection-queue.css';
+import './styles/pages/investigation.css';
 import './styles/pages/equipment.css';
 import './styles/pages/parameter-editing.css';
 import './styles/pages/settings.css';
@@ -32,7 +35,11 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <RealtimeProvider>
-          <PreferencesProvider><App /></PreferencesProvider>
+          <PreferencesProvider>
+            <LoadingProvider>
+              <App />
+            </LoadingProvider>
+          </PreferencesProvider>
         </RealtimeProvider>
       </AuthProvider>
     </BrowserRouter>

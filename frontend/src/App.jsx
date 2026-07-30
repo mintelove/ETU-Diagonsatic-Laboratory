@@ -15,6 +15,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
 const ReceptionPage = lazy(() => import('./pages/ReceptionPage.jsx'));
 const CollectionPage = lazy(() => import('./pages/CollectionPage.jsx'));
+const InvestigationPage = lazy(() => import('./pages/InvestigationPage.jsx'));
 const CounsellingPage = lazy(() => import('./pages/CounsellingPage.jsx'));
 const ReportManagementPage = lazy(() => import('./pages/ReportManagementPage.jsx'));
 const ExtraRequestsPage = lazy(() => import('./pages/ExtraRequestsPage.jsx'));
@@ -27,6 +28,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
 const LaboratoryTestsPage = lazy(() => import('./pages/LaboratoryTestsPage.jsx'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage.jsx'));
 const AboutUsPage = lazy(() => import('./pages/AboutUsPage.jsx'));
+const PublicReportPage = lazy(() => import('./pages/PublicReportPage.jsx'));
 
 /**
  * Handle landing page routing redirect based on the user's role.
@@ -50,10 +52,24 @@ function HomeRedirect() {
 
 export default function App() {
   return (
-    <Suspense fallback={<div className="page"><p className="intro">Loading workspace…</p></div>}>
+    <Suspense fallback={
+      <div className="lims-global-loading-overlay" role="dialog" aria-modal="true" aria-label="Loading Workspace">
+        <div className="lims-loading-card">
+          <div className="lims-loading-spinner-wrap">
+            <div className="lims-loading-spinner-ring" />
+            <div className="lims-loading-spinner-ring-inner" />
+            <div className="lims-loading-spinner-core">🧪</div>
+          </div>
+          <h2 className="lims-loading-title">Processing...</h2>
+          <p className="lims-loading-subtitle">Please wait while the system processes your request...</p>
+        </div>
+      </div>
+    }>
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/report/public/:token" element={<PublicReportPage />} />
+      <Route path="/public-report/:token" element={<PublicReportPage />} />
 
       {/* Protected Layout Routes */}
       <Route
@@ -94,6 +110,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="investigation" element={<ProtectedRoute roles={['Admin', 'Sample Collector']}><InvestigationPage /></ProtectedRoute>} />
         <Route path="report-management" element={<ProtectedRoute roles={['Sample Collector']}><ReportManagementPage /></ProtectedRoute>} />
         <Route path="counselling" element={<ProtectedRoute roles={['Admin', 'Reception', 'Sample Collector']}><CounsellingPage /></ProtectedRoute>} />
 

@@ -113,6 +113,7 @@ export default function AppLayout() {
           {user.role === 'Reception' && <Item to="/reception" name={t('reception')} kind="reception" />}
           {user.role === 'Sample Collector' && (
             <>
+              <Item to="/investigation" name="Investigation (Self Aware)" kind="samples" />
               <Item to="/collection" name={t('collection')} kind="collection" />
               <Item to="/report-management" name={t('reports')} kind="reports" />
               <Item to="/counselling" name={t('counselling')} kind="counselling" />

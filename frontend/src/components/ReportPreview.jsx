@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlagBadge } from '../utils/flagHelper.jsx';
+import { api } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 
 export function getReportTestTypes(report) {
   const patient = report?.patient || {};
@@ -46,9 +49,27 @@ export function getReportTestTypes(report) {
 
 export function ReportPreview({ report }) {
   if (!report) return null;
+  const { token: authToken } = useAuth();
   const p = report.patient || {};
   const { categoriesMap, testNames, formattedNames } = getReportTestTypes(report);
   const sampleTypesStr = (p.sampleTypes || []).map(x => x?.name || x).filter(Boolean).join(', ') || 'Specimen Assigned';
+  const isApproved = ['Approved', 'Ready for Printing'].includes(report.status);
+
+  const [fetchedToken, setFetchedToken] = useState(report.publicReport?.token || null);
+  const currentToken = report.publicReport?.token || fetchedToken;
+
+  useEffect(() => {
+    if (report.publicReport?.token) {
+      setFetchedToken(report.publicReport.token);
+    } else if (isApproved && report._id) {
+      // Auto-fetch/generate token for existing approved report if missing
+      api(`/final-reports/${report._id}/public-link`, { token: authToken })
+        .then(res => {
+          if (res?.token) setFetchedToken(res.token);
+        })
+        .catch(() => {});
+    }
+  }, [report._id, report.status, report.publicReport?.token, isApproved, authToken]);
 
   return (
     <section className="table-card" style={{ margin: 0 }}>
@@ -137,6 +158,41 @@ export function ReportPreview({ report }) {
           )}
         </tbody>
       </table>
+
+      {/* Public Sharing Banner */}
+      {isApproved ? (
+        <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--color-surface-container-high, #e0f2fe)', border: '1px solid var(--color-outline-variant, #bae6fd)', borderRadius: '10px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <div>
+            <strong style={{ fontSize: '0.85rem', color: '#0369a1', display: 'block' }}>🌐 Public Report Sharing Link</strong>
+            <span style={{ fontSize: '0.78rem', color: '#334155', wordBreak: 'break-all' }}>
+              {currentToken
+                ? buildPublicReportUrl(currentToken)
+                : 'Generating public share link…'}
+            </span>
+          </div>
+          {currentToken && (
+            <button
+              type="button"
+              className="secondary"
+              style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+              onClick={() => {
+                const shareUrl = buildPublicReportUrl(currentToken);
+                navigator.clipboard.writeText(shareUrl);
+                alert('Public report sharing URL copied to clipboard!\n\n' + shareUrl);
+              }}
+            >
+              📋 Copy Public Report Link
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--color-surface-container, #f8fafc)', border: '1px solid var(--color-outline-variant, #e2e8f0)', borderRadius: '10px' }}>
+          <strong style={{ fontSize: '0.85rem', color: 'var(--color-on-surface-variant, #64748b)', display: 'block' }}>🌐 Public Report Sharing</strong>
+          <span style={{ fontSize: '0.78rem', color: 'var(--color-on-surface-variant, #64748b)' }}>
+            Public sharing will become available after final approval.
+          </span>
+        </div>
+      )}
 
       {/* Remarks / Comments */}
       {report.comments && (

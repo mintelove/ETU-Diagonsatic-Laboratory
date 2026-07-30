@@ -24,10 +24,29 @@ import counsellingRoutes from './routes/counsellingRoutes.js';
 import systemRoutes from './routes/systemRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import laboratoryTestRoutes from './routes/laboratoryTestRoutes.js';
+import publicReportRoutes from './routes/publicReportRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 const app = express();
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL?.split(',') || 'http://localhost:5173', methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] }));
+const allowedOrigins = [
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(s => s.trim()) : []),
+  process.env.PUBLIC_FRONTEND_URL?.trim(),
+  'https://etu-diagonsatic-laboratory.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:5000'
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow non-browser requests or matching origins
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    callback(null, true); // Permissive CORS for public endpoints
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
 app.use(express.json({ limit: '20kb' }));
 app.use(mongoSanitize());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -53,6 +72,7 @@ app.use('/api/counselling', counsellingRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/laboratory-tests', laboratoryTestRoutes);
+app.use('/api/public', publicReportRoutes);
 app.use(notFound);
 app.use(errorHandler);
 export default app;
