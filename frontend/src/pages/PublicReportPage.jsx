@@ -250,7 +250,7 @@ export function PublicReportViewer() {
                             <td style={{ padding: '10px 12px', color: '#475569' }}>{row.unit || '—'}</td>
                             <td style={{ padding: '10px 12px', color: '#475569' }}>{row.referenceValue || '—'}</td>
                             <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                              <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
+                              <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={sex} />
                             </td>
                           </tr>
                         ))}

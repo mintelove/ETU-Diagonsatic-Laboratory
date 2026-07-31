@@ -124,7 +124,7 @@ export function ReportPreview({ report }) {
         <strong>Equipment Used:</strong> {report.equipment?.join(', ') || 'Standard Analyzer'}
       </p>
 
-      {/* Test Parameters & Results Table — grouped by category */}
+      {/* Test Parameters & Results Table — grouped by main category and subcategory */}
       {(() => {
         const results = report.results || [];
         if (!results.length) {
@@ -136,73 +136,104 @@ export function ReportPreview({ report }) {
           );
         }
 
-        // Build a map from parameter name → category name using laboratoryTests
+        // Build a map from parameter name → category & subcategory using laboratoryTests & report results
         const paramCatMap = {};
+        const paramSubcatMap = {};
         const rawTests = Array.isArray(report?.laboratoryTests) ? report.laboratoryTests : (Array.isArray(p?.laboratoryTests) ? p.laboratoryTests : []);
         rawTests.forEach(t => {
           if (!t || typeof t !== 'object') return;
           const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
-          // Map test parameters to their category
+          const subcatName = t.subcategory || '';
           if (Array.isArray(t.parameters)) {
             t.parameters.forEach(pm => {
               const pName = typeof pm === 'string' ? pm : (pm?.name || pm?.sampleName || '');
-              if (pName) paramCatMap[pName] = catName;
+              if (pName) {
+                paramCatMap[pName] = catName.toUpperCase();
+                if (subcatName) paramSubcatMap[pName] = subcatName.toUpperCase();
+              }
             });
           }
-          // Also map test name itself
-          if (t.name) paramCatMap[t.name] = catName;
+          if (t.name) {
+            paramCatMap[t.name] = catName.toUpperCase();
+            if (subcatName) paramSubcatMap[t.name] = subcatName.toUpperCase();
+          }
         });
 
-        // Group results by category
+        // Group results by category, then subcategory
         const groups = new Map();
         results.forEach(row => {
-          const catName = paramCatMap[row.sampleName] || 'OTHER';
-          if (!groups.has(catName)) groups.set(catName, []);
-          groups.get(catName).push(row);
+          const catName = (row.category || paramCatMap[row.sampleName] || 'OTHER').toUpperCase();
+          const subcatName = (row.subcategory || paramSubcatMap[row.sampleName] || '').toUpperCase();
+          if (!groups.has(catName)) groups.set(catName, new Map());
+          const subMap = groups.get(catName);
+          const subKey = subcatName || 'GENERAL';
+          if (!subMap.has(subKey)) subMap.set(subKey, []);
+          subMap.get(subKey).push(row);
         });
 
-        return Array.from(groups.entries()).map(([catName, rows]) => (
-          <div key={catName} style={{ marginBottom: '16px' }}>
+        return Array.from(groups.entries()).map(([catName, subMap]) => (
+          <div key={catName} style={{ marginBottom: '20px' }}>
             <h4 style={{
-              margin: '0 0 6px',
-              padding: '7px 14px',
+              margin: '0 0 10px',
+              padding: '8px 14px',
               borderRadius: '8px',
               background: 'linear-gradient(135deg, var(--color-primary, #075c91) 0%, #0ea5e9 100%)',
               color: '#ffffff',
-              fontSize: '0.78rem',
+              fontSize: '0.85rem',
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}>
               {catName}
             </h4>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th>Parameter</th>
-                  <th>Result</th>
-                  <th>SI Unit</th>
-                  <th>Reference Range</th>
-                  <th style={{ textAlign: 'center' }}>Flag</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={`${row.sampleName}-${i}`}>
-                    <td>
-                      <strong>{row.sampleName}</strong>
-                      {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
-                    </td>
-                    <td><strong>{row.result}</strong></td>
-                    <td>{row.unit || '—'}</td>
-                    <td>{row.referenceValue || '—'}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+            {Array.from(subMap.entries()).map(([subKey, rows]) => (
+              <div key={subKey} style={{ marginBottom: '14px' }}>
+                {subKey !== 'GENERAL' && (
+                  <h5 style={{
+                    margin: '0 0 6px 0',
+                    padding: '4px 10px',
+                    background: '#e0f2fe',
+                    color: '#0369a1',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    display: 'inline-block'
+                  }}>
+                    {subKey}
+                  </h5>
+                )}
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
+                  <thead>
+                    <tr>
+                      <th>Parameter</th>
+                      <th>Result</th>
+                      <th>SI Unit</th>
+                      <th>Reference Range</th>
+                      <th style={{ textAlign: 'center' }}>Flag</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => (
+                      <tr key={`${row.sampleName}-${i}`}>
+                        <td>
+                          <strong>{row.sampleName}</strong>
+                          {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
+                        </td>
+                        <td><strong>{row.result}</strong></td>
+                        <td>{row.unit || '—'}</td>
+                        <td>{row.referenceValue || '—'}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={p.sex} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         ));
       })()}

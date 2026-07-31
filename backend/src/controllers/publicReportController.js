@@ -25,11 +25,11 @@ export async function viewPublicReport(req, res, next) {
         path: 'patient',
         select: 'patientId barcode name age sex phone address referralHospital laboratoryTests sampleTypes',
         populate: [
-          { path: 'laboratoryTests', select: 'name category', populate: { path: 'category', select: 'name' } },
+          { path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } },
           { path: 'sampleTypes', select: 'name' }
         ]
       })
-      .populate({ path: 'laboratoryTests', select: 'name category', populate: { path: 'category', select: 'name' } })
+      .populate({ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } })
       .populate('approvedBy', 'fullName')
       .populate('technician', 'fullName');
 
@@ -154,7 +154,7 @@ export async function downloadPublicPdf(req, res, next) {
         path: 'patient',
         select: 'patientId name age sex phone address referralHospital laboratoryTests sampleTypes',
         populate: [
-          { path: 'laboratoryTests', select: 'name category', populate: { path: 'category', select: 'name' } },
+          { path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } },
           { path: 'sampleTypes', select: 'name price' }
         ]
       })

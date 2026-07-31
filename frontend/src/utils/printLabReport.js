@@ -5,10 +5,10 @@ import { calculateFlag } from './flagHelper.jsx';
 const safe = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 const stamp = value => value ? new Date(value).toLocaleString() : '—';
 
-function getPrintableFlag(row) {
+function getPrintableFlag(row, sex = '') {
   let f = String(row.flag || '').trim().toUpperCase();
   if (!f && row.result && row.referenceValue) {
-    f = calculateFlag(row.result, row.referenceValue);
+    f = calculateFlag(row.result, row.referenceValue, sex);
   }
   if (f === 'H' || f === 'HIGH') return 'H';
   if (f === 'L' || f === 'LOW') return 'L';
@@ -20,37 +20,55 @@ function reportHtml(report, user, logoBase64, referralHospitalAddress) {
   const patient = report.patient || {};
   const rawResults = report.results || [];
 
-  // Group results by category using patient's laboratory tests mapping or default category
+  // Group results by main category and subcategory using patient's laboratory tests mapping or default category
   const paramCatMap = {};
+  const paramSubcatMap = {};
   const rawTests = Array.isArray(report?.laboratoryTests) ? report.laboratoryTests : (Array.isArray(patient?.laboratoryTests) ? patient.laboratoryTests : []);
   rawTests.forEach(t => {
     if (!t || typeof t !== 'object') return;
     const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
+    const subcatName = t.subcategory || '';
     if (Array.isArray(t.parameters)) {
       t.parameters.forEach(pm => {
         const pName = typeof pm === 'string' ? pm : (pm?.name || pm?.sampleName || '');
-        if (pName) paramCatMap[pName] = catName.toUpperCase();
+        if (pName) {
+          paramCatMap[pName] = catName.toUpperCase();
+          if (subcatName) paramSubcatMap[pName] = subcatName.toUpperCase();
+        }
       });
     }
-    if (t.name) paramCatMap[t.name] = catName.toUpperCase();
+    if (t.name) {
+      paramCatMap[t.name] = catName.toUpperCase();
+      if (subcatName) paramSubcatMap[t.name] = subcatName.toUpperCase();
+    }
   });
 
   const categoryMap = new Map();
   rawResults.forEach(row => {
-    const catName = paramCatMap[row.sampleName] || 'OTHER';
-    if (!categoryMap.has(catName)) categoryMap.set(catName, []);
-    categoryMap.get(catName).push(row);
+    const catName = (row.category || paramCatMap[row.sampleName] || 'OTHER').toUpperCase();
+    const subcatName = (row.subcategory || paramSubcatMap[row.sampleName] || '').toUpperCase();
+    if (!categoryMap.has(catName)) categoryMap.set(catName, new Map());
+    const subMap = categoryMap.get(catName);
+    const subKey = subcatName || 'GENERAL';
+    if (!subMap.has(subKey)) subMap.set(subKey, []);
+    subMap.get(subKey).push(row);
   });
 
   let resultsHtml = '';
   if (categoryMap.size > 0) {
-    categoryMap.forEach((rows, catName) => {
-      const rowsHtml = rows.map(row => {
-        const flagVal = getPrintableFlag(row);
-        return `<tr><td><b>${safe(row.sampleName)}</b>${row.remarks ? `<small>${safe(row.remarks)}</small>` : ''}</td><td>${safe(row.result)}</td><td>${safe(row.unit)}</td><td>${safe(row.referenceValue)}</td><td><b>${safe(flagVal)}</b></td></tr>`;
-      }).join('');
-
-      resultsHtml += `<div class="result-cat-block"><h4 class="result-cat-header">${safe(catName)}</h4><table><thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+    categoryMap.forEach((subMap, catName) => {
+      resultsHtml += `<div class="result-cat-block"><h4 class="result-cat-header">${safe(catName)}</h4>`;
+      subMap.forEach((rows, subKey) => {
+        if (subKey !== 'GENERAL') {
+          resultsHtml += `<h5 style="margin: 6px 0 4px 0; font-size: 11px; text-transform: uppercase; color: #075c91; background: #e8f5fa; padding: 3px 8px; border-radius: 4px; display: inline-block;">${safe(subKey)}</h5>`;
+        }
+        const rowsHtml = rows.map(row => {
+          const flagVal = getPrintableFlag(row, patient.sex);
+          return `<tr><td><b>${safe(row.sampleName)}</b>${row.remarks ? `<small>${safe(row.remarks)}</small>` : ''}</td><td>${safe(row.result)}</td><td>${safe(row.unit)}</td><td>${safe(row.referenceValue)}</td><td><b>${safe(flagVal)}</b></td></tr>`;
+        }).join('');
+        resultsHtml += `<table style="margin-bottom: 10px;"><thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+      });
+      resultsHtml += `</div>`;
     });
   } else {
     resultsHtml = '<table><thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody><tr><td colspan="5">No laboratory results recorded.</td></tr></tbody></table>';

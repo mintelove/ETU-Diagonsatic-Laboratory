@@ -52,12 +52,27 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
     const data = response.status === 204 ? null : await response.json().catch(() => ({}));
     if (!response.ok) {
       isCurrentError = true;
-      throw new Error(data.message || 'Request failed.');
+      const serverMsg = data.message || data.error || (data.errors && data.errors.map(e => e.msg || e.message).join(', ')) || `HTTP ${response.status}: ${response.statusText}`;
+      const err = new Error(serverMsg);
+      err.status = response.status;
+      err.data = data;
+      err.isNetworkError = false;
+      throw err;
     }
     return data;
   } catch (error) {
     isCurrentError = true;
-    if (error?.name === 'TimeoutError') throw new Error('The request took too long. Please try again.');
+    if (error?.name === 'TimeoutError') {
+      const err = new Error('The request took too long. Please try again.');
+      err.isTimeout = true;
+      err.isNetworkError = false;
+      throw err;
+    }
+    if (error?.status !== undefined) {
+      error.isNetworkError = false;
+      throw error;
+    }
+    error.isNetworkError = true;
     throw error;
   } finally {
     clearTimeout(timer);

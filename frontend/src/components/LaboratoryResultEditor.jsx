@@ -7,11 +7,18 @@ const CATEGORY_META = {
   'CHEMISTRY': { icon: '🧪', themeClass: 'cat-theme-chemistry', bgGradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' },
   'URINALYSIS': { icon: '🟡', themeClass: 'cat-theme-urinalysis', bgGradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
   'URINE ANALYSIS': { icon: '🟡', themeClass: 'cat-theme-urinalysis', bgGradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
+  'URINE AND BODY FLUID ANALYSIS': { icon: '🟡', themeClass: 'cat-theme-urinalysis', bgGradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
+  'STOOL EXAMINATION': { icon: '💩', themeClass: 'cat-theme-parasitology', bgGradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' },
+  'STOOL': { icon: '💩', themeClass: 'cat-theme-parasitology', bgGradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' },
   'PARASITOLOGY': { icon: '🔬', themeClass: 'cat-theme-parasitology', bgGradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' },
   'MICROBIOLOGY': { icon: '🧫', themeClass: 'cat-theme-microbiology', bgGradient: 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)' },
+  'SEROLOGY AND IMMUNOHEMATOLOGY': { icon: '🧬', themeClass: 'cat-theme-serology', bgGradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' },
+  'SEROLOGY & IMMUNOHEMATOLOGY': { icon: '🧬', themeClass: 'cat-theme-serology', bgGradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' },
   'SEROLOGY': { icon: '🧬', themeClass: 'cat-theme-serology', bgGradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' },
+  'IMMUNOHEMATOLOGY': { icon: '🩸', themeClass: 'cat-theme-coagulation', bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' },
   'HORMONE': { icon: '🏥', themeClass: 'cat-theme-hormone', bgGradient: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' },
   'HORMONES': { icon: '🏥', themeClass: 'cat-theme-hormone', bgGradient: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' },
+  'HORMONAL TESTS': { icon: '🏥', themeClass: 'cat-theme-hormone', bgGradient: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' },
   'COAGULATION': { icon: '🩸', themeClass: 'cat-theme-coagulation', bgGradient: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)' },
   'REFERRAL': { icon: '🩺', themeClass: 'cat-theme-referral', bgGradient: 'linear-gradient(135deg, #6b7280 0%, #374151 100%)' },
   'OTHER': { icon: '📦', themeClass: 'cat-theme-other', bgGradient: 'linear-gradient(135deg, #475569 0%, #334155 100%)' }
@@ -47,7 +54,7 @@ export default function LaboratoryResultEditor({
 }) {
   const [entryMode, setEntryMode] = useState('result'); // 'result' (default) or 'equipment'
   const [selectedCategories, setSelectedCategories] = useState([]); // Array of selected categories to display in selection order
-  const [urinalysisSubTab, setUrinalysisSubTab] = useState('Chemical Analysis');
+  const [activeSubcatsMap, setActiveSubcatsMap] = useState({});
   const inputsRef = useRef([]);
 
   // Map patient's requested test names & categories
@@ -109,14 +116,16 @@ export default function LaboratoryResultEditor({
   };
 
   // Handle result changes
-  const handleResultChange = (paramName, field, value, defaultUnit = '', defaultRef = '') => {
+  const handleResultChange = (paramName, field, value, defaultUnit = '', defaultRef = '', catName = '', subcatName = '') => {
     const results = Array.isArray(reportData?.results) ? [...reportData.results] : [];
     const index = results.findIndex(r => r.sampleName === paramName);
 
     if (index >= 0) {
       const updated = { ...results[index], [field]: value };
+      if (catName) updated.category = catName;
+      if (subcatName) updated.subcategory = subcatName;
       if (field === 'result') {
-        updated.flag = calculateFlag(value, updated.referenceValue || defaultRef);
+        updated.flag = calculateFlag(value, updated.referenceValue || defaultRef, patient?.sex);
       }
       results[index] = updated;
     } else {
@@ -126,7 +135,9 @@ export default function LaboratoryResultEditor({
         unit: field === 'unit' ? value : defaultUnit,
         referenceValue: field === 'referenceValue' ? value : defaultRef,
         remarks: field === 'remarks' ? value : '',
-        flag: field === 'result' ? calculateFlag(value, defaultRef) : ''
+        flag: field === 'result' ? calculateFlag(value, defaultRef, patient?.sex) : '',
+        category: catName,
+        subcategory: subcatName
       };
       results.push(newItem);
     }
@@ -161,7 +172,7 @@ export default function LaboratoryResultEditor({
       result: item?.result || '',
       unit: item?.unit || defaultUnit,
       referenceValue: item?.referenceValue || defaultRef,
-      flag: item?.flag || (item?.result ? calculateFlag(item.result, item?.referenceValue || defaultRef) : ''),
+      flag: item?.flag || (item?.result ? calculateFlag(item.result, item?.referenceValue || defaultRef, patient?.sex) : ''),
       remarks: item?.remarks || ''
     };
   };
@@ -402,9 +413,8 @@ export default function LaboratoryResultEditor({
             selectedCategories.map(catName => {
               const meta = getCategoryMeta(catName);
               const rawParams = categoriesGrouped.get(catName) || [];
-              const catParams = (catName === 'URINALYSIS' || catName === 'URINE ANALYSIS')
-                ? rawParams.filter(p => (p.subcategory || 'Chemical Analysis') === urinalysisSubTab)
-                : rawParams;
+              const availableSubcats = Array.from(new Set(rawParams.map(p => p.subcategory).filter(Boolean)));
+              const activeSubList = activeSubcatsMap[catName] || availableSubcats;
 
               return (
                 <div key={catName} className="lims-category-section-card">
@@ -419,24 +429,40 @@ export default function LaboratoryResultEditor({
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {/* Urinalysis Subtabs if active */}
-                      {(catName === 'URINALYSIS' || catName === 'URINE ANALYSIS') && (
-                        <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.2)', padding: '3px', borderRadius: '8px' }}>
-                          <button
-                            type="button"
-                            onClick={() => setUrinalysisSubTab('Chemical Analysis')}
-                            style={{ padding: '4px 10px', fontSize: '0.76rem', fontWeight: 700, borderRadius: '6px', background: urinalysisSubTab === 'Chemical Analysis' ? '#ffffff' : 'transparent', color: urinalysisSubTab === 'Chemical Analysis' ? '#0f172a' : '#ffffff', border: 'none', cursor: 'pointer' }}
-                          >
-                            Chemical Analysis
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setUrinalysisSubTab('Urine Microscopy')}
-                            style={{ padding: '4px 10px', fontSize: '0.76rem', fontWeight: 700, borderRadius: '6px', background: urinalysisSubTab === 'Urine Microscopy' ? '#ffffff' : 'transparent', color: urinalysisSubTab === 'Urine Microscopy' ? '#0f172a' : '#ffffff', border: 'none', cursor: 'pointer' }}
-                          >
-                            Urine Microscopy
-                          </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      {/* Subcategory Toggles if category has subcategories */}
+                      {availableSubcats.length > 0 && (
+                        <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.2)', padding: '3px', borderRadius: '8px', flexWrap: 'wrap' }}>
+                          {availableSubcats.map(subcat => {
+                            const isSubActive = activeSubList.includes(subcat);
+                            return (
+                              <button
+                                key={subcat}
+                                type="button"
+                                onClick={() => {
+                                  setActiveSubcatsMap(prev => {
+                                    const current = prev[catName] || availableSubcats;
+                                    const updated = current.includes(subcat)
+                                      ? (current.length === 1 ? current : current.filter(s => s !== subcat))
+                                      : [...current, subcat];
+                                    return { ...prev, [catName]: updated };
+                                  });
+                                }}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  borderRadius: '6px',
+                                  background: isSubActive ? '#ffffff' : 'transparent',
+                                  color: isSubActive ? '#0f172a' : '#ffffff',
+                                  border: 'none',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {isSubActive ? '✓ ' : '+ '}{subcat}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -450,123 +476,320 @@ export default function LaboratoryResultEditor({
                     </div>
                   </div>
 
-                  {/* Parameter Table */}
-                  <div className="lims-table-container" style={{ overflowX: 'auto', padding: '16px' }}>
-                    <table className="lims-param-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                      <thead>
-                        <tr className="lims-param-thead-tr">
-                          <th style={{ padding: '10px 12px', fontWeight: 700 }}>Parameter / Test</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '160px' }}>Result</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '110px' }}>SI Unit</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '150px' }}>Reference Range</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '90px', textAlign: 'center' }}>Flag</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 700, width: '180px' }}>Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {catParams.map(paramObj => {
-                          const pName = paramObj.parameterName;
-                          const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue);
-                          const isOrdered = requestedInfo.names.has(pName);
-                          const currentIndex = inputCounter++;
+                  {/* Render Subcategory Parameter Tables */}
+                  {availableSubcats.length > 0 ? (
+                    availableSubcats.filter(sub => activeSubList.includes(sub)).map(subcat => {
+                      const subParams = rawParams.filter(p => p.subcategory === subcat);
+                      return (
+                        <div key={subcat} style={{ margin: '16px 16px 0 16px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                          <div style={{ background: '#f1f5f9', padding: '8px 14px', borderBottom: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#0369a1' }}>🏷️</span>
+                            <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: '#075c91', letterSpacing: '0.04em' }}>
+                              {subcat}
+                            </h4>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>({subParams.length} parameters)</span>
+                          </div>
 
-                          return (
-                            <tr key={pName} className={`lims-param-row ${isOrdered ? 'is-ordered' : ''}`}>
-                              
-                              {/* Parameter Name */}
-                              <td style={{ padding: '10px 12px' }}>
-                                <strong className="param-title">
-                                  {pName}
-                                  {isOrdered && <span className="param-req-badge">Requested</span>}
-                                </strong>
-                              </td>
+                          <div className="lims-table-container" style={{ overflowX: 'auto', padding: '12px' }}>
+                            <table className="lims-param-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                              <thead>
+                                <tr className="lims-param-thead-tr">
+                                  <th style={{ padding: '10px 12px', fontWeight: 700 }}>Parameter / Test</th>
+                                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '160px' }}>Result</th>
+                                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '110px' }}>SI Unit</th>
+                                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '150px' }}>Reference Range</th>
+                                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '90px', textAlign: 'center' }}>Flag</th>
+                                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '180px' }}>Remarks</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {subParams.map(paramObj => {
+                                  const pName = paramObj.parameterName;
+                                  const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue);
+                                  const isOrdered = requestedInfo.names.has(pName);
+                                  const currentIndex = inputCounter++;
 
-                              {/* Result Input */}
-                              <td style={{ padding: '6px 12px' }}>
-                                <input
-                                  ref={el => (inputsRef.current[currentIndex] = el)}
-                                  type="text"
-                                  className="lims-result-input"
-                                  value={rowData.result}
-                                  placeholder="Enter result"
-                                  onKeyDown={e => handleKeyDown(e, currentIndex)}
-                                  onChange={e => handleResultChange(pName, 'result', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                  style={{
-                                    border: rowData.flag === 'H' ? '2px solid #ef4444' : rowData.flag === 'L' ? '2px solid #eab308' : undefined
-                                  }}
-                                />
-                              </td>
+                                  return (
+                                    <tr key={pName} className={`lims-param-row ${isOrdered ? 'is-ordered' : ''}`}>
+                                      <td style={{ padding: '10px 12px' }}>
+                                        <strong className="param-title">
+                                          {pName}
+                                          {isOrdered && <span className="param-req-badge">Requested</span>}
+                                        </strong>
+                                      </td>
+                                      <td style={{ padding: '6px 12px' }}>
+                                        <input
+                                          ref={el => (inputsRef.current[currentIndex] = el)}
+                                          type="text"
+                                          className="lims-result-input"
+                                          value={rowData.result}
+                                          placeholder="Enter result"
+                                          onKeyDown={e => handleKeyDown(e, currentIndex)}
+                                          onChange={e => handleResultChange(pName, 'result', e.target.value, paramObj.unit, paramObj.referenceValue, catName, subcat)}
+                                          style={{
+                                            border: rowData.flag === 'H' ? '2px solid #ef4444' : rowData.flag === 'L' ? '2px solid #eab308' : undefined
+                                          }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: '6px 12px' }}>
+                                        <input
+                                          type="text"
+                                          className="lims-unit-input"
+                                          value={rowData.unit}
+                                          placeholder={paramObj.unit || '—'}
+                                          onChange={e => handleResultChange(pName, 'unit', e.target.value, paramObj.unit, paramObj.referenceValue, catName, subcat)}
+                                        />
+                                      </td>
+                                      <td style={{ padding: '6px 12px' }}>
+                                        <input
+                                          type="text"
+                                          className="lims-ref-input"
+                                          value={rowData.referenceValue}
+                                          placeholder={paramObj.referenceValue || '—'}
+                                          onChange={e => handleResultChange(pName, 'referenceValue', e.target.value, paramObj.unit, paramObj.referenceValue, catName, subcat)}
+                                        />
+                                      </td>
+                                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                        <FlagBadge flag={rowData.flag} result={rowData.result} referenceValue={rowData.referenceValue} sex={patient?.sex} />
+                                      </td>
+                                      <td style={{ padding: '6px 12px' }}>
+                                        <input
+                                          type="text"
+                                          className="lims-remarks-input"
+                                          value={rowData.remarks}
+                                          placeholder="Remarks..."
+                                          onChange={e => handleResultChange(pName, 'remarks', e.target.value, paramObj.unit, paramObj.referenceValue, catName, subcat)}
+                                        />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    /* Flat Parameter Table for Categories without Subcategories */
+                    <div className="lims-table-container" style={{ overflowX: 'auto', padding: '16px' }}>
+                      <table className="lims-param-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                        <thead>
+                          <tr className="lims-param-thead-tr">
+                            <th style={{ padding: '10px 12px', fontWeight: 700 }}>Parameter / Test</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 700, width: '160px' }}>Result</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 700, width: '110px' }}>SI Unit</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 700, width: '150px' }}>Reference Range</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 700, width: '90px', textAlign: 'center' }}>Flag</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 700, width: '180px' }}>Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rawParams.map(paramObj => {
+                            const pName = paramObj.parameterName;
+                            const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue);
+                            const isOrdered = requestedInfo.names.has(pName);
+                            const currentIndex = inputCounter++;
 
-                              {/* SI Unit */}
-                              <td style={{ padding: '6px 12px' }}>
-                                <input
-                                  type="text"
-                                  className="lims-unit-input"
-                                  value={rowData.unit}
-                                  placeholder={paramObj.unit || '—'}
-                                  onChange={e => handleResultChange(pName, 'unit', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                />
-                              </td>
+                            return (
+                              <tr key={pName} className={`lims-param-row ${isOrdered ? 'is-ordered' : ''}`}>
+                                <td style={{ padding: '10px 12px' }}>
+                                  <strong className="param-title">
+                                    {pName}
+                                    {isOrdered && <span className="param-req-badge">Requested</span>}
+                                  </strong>
+                                </td>
+                                <td style={{ padding: '6px 12px' }}>
+                                  <input
+                                    ref={el => (inputsRef.current[currentIndex] = el)}
+                                    type="text"
+                                    className="lims-result-input"
+                                    value={rowData.result}
+                                    placeholder="Enter result"
+                                    onKeyDown={e => handleKeyDown(e, currentIndex)}
+                                    onChange={e => handleResultChange(pName, 'result', e.target.value, paramObj.unit, paramObj.referenceValue, catName, '')}
+                                    style={{
+                                      border: rowData.flag === 'H' ? '2px solid #ef4444' : rowData.flag === 'L' ? '2px solid #eab308' : undefined
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '6px 12px' }}>
+                                  <input
+                                    type="text"
+                                    className="lims-unit-input"
+                                    value={rowData.unit}
+                                    placeholder={paramObj.unit || '—'}
+                                    onChange={e => handleResultChange(pName, 'unit', e.target.value, paramObj.unit, paramObj.referenceValue, catName, '')}
+                                  />
+                                </td>
+                                <td style={{ padding: '6px 12px' }}>
+                                  <input
+                                    type="text"
+                                    className="lims-ref-input"
+                                    value={rowData.referenceValue}
+                                    placeholder={paramObj.referenceValue || '—'}
+                                    onChange={e => handleResultChange(pName, 'referenceValue', e.target.value, paramObj.unit, paramObj.referenceValue, catName, '')}
+                                  />
+                                </td>
+                                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                  <FlagBadge flag={rowData.flag} result={rowData.result} referenceValue={rowData.referenceValue} sex={patient?.sex} />
+                                </td>
+                                <td style={{ padding: '6px 12px' }}>
+                                  <input
+                                    type="text"
+                                    className="lims-remarks-input"
+                                    value={rowData.remarks}
+                                    placeholder="Remarks..."
+                                    onChange={e => handleResultChange(pName, 'remarks', e.target.value, paramObj.unit, paramObj.referenceValue, catName, '')}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                              {/* Reference Range */}
-                              <td style={{ padding: '6px 12px' }}>
-                                <input
-                                  type="text"
-                                  className="lims-ref-input"
-                                  value={rowData.referenceValue}
-                                  placeholder={paramObj.referenceValue || '—'}
-                                  onChange={e => handleResultChange(pName, 'referenceValue', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                />
-                              </td>
+                    {/* Serology Clinical Interpretation Helper */}
+                    {(catName.toUpperCase().includes('SEROLOG')) && (
+                      <div style={{ padding: '14px 16px', background: '#f0fdf4', borderTop: '1px solid #bbf7d0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem', color: '#166534', display: 'block' }}>📝 Serology Report Interpretation / Comment</strong>
+                          <span style={{ fontSize: '0.78rem', color: '#15803d' }}>
+                            Add clinical correlation or interpretation notes editable by Sample Collector or Approver before final approval.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          style={{ fontSize: '0.8rem', background: '#16a34a', color: '#ffffff', border: 'none', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                          onClick={() => {
+                            const template = "INTERPRETATION:\nClinical correlation is recommended. Treatment should be based on the patient's clinical findings and the physician's assessment.";
+                            if (!reportData.comments?.includes(template)) {
+                              const updated = reportData.comments ? `${reportData.comments}\n\n${template}` : template;
+                              onChange({ ...reportData, comments: updated });
+                            }
+                          }}
+                        >
+                          ＋ Insert Standard Serology Interpretation Template
+                        </button>
+                      </div>
+                    )}
 
-                              {/* Automatic Flag Badge */}
-                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                                <FlagBadge flag={rowData.flag} result={rowData.result} referenceValue={rowData.referenceValue} />
-                              </td>
+                    {/* Diabetic Checkup Clinical Comment Helper */}
+                    {(catName.toUpperCase().includes('DIABETIC') || catName.toUpperCase().includes('BLOOD SUGAR')) && (
+                      <div style={{ padding: '14px 16px', background: '#ecfdf5', borderTop: '1px solid #a7f3d0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem', color: '#065f46', display: 'block' }}>🩺 Diabetic Checkup Clinical Comment</strong>
+                          <span style={{ fontSize: '0.78rem', color: '#047857' }}>
+                            Insert standard diagnostic comments for HbA1c, FBS, or RBS.
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={{ fontSize: '0.78rem', background: '#059669', color: '#ffffff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                            onClick={() => {
+                              const t = "HbA1c: The HbA1c test is a common blood test used to diagnose Type 1 and Type 2 diabetes and to evaluate long-term blood glucose control.";
+                              if (!reportData.comments?.includes(t)) onChange({ ...reportData, comments: reportData.comments ? `${reportData.comments}\n\n${t}` : t });
+                            }}
+                          >
+                            ＋ HbA1c Note
+                          </button>
+                          <button
+                            type="button"
+                            style={{ fontSize: '0.78rem', background: '#059669', color: '#ffffff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                            onClick={() => {
+                              const t = "FBS: Measures blood glucose after fasting and is used in the diagnosis and monitoring of diabetes mellitus.";
+                              if (!reportData.comments?.includes(t)) onChange({ ...reportData, comments: reportData.comments ? `${reportData.comments}\n\n${t}` : t });
+                            }}
+                          >
+                            ＋ FBS Note
+                          </button>
+                          <button
+                            type="button"
+                            style={{ fontSize: '0.78rem', background: '#059669', color: '#ffffff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                            onClick={() => {
+                              const t = "RBS: Measures blood glucose at any time of the day regardless of the last meal.";
+                              if (!reportData.comments?.includes(t)) onChange({ ...reportData, comments: reportData.comments ? `${reportData.comments}\n\n${t}` : t });
+                            }}
+                          >
+                            ＋ RBS Note
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                              {/* Remarks */}
-                              <td style={{ padding: '6px 12px' }}>
-                                <input
-                                  type="text"
-                                  className="lims-remarks-input"
-                                  value={rowData.remarks}
-                                  placeholder="Remarks..."
-                                  onChange={e => handleResultChange(pName, 'remarks', e.target.value, paramObj.unit, paramObj.referenceValue)}
-                                />
-                              </td>
+                    {/* Clinical Chemistry Report Interpretation Helper */}
+                    {(catName.toUpperCase().includes('CHEMISTRY')) && (
+                      <div style={{ padding: '14px 16px', background: '#eff6ff', borderTop: '1px solid #bfdbfe', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem', color: '#1e40af', display: 'block' }}>🧪 Clinical Chemistry Interpretation Notes</strong>
+                          <span style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>
+                            Insert standard interpretation comments for Lipid, Renal, or Liver panels.
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={{ fontSize: '0.78rem', background: '#2563eb', color: '#ffffff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                            onClick={() => {
+                              const t = "LIPID PROFILE: Lipid profile tests help assess the risk of blood vessel disease, heart disease, and stroke. Cholesterol is essential for normal body function, but elevated levels may contribute to cardiovascular disease.";
+                              if (!reportData.comments?.includes(t)) onChange({ ...reportData, comments: reportData.comments ? `${reportData.comments}\n\n${t}` : t });
+                            }}
+                          >
+                            ＋ Lipid Interpretation
+                          </button>
+                          <button
+                            type="button"
+                            style={{ fontSize: '0.78rem', background: '#2563eb', color: '#ffffff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                            onClick={() => {
+                              const t = "RENAL FUNCTION TESTS: Renal function tests help evaluate kidney filtration and electrolyte balance. eGFR can help detect chronic kidney disease and assess kidney filtration.";
+                              if (!reportData.comments?.includes(t)) onChange({ ...reportData, comments: reportData.comments ? `${reportData.comments}\n\n${t}` : t });
+                            }}
+                          >
+                            ＋ Renal Interpretation
+                          </button>
+                          <button
+                            type="button"
+                            style={{ fontSize: '0.78rem', background: '#2563eb', color: '#ffffff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                            onClick={() => {
+                              const t = "LIVER FUNCTION TEST: Liver function tests help evaluate liver cell injury, bile flow, and protein synthesis. Results should be interpreted in the clinical context of the individual patient.";
+                              if (!reportData.comments?.includes(t)) onChange({ ...reportData, comments: reportData.comments ? `${reportData.comments}\n\n${t}` : t });
+                            }}
+                          >
+                            ＋ Liver Interpretation
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
                   </div>
+                );
+              })
+            ) : (
+              <div className="lims-no-cat-selected">
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px' }}>🧪</span>
+                <h4>No Investigation Categories Selected</h4>
+                <p>Click on one or more category cards above to select investigations and open result sheets.</p>
+              </div>
+            )}
 
-                </div>
-              );
-            })
-          ) : (
-            <div className="lims-no-cat-selected">
-              <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px' }}>🧪</span>
-              <h4>No Investigation Categories Selected</h4>
-              <p>Click on one or more category cards above to select investigations and open result sheets.</p>
-            </div>
-          )}
+          </div>
+        )}
 
+        {/* Technician Comments / Clinical Interpretation */}
+        <div className="lims-comments-box">
+          <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Collector / Technologist Comments & Clinical Interpretation</span>
+            <small style={{ fontWeight: 400, color: 'var(--text-muted)' }}>Editable by Sample Collector or Approver</small>
+          </label>
+          <textarea
+            value={reportData.comments || ''}
+            placeholder="Add clinical observations, serological interpretations, specimen conditions, or technologist notes..."
+            onChange={e => onChange({ ...reportData, comments: e.target.value })}
+          />
         </div>
-      )}
-
-      {/* Technician Comments */}
-      <div className="lims-comments-box">
-        <label>
-          Collector / Technologist Comments
-        </label>
-        <textarea
-          value={reportData.comments || ''}
-          placeholder="Add clinical observations, specimen conditions, or technologist notes..."
-          onChange={e => onChange({ ...reportData, comments: e.target.value })}
-        />
-      </div>
 
       {/* Action Buttons */}
       <div className="form-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>

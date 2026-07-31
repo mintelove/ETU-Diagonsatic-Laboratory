@@ -38,11 +38,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Diagnostic logging for development
     const url = error.config?.url || 'unknown';
     const method = (error.config?.method || 'GET').toUpperCase();
 
-    // No response from server — timeout or network failure
+    // Genuine network error or timeout — no HTTP response received from server
     if (!error.response) {
       let message;
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
@@ -58,26 +57,34 @@ api.interceptors.response.use(
       return Promise.reject(networkError);
     }
 
+    // Server responded with an HTTP status code (400, 401, 403, 404, 422, 500, etc.)
     const { status, data } = error.response;
 
-    console.error(`API Error — ${method} ${url} — Status: ${status}`, data?.message || '');
+    console.error(`API Response Error — ${method} ${url} — Status: ${status}`, {
+      url,
+      method,
+      status,
+      responseBody: data,
+    });
 
     // 401 Unauthorized — token expired or invalid
     if (status === 401) {
       clearSession();
-      // Only redirect if we're not already on the login page
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
-      const authError = new Error('Session expired. Please log in again.');
+      const authError = new Error(data?.message || 'Session expired. Please log in again.');
       authError.status = 401;
       authError.data = data;
+      authError.isNetworkError = false;
       return Promise.reject(authError);
     }
 
-    // Extract the server-provided error message
+    // Extract the real server error message without converting to generic network errors
     const message =
       data?.message ||
+      data?.error ||
+      (typeof data === 'string' && data.length < 200 ? data : null) ||
       (status === 403
         ? 'You do not have permission to access this resource.'
         : status === 404
@@ -85,12 +92,13 @@ api.interceptors.response.use(
           : status === 429
             ? 'Too many requests. Please wait a moment and try again.'
             : status >= 500
-              ? 'Server error. Please try again later.'
-              : 'An error occurred. Please try again.');
+              ? `Server error (${status}). ${data?.error || data?.message || 'Please try again.'}`
+              : `Request failed with status ${status}.`);
 
     const apiError = new Error(message);
     apiError.status = status;
     apiError.data = data;
+    apiError.isNetworkError = false;
     return Promise.reject(apiError);
   }
 );

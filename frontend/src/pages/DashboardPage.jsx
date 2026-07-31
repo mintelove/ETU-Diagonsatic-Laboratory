@@ -170,19 +170,21 @@ export default function DashboardPage() {
       let errorMessage;
       if (err.isTimeout) {
         errorMessage = 'The server is taking too long to respond. Please try again.';
+      } else if (err.isNetworkError) {
+        errorMessage = 'Unable to connect to the server. Please check your network connection and try again.';
       } else if (err.status === 401) {
         errorMessage = 'Session expired. Please log in again.';
       } else if (err.status === 403) {
         errorMessage = 'You do not have permission to access this Dashboard.';
-      } else if (err.status === 404) {
-        errorMessage = 'Dashboard API endpoint not found. Please contact the administrator.';
-      } else if (err.status >= 500) {
-        errorMessage = 'Server error while loading Dashboard data. Please try again later.';
-      } else if (err.isNetworkError) {
-        errorMessage = 'Unable to connect to the server. Please check your network connection and try again.';
       } else {
-        errorMessage = err.message || 'Failed to load dashboard';
+        errorMessage = err.message || err.data?.message || 'Failed to load dashboard.';
       }
+      console.error('Dashboard API Request Failure:', {
+        status: err.status,
+        message: err.message,
+        data: err.data,
+        isNetworkError: !!err.isNetworkError
+      });
       setError(errorMessage);
     } finally {
       setLoading(false);

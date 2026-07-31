@@ -23,16 +23,9 @@ const emptyOther = {
   remarks: ''
 };
 const idOf = value => String(value?._id || value?.id || value);
-function flagFor(row) {
-  const value = Number(String(row.result || '').replace(',', '.')),
-    range = String(row.referenceValue || '').replace(',', '.');
-  if (!Number.isFinite(value)) return '';
-  const match = range.match(/(-?\d+(?:\.\d+)?)\s*(?:–|-|to)\s*(-?\d+(?:\.\d+)?)/i);
-  if (match) return value < Number(match[1]) ? 'L' : value > Number(match[2]) ? 'H' : 'N';
-  const upper = range.match(/^\s*[<≤]\s*(-?\d+(?:\.\d+)?)/);
-  if (upper) return value > Number(upper[1]) ? 'H' : 'N';
-  const lower = range.match(/^\s*[>≥]\s*(-?\d+(?:\.\d+)?)/);
-  return lower ? value < Number(lower[1]) ? 'L' : 'N' : '';
+import { calculateFlag } from '../utils/flagHelper.jsx';
+function flagFor(row, sex = '') {
+  return calculateFlag(row.result, row.referenceValue, sex);
 }
 const flagText = flag => ({
   H: 'High',
@@ -480,8 +473,8 @@ export default function CollectionPage() {
                       <td>{row.unit || '—'}</td>
                       <td>{row.referenceValue || '—'}</td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className={`flag-badge ${row.flag || flagFor(row) || 'blank'}`}>
-                          {flagText(row.flag || flagFor(row))}
+                        <span className={`flag-badge ${row.flag || flagFor(row, selected?.sex) || 'blank'}`}>
+                          {flagText(row.flag || flagFor(row, selected?.sex))}
                         </span>
                       </td>
                     </tr>

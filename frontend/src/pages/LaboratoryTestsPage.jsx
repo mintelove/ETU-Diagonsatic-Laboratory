@@ -159,7 +159,54 @@ export default function LaboratoryTestsPage() {
       <main className="lab-detail-panel">{selected ? <>
         <section className="lab-detail-hero" style={{ '--lab-from': palette[keyFor(selected.name)][0], '--lab-to': palette[keyFor(selected.name)][1] }}><span className="lab-detail-icon">{palette[keyFor(selected.name)][2]}</span><div>{editingCategory ? <input autoFocus value={categoryName} onChange={event => setCategoryName(event.target.value)} aria-label="Category name" /> : <><p>Selected category</p><h2>{selected.name}</h2></>}<span>{categoryTests.length} tests · {categoryTests.filter(test => test.status === 'Active').length} active</span></div><div className="lab-hero-actions">{editingCategory ? <button className="lab-icon-button" onClick={() => updateCategory({ name: categoryName })}>Save</button> : <button className="lab-icon-button" onClick={() => { setCategoryName(selected.name); setEditingCategory(true); }}>Edit category</button>}<button className="lab-icon-button" onClick={() => updateCategory({ hidden: !selected.hidden })}>{selected.hidden ? 'Show' : 'Hide'}</button><button className="lab-icon-button danger" onClick={removeCategory}>Delete</button></div></section>
         <section className="lab-test-toolbar"><div><h2>Tests in this category</h2><p>Update pricing or availability directly, then save without leaving the list.</p></div><div className="lab-toolbar-actions"><label className="lab-sort">Sort by<select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="name">Test name</option><option value="price">Price</option><option value="status">Status</option></select></label><button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>＋ Add test</button></div></section>
-        <div className="lab-test-table" role="region" aria-label="Laboratory tests"><div className="lab-test-head"><span>Laboratory test</span><span>Price</span><span>Details</span><span>Status</span><span>Actions</span></div>{matches.map(test => <article className="lab-test-row" key={test._id}><div className="lab-test-name"><i>🧪</i><span><label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label><input id={`test-name-${test._id}`} value={test.name} readOnly disabled /><label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label><input id={`test-description-${test._id}`} value={test.description || 'Routine laboratory investigation'} readOnly disabled /></span></div><div className="lab-inline-price"><label><span className="sr-only">Price for {test.name}</span><input type="number" value={test.price} readOnly disabled /></label><b>ETB</b></div><span className="lab-specimen">{test.requiredSampleTypes?.map(sample => sample.name).join(', ') || 'Not mapped'}</span><label className={`lab-status-select ${test.status === 'Active' ? 'active' : ''}`}><span className="sr-only">Status for {test.name}</span><select value={test.status} disabled readOnly><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label><div className="lab-row-actions"><button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button><button className="danger" onClick={() => removeTest(test)}>Delete</button></div></article>)}{!matches.length && <div className="lab-empty"><span>🧪</span><h3>No Laboratory Tests Available</h3><p>There are no tests matching this view.</p><button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth' })}>Add First Test</button></div>}</div>
+        <div className="lab-test-table" role="region" aria-label="Laboratory tests">
+          <div className="lab-test-head"><span>Laboratory test</span><span>Price</span><span>Details</span><span>Status</span><span>Actions</span></div>
+          {(() => {
+            const hasSubcats = matches.some(t => t.subcategory);
+            if (!hasSubcats) {
+              return matches.map(test => (
+                <article className="lab-test-row" key={test._id}>
+                  <div className="lab-test-name"><i>🧪</i><span><label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label><input id={`test-name-${test._id}`} value={test.name} readOnly disabled /><label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label><input id={`test-description-${test._id}`} value={test.description || 'Routine laboratory investigation'} readOnly disabled /></span></div>
+                  <div className="lab-inline-price"><label><span className="sr-only">Price for {test.name}</span><input type="number" value={test.price} readOnly disabled /></label><b>ETB</b></div>
+                  <span className="lab-specimen">{test.requiredSampleTypes?.map(sample => sample.name).join(', ') || 'Not mapped'}</span>
+                  <label className={`lab-status-select ${test.status === 'Active' ? 'active' : ''}`}><span className="sr-only">Status for {test.name}</span><select value={test.status} disabled readOnly><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label>
+                  <div className="lab-row-actions"><button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button><button className="danger" onClick={() => removeTest(test)}>Delete</button></div>
+                </article>
+              ));
+            }
+
+            const subcatGroupMap = new Map();
+            matches.forEach(test => {
+              const sc = test.subcategory || 'GENERAL TESTS';
+              if (!subcatGroupMap.has(sc)) subcatGroupMap.set(sc, []);
+              subcatGroupMap.get(sc).push(test);
+            });
+
+            return Array.from(subcatGroupMap.entries()).map(([subName, tests]) => (
+              <div key={subName} style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                <div style={{ background: '#f1f5f9', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1rem', color: '#075c91' }}>🏷️</span>
+                    <strong style={{ fontSize: '0.9rem', color: '#0f172a', textTransform: 'uppercase' }}>{subName}</strong>
+                    <span style={{ fontSize: '0.78rem', background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>{tests.length} tests</span>
+                  </div>
+                </div>
+                <div>
+                  {tests.map(test => (
+                    <article className="lab-test-row" key={test._id}>
+                      <div className="lab-test-name"><i>🧪</i><span><label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label><input id={`test-name-${test._id}`} value={test.name} readOnly disabled /><label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label><input id={`test-description-${test._id}`} value={test.description || 'Routine laboratory investigation'} readOnly disabled /></span></div>
+                      <div className="lab-inline-price"><label><span className="sr-only">Price for {test.name}</span><input type="number" value={test.price} readOnly disabled /></label><b>ETB</b></div>
+                      <span className="lab-specimen">{test.requiredSampleTypes?.map(sample => sample.name).join(', ') || 'Not mapped'}</span>
+                      <label className={`lab-status-select ${test.status === 'Active' ? 'active' : ''}`}><span className="sr-only">Status for {test.name}</span><select value={test.status} disabled readOnly><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label>
+                      <div className="lab-row-actions"><button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button><button className="danger" onClick={() => removeTest(test)}>Delete</button></div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
+          {!matches.length && <div className="lab-empty"><span>🧪</span><h3>No Laboratory Tests Available</h3><p>There are no tests matching this view.</p><button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth' })}>Add First Test</button></div>}
+        </div>
         <section id="new-lab-test" className="lab-management-forms"><form className="lab-form-card" onSubmit={saveTest}><div><p className="eyebrow">Catalogue entry</p><h2>Add laboratory test</h2></div><div className="form-grid"><label>Test name<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label><label>Category<select value={form.category || selected._id} onChange={event => setForm({ ...form, category: event.target.value })}>{data.categories.map(category => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label><label>Price (ETB)<input type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: +event.target.value })} /></label><label>Required specimen<select multiple value={form.requiredSampleTypes} onChange={event => setForm({ ...form, requiredSampleTypes: [...event.target.selectedOptions].map(option => option.value) })}>{data.samples.map(sample => <option key={sample._id} value={sample._id}>{sample.name}</option>)}</select></label><label className="wide">Description<textarea value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label></div><button className="primary">Add Test</button></form><form className="lab-form-card lab-settings-card" onSubmit={saveSettings}><div><p className="eyebrow">Billing settings</p><h2>Discount & counseling</h2></div><div className="form-grid"><label>Staff discount %<input type="number" min="0" max="100" value={data.settings.staffDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, staffDiscount: +event.target.value } })} /></label><label>Collaborator discount %<input type="number" min="0" max="100" value={data.settings.collaboratorDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, collaboratorDiscount: +event.target.value } })} /></label><label>Counseling fee<select value={data.settings.counselingStatus || 'Free'} onChange={event => setData({ ...data, settings: { ...data.settings, counselingStatus: event.target.value } })}><option>Free</option><option>Paid</option></select></label><label>Counseling price (ETB)<input type="number" min="0" value={data.settings.counselingPrice ?? 0} onChange={event => setData({ ...data, settings: { ...data.settings, counselingPrice: +event.target.value } })} /></label></div><button className="primary">Save Settings</button></form></section>
 
         {/* Master Parameter Catalog & Reference Range Management */}
@@ -198,7 +245,7 @@ export default function LaboratoryTestsPage() {
                   <label>Parameter Name<input required value={paramForm.parameterName} onChange={e => setParamForm({ ...paramForm, parameterName: e.target.value })} placeholder="e.g. HGB" /></label>
                   <label>Category
                     <select value={paramForm.category} onChange={e => setParamForm({ ...paramForm, category: e.target.value })}>
-                      {['HEMATOLOGY', 'CLINICAL CHEMISTRY', 'COAGULATION TEST', 'SERUM ELECTROLYTE', 'HORMONE', 'SEROLOGY & IMMUNOHEMATOLOGY', 'URINALYSIS', 'BACTERIOLOGY / PARASITOLOGY', 'BODY FLUID ANALYSIS', 'SEMEN ANALYSIS'].map(c => <option key={c} value={c}>{c}</option>)}
+                      {['HEMATOLOGY', 'CLINICAL CHEMISTRY', 'COAGULATION TEST', 'SERUM ELECTROLYTE', 'HORMONE', 'SEROLOGY AND IMMUNOHEMATOLOGY', 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP', 'URINALYSIS', 'URINE AND BODY FLUID ANALYSIS', 'BACTERIOLOGY / PARASITOLOGY', 'STOOL EXAMINATION', 'SEMEN ANALYSIS'].map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </label>
                   <label>Subcategory<input value={paramForm.subcategory} onChange={e => setParamForm({ ...paramForm, subcategory: e.target.value })} placeholder="e.g. Chemical Analysis" /></label>

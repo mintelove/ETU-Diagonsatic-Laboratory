@@ -4,10 +4,45 @@ import React from 'react';
  * Utility to calculate and format result flags (High, Low, Normal) for Laboratory Reports
  */
 
-export function calculateFlag(result, referenceValue) {
+export function calculateFlag(result, referenceValue, sex = '') {
+  const strVal = String(result ?? '').trim().toUpperCase();
+  const strRef = String(referenceValue ?? '').trim().toUpperCase();
+  if (!strVal) return '';
+
+  // Qualitative Serology / Immunohematology flag checks
+  if (['REACTIVE', 'POSITIVE', 'POS'].includes(strVal)) {
+    if (['NON-REACTIVE', 'NEGATIVE', 'NEG'].some(r => strRef.includes(r))) {
+      return 'H';
+    }
+  }
+  if (['NON-REACTIVE', 'NEGATIVE', 'NEG'].includes(strVal)) {
+    if (['NON-REACTIVE', 'NEGATIVE', 'NEG'].some(r => strRef.includes(r))) {
+      return 'N';
+    }
+  }
+  if (['COMPATIBLE'].includes(strVal)) {
+    return 'N';
+  }
+  if (['INCOMPATIBLE'].includes(strVal)) {
+    return 'H';
+  }
+
   const value = Number(String(result ?? '').replace(',', '.'));
   if (!Number.isFinite(value)) return '';
-  const range = String(referenceValue ?? '').replace(/,/g, '.');
+  let range = String(referenceValue ?? '').replace(/,/g, '.');
+
+  if (sex && /male|female|m|f/i.test(sex)) {
+    const isFemale = /^f(emale)?$/i.test(sex.trim());
+    const isMale = /^m(ale)?$/i.test(sex.trim());
+    if (isFemale) {
+      const fMatch = range.match(/female\s*:\s*(-?\d+(?:\.\d+)?\s*(?:–|-|to)\s*-?\d+(?:\.\d+)?)/i);
+      if (fMatch) range = fMatch[1];
+    } else if (isMale) {
+      const mMatch = range.match(/male\s*:\s*(-?\d+(?:\.\d+)?\s*(?:–|-|to)\s*-?\d+(?:\.\d+)?)/i);
+      if (mMatch) range = mMatch[1];
+    }
+  }
+
   const bounds = range.match(/(-?\d+(?:\.\d+)?)\s*(?:–|-|to)\s*(-?\d+(?:\.\d+)?)/i);
   if (bounds) {
     const low = Number(bounds[1]), high = Number(bounds[2]);
@@ -19,10 +54,10 @@ export function calculateFlag(result, referenceValue) {
   return lower ? (value < Number(lower[1]) ? 'L' : 'N') : '';
 }
 
-export function getFlagDetails(flag, result, referenceValue) {
+export function getFlagDetails(flag, result, referenceValue, sex = '') {
   let f = String(flag || '').trim().toUpperCase();
   if (!f && result && referenceValue) {
-    f = calculateFlag(result, referenceValue);
+    f = calculateFlag(result, referenceValue, sex);
   }
   if (f === 'H' || f === 'HIGH') {
     return {
@@ -76,8 +111,8 @@ export function getFlagDetails(flag, result, referenceValue) {
   };
 }
 
-export function FlagBadge({ flag, result, referenceValue, showIcon = true }) {
-  const details = getFlagDetails(flag, result, referenceValue);
+export function FlagBadge({ flag, result, referenceValue, sex = '', showIcon = true }) {
+  const details = getFlagDetails(flag, result, referenceValue, sex);
   if (!details.flag) return <span style={{ color: '#78909c' }}>—</span>;
   return (
     <span

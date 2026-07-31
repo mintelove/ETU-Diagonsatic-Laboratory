@@ -10,7 +10,7 @@ export function parameters(req, res) {
 export async function catalog(req, res, next) {
   try {
     const list = await LabTestParameter.find({ status: 'Active' })
-      .sort({ displayOrder: 1, category: 1, subcategory: 1, parameterName: 1 })
+      .sort({ category: 1, displayOrder: 1, subcategory: 1, parameterName: 1 })
       .lean();
 
     const grouped = {};
@@ -34,7 +34,7 @@ export async function draft(req, res, next) {
 export async function generate(req, res, next) {
   try {
     const report = await LabReport.findOne({ patient: req.params.patientId, technician: req.user.id, status: 'Draft' })
-      .populate({ path: 'patient', select: 'patientId barcode name age sex phone laboratoryTests sampleTypes', populate: [{ path: 'laboratoryTests', select: 'name category', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
+      .populate({ path: 'patient', select: 'patientId barcode name age sex phone laboratoryTests sampleTypes', populate: [{ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
       .populate('technician', 'fullName');
     if (!report) throw new AppError('Save a draft before generating the laboratory report.', 422);
     res.json({ report });
@@ -45,7 +45,7 @@ export async function generate(req, res, next) {
 export async function getAllParameters(req, res, next) {
   try {
     const list = await LabTestParameter.find({})
-      .sort({ category: 1, subcategory: 1, displayOrder: 1, parameterName: 1 })
+      .sort({ category: 1, displayOrder: 1, subcategory: 1, parameterName: 1 })
       .lean();
     res.json({ parameters: list });
   } catch (e) { next(e); }
@@ -57,10 +57,33 @@ export async function createParameter(req, res, next) {
     if (!parameterName?.trim() || !category?.trim()) {
       throw new AppError('Parameter Name and Category are required.', 422);
     }
+    const cleanName = parameterName.trim();
+    const cleanCat = category.trim().toUpperCase();
+    const cleanSub = subcategory ? subcategory.trim() : '';
+
+    const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existing = await LabTestParameter.findOne({
+      category: cleanCat,
+      parameterName: new RegExp(`^${escapeRegex(cleanName)}$`, 'i')
+    });
+
+    if (existing) {
+      existing.parameterName = cleanName;
+      existing.category = cleanCat;
+      existing.subcategory = cleanSub;
+      if (unit !== undefined) existing.unit = unit ? unit.trim() : '';
+      if (referenceValue !== undefined) existing.referenceValue = referenceValue ? referenceValue.trim() : '';
+      if (normalMin !== undefined) existing.normalMin = normalMin === '' || normalMin === null ? null : Number(normalMin);
+      if (normalMax !== undefined) existing.normalMax = normalMax === '' || normalMax === null ? null : Number(normalMax);
+      existing.status = 'Active';
+      await existing.save();
+      return res.status(200).json({ parameter: existing });
+    }
+
     const created = await LabTestParameter.create({
-      parameterName: parameterName.trim(),
-      category: category.trim().toUpperCase(),
-      subcategory: subcategory ? subcategory.trim() : '',
+      parameterName: cleanName,
+      category: cleanCat,
+      subcategory: cleanSub,
       unit: unit ? unit.trim() : '',
       referenceValue: referenceValue ? referenceValue.trim() : '',
       normalMin: normalMin !== undefined && normalMin !== '' ? Number(normalMin) : null,
