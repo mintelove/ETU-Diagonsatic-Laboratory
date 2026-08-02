@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
+import labLogo from '../assets/logo2.png';
 
 export function PublicReportViewer() {
   const { token } = useParams();
@@ -287,6 +288,7 @@ export function PublicReportViewer() {
           
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '3px solid #087ca8', paddingBottom: '16px', marginBottom: '20px' }}>
+            <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '110px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 10px', display: 'block' }} />
             <h2 style={{ margin: 0, color: '#075c91', fontSize: '1.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 800 }}>ETU Diagnostic Laboratory</h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '1px' }}>Laboratory Test Report</p>
           </div>

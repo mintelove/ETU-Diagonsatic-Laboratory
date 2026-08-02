@@ -15,9 +15,15 @@ const __dirname = path.dirname(__filename);
 
 const getLogoPath = () => {
   const candidates = [
-    path.resolve(__dirname, '../picture/logo.jpg'),
+    path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo2.png'),
+    path.resolve(process.cwd(), 'src', 'picture', 'logo2.png'),
+    path.resolve(__dirname, '../picture/logo2.png'),
+    path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.png'),
+    path.resolve(process.cwd(), 'src', 'picture', 'logo.png'),
+    path.resolve(__dirname, '../picture/logo.png'),
+    path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.jpg'),
     path.resolve(process.cwd(), 'src', 'picture', 'logo.jpg'),
-    path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.jpg')
+    path.resolve(__dirname, '../picture/logo.jpg')
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
@@ -29,7 +35,9 @@ const getLogoBase64 = () => {
   try {
     const p = getLogoPath();
     if (fs.existsSync(p)) {
-      return `data:image/jpeg;base64,${fs.readFileSync(p).toString('base64')}`;
+      const ext = path.extname(p).toLowerCase();
+      const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
+      return `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
     }
   } catch (e) {}
   return '';

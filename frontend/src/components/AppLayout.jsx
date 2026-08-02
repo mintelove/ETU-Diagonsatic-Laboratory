@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import Logo from '../assets/Logo.jsx';
-import labLogo from '../assets/logo.jpg';
+import labLogo from '../assets/logo2.png';
 
 const icon = {
   dashboard: '⌂',

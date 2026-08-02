@@ -1,4 +1,4 @@
-import logoImg from './logo.jpg';
+import logoImg from './logo2.png';
 
 export default function Logo({ size = 36, className = '', style = {} }) {
   return (

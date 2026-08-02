@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
 
+import labLogo from '../assets/logo2.png';
+
 export function getReportTestTypes(report) {
   const patient = report?.patient || {};
   let rawTests = [];
@@ -86,8 +88,11 @@ export function ReportPreview({ report }) {
 
   return (
     <section className="table-card" style={{ margin: 0 }}>
-      <p className="eyebrow">Laboratory Report Review</p>
-      <h2 style={{ margin: '2px 0 12px', color: 'var(--color-primary, #075c91)' }}>ETU Diagnostic Laboratory</h2>
+      <div style={{ textAlign: 'center', marginBottom: '14px', borderBottom: '2px solid var(--color-outline-variant, #e2e8f0)', paddingBottom: '12px' }}>
+        <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '80px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 8px', display: 'block' }} />
+        <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Review</p>
+        <h2 style={{ margin: '2px 0 0', color: 'var(--color-primary, #075c91)', fontSize: '1.4rem' }}>ETU Diagnostic Laboratory</h2>
+      </div>
 
       {/* Patient & Report Metadata Grid */}
       <div className="form-grid" style={{ gap: '10px 20px', marginBottom: '14px' }}>

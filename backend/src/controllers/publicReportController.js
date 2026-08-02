@@ -167,6 +167,9 @@ export async function downloadPublicPdf(req, res, next) {
     const __filename2 = fileURLToPath(import.meta.url);
     const __dirname2 = path.dirname(__filename2);
     const logoCandidates = [
+      path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo2.png'),
+      path.resolve(process.cwd(), 'src', 'picture', 'logo2.png'),
+      path.resolve(__dirname2, '../picture/logo2.png'),
       path.resolve(__dirname2, '../picture/logo.jpg'),
       path.resolve(process.cwd(), 'src', 'picture', 'logo.jpg'),
       path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.jpg')
