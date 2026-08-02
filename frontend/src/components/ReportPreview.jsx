@@ -3,6 +3,7 @@ import { FlagBadge } from '../utils/flagHelper.jsx';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
+import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
 
 export function getReportTestTypes(report) {
   const patient = report?.patient || {};
@@ -33,15 +34,27 @@ export function getReportTestTypes(report) {
 
     if (!name) return;
 
+    const normCat = normalizeCategoryName(category);
     testNamesList.push(name);
-    if (!categoriesMap.has(category)) categoriesMap.set(category, []);
-    if (!categoriesMap.get(category).includes(name)) {
-      categoriesMap.get(category).push(name);
+    if (!categoriesMap.has(normCat)) categoriesMap.set(normCat, []);
+    if (!categoriesMap.get(normCat).includes(name)) {
+      categoriesMap.get(normCat).push(name);
     }
   });
 
+  const sortedCategoriesMap = new Map(
+    Array.from(categoriesMap.entries()).sort(([catA], [catB]) => {
+      const idxA = MAIN_CATEGORY_ORDER.indexOf(catA);
+      const idxB = MAIN_CATEGORY_ORDER.indexOf(catB);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return catA.localeCompare(catB);
+    })
+  );
+
   return {
-    categoriesMap,
+    categoriesMap: sortedCategoriesMap,
     testNames: testNamesList,
     formattedNames: testNamesList.join(', ') || '—'
   };
@@ -85,7 +98,6 @@ export function ReportPreview({ report }) {
         <p style={{ margin: 0 }}><strong>Sample Type(s):</strong> {sampleTypesStr}</p>
         <p style={{ margin: 0 }}><strong>Collector:</strong> {report.technician?.fullName || report.submittedBy?.fullName || '—'}</p>
         <p style={{ margin: 0 }}><strong>Date / Time:</strong> {new Date(report.submittedDate || report.submittedAt || report.updatedDate || report.createdDate).toLocaleString()}</p>
-        <p style={{ margin: 0 }}><strong>Report Status:</strong> <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{report.status === 'Submitted' ? 'Pending Approval' : report.status}</span></p>
         {(p.systolicBP || p.diastolicBP) && (
           <p style={{ margin: 0 }}><strong>Blood Pressure:</strong> {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</p>
         )}
@@ -122,7 +134,7 @@ export function ReportPreview({ report }) {
         )}
       </div>
 
-      {/* Test Parameters & Results Table — grouped by main category, with category-level equipment */}
+      {/* Test Parameters & Results Table — grouped by main category */}
       {(() => {
         const results = report.results || [];
         if (!results.length) {
@@ -134,47 +146,14 @@ export function ReportPreview({ report }) {
           );
         }
 
-        // Helper function to map equipment to specific main categories
-        const getCategoryEquipment = (catName = '', reportEquipment = []) => {
-          if (!Array.isArray(reportEquipment) || reportEquipment.length === 0) return 'Standard Analyzer';
-          if (reportEquipment.length === 1) return reportEquipment[0];
-          const normCat = String(catName || '').toUpperCase();
-          const matched = reportEquipment.find(eq => {
-            const normEq = String(eq || '').toUpperCase();
-            if (normCat.includes('CHEMISTRY') || normCat.includes('IMMUNOASSAY')) {
-              if (normEq.includes('CHEM') || normEq.includes('BS-120') || normEq.includes('BS120') || normEq.includes('COBAS') || normEq.includes('FINECARE')) return true;
-            }
-            if (normCat.includes('HEMATOLOGY')) {
-              if (normEq.includes('HEMATO') || normEq.includes('BC-3000') || normEq.includes('BC3000') || normEq.includes('BC-6200') || normEq.includes('MINDRAY BC')) return true;
-            }
-            if (normCat.includes('COAGULATION')) {
-              if (normEq.includes('COAGULAT') || normEq.includes('SYSMEX') || normEq.includes('2-PART') || normEq.includes('SEMI AUTOMATIC')) return true;
-            }
-            if (normCat.includes('ELECTROLYTE')) {
-              if (normEq.includes('ELECTROLYTE') || normEq.includes('K-LITE') || normEq.includes('KLITE')) return true;
-            }
-            if (normCat.includes('URINE') || normCat.includes('FLUID')) {
-              if (normEq.includes('URINE') || normEq.includes('ANALYZER')) return true;
-            }
-            if (normCat.includes('PARASITOLOGY') || normCat.includes('MICROBIOLOGY')) {
-              if (normEq.includes('MICROSCOPE') || normEq.includes('CULTURE')) return true;
-            }
-            const words = normCat.split(/\s+/).filter(w => w.length > 3 && !['TEST', 'TESTS', 'AND', 'WITH'].includes(w));
-            return words.some(w => normEq.includes(w));
-          });
-          return matched || reportEquipment.join(', ');
-        };
-
-        // Build parameter → category & subcategory map and preserve configured category order
+        // Build parameter → category & subcategory map
         const paramCatMap = {};
         const paramSubcatMap = {};
-        const categoryOrder = [];
         const rawTests = Array.isArray(report?.laboratoryTests) ? report.laboratoryTests : (Array.isArray(p?.laboratoryTests) ? p.laboratoryTests : []);
         rawTests.forEach(t => {
           if (!t || typeof t !== 'object') return;
           const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
-          const normCat = catName.toUpperCase();
-          if (!categoryOrder.includes(normCat)) categoryOrder.push(normCat);
+          const normCat = normalizeCategoryName(catName);
           const subcatName = t.subcategory || '';
           if (Array.isArray(t.parameters)) {
             t.parameters.forEach(pm => {
@@ -194,7 +173,7 @@ export function ReportPreview({ report }) {
         // Group results by category, then subcategory
         const groups = new Map();
         results.forEach(row => {
-          const catName = (row.category || paramCatMap[row.sampleName] || 'OTHER').toUpperCase();
+          const catName = normalizeCategoryName(row.category || paramCatMap[row.sampleName]);
           const subcatName = (row.subcategory || paramSubcatMap[row.sampleName] || '').toUpperCase();
           if (!groups.has(catName)) groups.set(catName, new Map());
           const subMap = groups.get(catName);
@@ -203,35 +182,32 @@ export function ReportPreview({ report }) {
           subMap.get(subKey).push(row);
         });
 
-        // Sort groups to match categoryOrder
+        // Sort groups to match MAIN_CATEGORY_ORDER
         const sortedGroups = Array.from(groups.entries()).sort(([catA], [catB]) => {
-          const idxA = categoryOrder.indexOf(catA);
-          const idxB = categoryOrder.indexOf(catB);
+          const idxA = MAIN_CATEGORY_ORDER.indexOf(catA);
+          const idxB = MAIN_CATEGORY_ORDER.indexOf(catB);
           if (idxA !== -1 && idxB !== -1) return idxA - idxB;
           if (idxA !== -1) return -1;
           if (idxB !== -1) return 1;
-          return 0;
+          return catA.localeCompare(catB);
         });
 
         const testInterpretations = Array.isArray(report.testInterpretations) ? report.testInterpretations : [];
         const findTestInterps = (catName) => {
-          const norm = catName.toUpperCase();
+          const norm = normalizeCategoryName(catName);
           const match = testInterpretations.find(t =>
-            t.testName?.toUpperCase() === norm ||
-            norm.includes(t.testName?.toUpperCase()) ||
-            t.testName?.toUpperCase().includes(norm)
+            normalizeCategoryName(t.testName) === norm
           );
           return match?.interpretations || [];
         };
 
         return sortedGroups.map(([catName, subMap]) => {
           const testInterps = findTestInterps(catName);
-          const catEq = getCategoryEquipment(catName, report.equipment);
 
           return (
             <div key={catName} style={{ marginBottom: '22px' }}>
               <h4 style={{
-                margin: '0 0 4px 0',
+                margin: '0 0 10px 0',
                 padding: '8px 14px',
                 borderRadius: '8px',
                 background: 'linear-gradient(135deg, var(--color-primary, #075c91) 0%, #0ea5e9 100%)',
@@ -243,10 +219,6 @@ export function ReportPreview({ report }) {
               }}>
                 {catName}
               </h4>
-
-              <p style={{ margin: '4px 0 10px 4px', fontSize: '0.84rem', color: 'var(--color-on-surface-variant, #475569)' }}>
-                <strong>Equipment Used:</strong> {catEq}
-              </p>
 
               {Array.from(subMap.entries()).map(([subKey, rows]) => {
                 return (
