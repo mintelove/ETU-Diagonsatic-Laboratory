@@ -1290,7 +1290,7 @@ td span {
 
 .main-header-logo-wrapper {
     position: relative;
-    height: 115px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1345,9 +1345,9 @@ td span {
 .main-header-logo-img {
     position: relative;
     z-index: 2;
-    height: 110px;
+    height: 75px;
     width: auto;
-    max-width: 420px;
+    max-width: 300px;
     border-radius: 8px;
     object-fit: contain;
     box-shadow: 0 4px 14px rgba(8, 115, 162, 0.25);
@@ -1371,11 +1371,11 @@ td span {
 
 @media(max-width:850px) {
     .main-header-logo-wrapper {
-        height: 80px
+        height: 60px
     }
 
     .main-header-logo-img {
-        height: 75px
+        height: 55px
     }
 
     .main-header-logo-title {
@@ -1385,11 +1385,11 @@ td span {
 
 @media(max-width:650px) {
     .main-header-logo-wrapper {
-        height: 60px
+        height: 48px
     }
 
     .main-header-logo-img {
-        height: 55px
+        height: 44px
     }
 
     .main-header-logo-title {

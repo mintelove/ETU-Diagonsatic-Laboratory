@@ -81,7 +81,7 @@ export default function AppLayout() {
           {mobileOpen ? '✕' : '☰'}
         </button>
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Logo size={55} style={{ borderRadius: '8px', background: '#fff', padding: '3px' }} />
+          <Logo size={48} style={{ borderRadius: '6px', background: '#fff', padding: '2px' }} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#d5f1fb' }}>ETU</span>
             <small style={{ fontSize: '0.65rem', opacity: 0.85, color: '#edf8fc' }}>Diagnostic Laboratory</small>
@@ -96,7 +96,7 @@ export default function AppLayout() {
 
       <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Logo size={85} style={{ borderRadius: '8px', background: '#fff', padding: '3px', flexShrink: 0 }} />
+          <Logo size={60} style={{ borderRadius: '8px', background: '#fff', padding: '3px', flexShrink: 0 }} />
           {!collapsed && (
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
               <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#d5f1fb', letterSpacing: '0.5px' }}>ETU</span>
