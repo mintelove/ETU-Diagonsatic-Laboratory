@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
-import '../styles/pages/investigation.css';
 
 export function PublicReportViewer() {
   const { token } = useParams();
@@ -61,9 +60,9 @@ export function PublicReportViewer() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface, #f8fafc)', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '16px', boxSizing: 'border-box' }}>
+      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#0f172a', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '16px', boxSizing: 'border-box' }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="lims-spinner" style={{ width: '48px', height: '48px', margin: '0 auto 16px', border: '4px solid #e2e8f0', borderTopColor: '#075c91', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <div style={{ width: '48px', height: '48px', margin: '0 auto 16px', border: '4px solid #e2e8f0', borderTopColor: '#075c91', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <h2 style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 700, margin: '0 0 4px 0' }}>Processing...</h2>
           <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>Loading official diagnostic report…</p>
         </div>
@@ -73,7 +72,7 @@ export function PublicReportViewer() {
 
   if (error || !report) {
     return (
-      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box' }}>
+      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#0f172a', padding: '20px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box' }}>
         <div style={{ maxWidth: '480px', width: '100%', background: '#ffffff', borderRadius: '16px', padding: '32px 24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: error.includes('not available') ? '#fef3c7' : '#fef2f2', color: error.includes('not available') ? '#d97706' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto 16px' }}>
             {error.includes('not available') ? '🔒' : '⚠️'}
@@ -165,8 +164,63 @@ export function PublicReportViewer() {
   };
 
   return (
-    <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: 'var(--color-surface, #f8fafc)', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
+    <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: '#f8fafc', color: '#0f172a', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
       <style>{`
+        :root, html, body {
+          color-scheme: light !important;
+        }
+        .public-report-page,
+        .public-report-page *,
+        .public-report-page *::before,
+        .public-report-page *::after {
+          color-scheme: light !important;
+          box-sizing: border-box !important;
+        }
+        .public-report-page {
+          background-color: #f8fafc !important;
+          color: #0f172a !important;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        }
+        .public-report-page input,
+        .public-report-page select,
+        .public-report-page textarea,
+        .public-report-page button,
+        .public-report-page table,
+        .public-report-page th,
+        .public-report-page td,
+        .public-report-page div,
+        .public-report-page span,
+        .public-report-page p,
+        .public-report-page h1,
+        .public-report-page h2,
+        .public-report-page h3,
+        .public-report-page h4,
+        .public-report-page h5 {
+          color-scheme: light !important;
+        }
+        .public-report-main {
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border-color: #cbd5e1 !important;
+        }
+        .public-report-page table {
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+        }
+        .public-report-page table th {
+          background-color: #075c91 !important;
+          color: #ffffff !important;
+        }
+        .public-report-page table td {
+          color: #0f172a !important;
+          border-bottom-color: #d6e2e7 !important;
+        }
+        .public-report-page table tr:nth-child(even) td {
+          background-color: #f8fafc !important;
+        }
+        .public-report-page table tr:nth-child(odd) td {
+          background-color: #ffffff !important;
+        }
         @media print {
           .public-report-actions { display: none !important; }
           .public-report-page { background: #ffffff !important; padding: 0 !important; }
@@ -220,18 +274,18 @@ export function PublicReportViewer() {
               Patient Information
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient Name:</strong> <span>{patientName}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient ID:</strong> <span>{patientId}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Age / Sex:</strong> <span>{age} / {sex}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Phone:</strong> <span>{phone}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Sample Type:</strong> <span>{sampleTypesStr}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Collection Date:</strong> <span>{collectionDateStr}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Report Date:</strong> <span>{reportDateStr}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient Name:</strong> <span style={{ color: '#0f172a' }}>{patientName}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient ID:</strong> <span style={{ color: '#0f172a' }}>{patientId}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Age / Sex:</strong> <span style={{ color: '#0f172a' }}>{age} / {sex}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Phone:</strong> <span style={{ color: '#0f172a' }}>{phone}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Sample Type:</strong> <span style={{ color: '#0f172a' }}>{sampleTypesStr}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Collection Date:</strong> <span style={{ color: '#0f172a' }}>{collectionDateStr}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Report Date:</strong> <span style={{ color: '#0f172a' }}>{reportDateStr}</span></div>
               {(p.systolicBP || p.diastolicBP) && (
-                <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Blood Pressure:</strong> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
+                <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Blood Pressure:</strong> <span style={{ color: '#0f172a' }}>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
               )}
               {p.referralHospital && (
-                <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Referral Hospital:</strong> <span>{p.referralHospital}</span></div>
+                <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Referral Hospital:</strong> <span style={{ color: '#0f172a' }}>{p.referralHospital}</span></div>
               )}
             </div>
           </div>
@@ -259,14 +313,14 @@ export function PublicReportViewer() {
                           </h5>
                         )}
                         <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '6px' }}>
-                          <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse' }}>
+                          <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse', background: '#ffffff' }}>
                             <thead>
                               <tr>
-                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Test / Parameter</th>
-                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Result</th>
-                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>SI Unit</th>
-                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Reference Range</th>
-                                <th style={{ background: '#075c91', color: 'white', textAlign: 'center', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Flag</th>
+                                <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Test / Parameter</th>
+                                <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Result</th>
+                                <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>SI Unit</th>
+                                <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Reference Range</th>
+                                <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'center', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Flag</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -274,7 +328,7 @@ export function PublicReportViewer() {
                                 const pName = row.parameter || row.sampleName || row.name || '';
                                 return (
                                   <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #d6e2e7' }}>
-                                    <td style={{ padding: '9px', fontSize: '0.88rem' }}>
+                                    <td style={{ padding: '9px', fontSize: '0.88rem', color: '#0f172a' }}>
                                       <strong style={{ color: '#0f172a' }}>{pName}</strong>
                                       {row.remarks && <small style={{ display: 'block', color: '#657d87', marginTop: '2px', fontSize: '0.75rem' }}>{row.remarks}</small>}
                                     </td>
@@ -298,7 +352,7 @@ export function PublicReportViewer() {
                         <b style={{ color: '#075c91', fontSize: '0.78rem', textTransform: 'uppercase' }}>Clinical Interpretation:</b>
                         {testInterps.map((item, idx) => (
                           <div key={idx} style={{ marginTop: '4px', fontSize: '0.82rem', color: '#203640' }}>
-                            <strong>{item.title}:</strong> {item.interpretation}
+                            <strong style={{ color: '#0f172a' }}>{item.title}:</strong> {item.interpretation}
                           </div>
                         ))}
                       </div>
@@ -308,14 +362,14 @@ export function PublicReportViewer() {
               })
             ) : (
               <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse', background: '#ffffff' }}>
                   <thead>
                     <tr>
-                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Test / Parameter</th>
-                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Result</th>
-                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>SI Unit</th>
-                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Reference Range</th>
-                      <th style={{ background: '#075c91', color: 'white', textAlign: 'center', padding: '9px', fontSize: '0.8rem' }}>Flag</th>
+                      <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Test / Parameter</th>
+                      <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Result</th>
+                      <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>SI Unit</th>
+                      <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Reference Range</th>
+                      <th style={{ background: '#075c91', color: '#ffffff', textAlign: 'center', padding: '9px', fontSize: '0.8rem' }}>Flag</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -340,9 +394,9 @@ export function PublicReportViewer() {
               Authorization
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span>{reportDateStr}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span style={{ color: '#0f172a' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span style={{ color: '#0f172a' }}>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span style={{ color: '#0f172a' }}>{reportDateStr}</span></div>
             </div>
           </div>
 
