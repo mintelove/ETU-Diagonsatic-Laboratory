@@ -133,7 +133,7 @@ function reportHtml(report, user, logoBase64, referralHospitalAddress) {
   }
 
   const logoHeader = logoBase64
-    ? `<img src="${logoBase64}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 200px; width: auto; max-width: 550px; display: block; margin: 0 auto 14px; object-fit: contain;" />`
+    ? `<img src="${logoBase64}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 250px; width: auto; max-width: 100%; display: block; margin: 0 auto 14px; object-fit: contain;" />`
     : `<div class="logo">ETU</div>`;
 
   const refHtml = patient.referralHospital ? `<div><b>Referral Hospital Name</b>${safe(patient.referralHospital)}</div><div><b>Referral Hospital Address</b>${safe(referralHospitalAddress || patient.address || 'Not recorded')}</div>` : '';

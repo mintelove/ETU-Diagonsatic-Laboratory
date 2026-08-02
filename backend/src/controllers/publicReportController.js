@@ -183,8 +183,8 @@ export async function downloadPublicPdf(req, res, next) {
 
     if (fs.existsSync(logoFile)) {
       const logoBuf = fs.readFileSync(logoFile);
-      d.image(logoBuf, 87.6, 10, { width: 420, align: 'center' });
-      d.fillColor('#075c91').fontSize(22).text('ETU Diagnostic Laboratory', 46, 140, { align: 'center', width: 503 });
+      d.image(logoBuf, 57.6, 10, { width: 480, align: 'center' });
+      d.fillColor('#075c91').fontSize(22).text('ETU Diagnostic Laboratory', 46, 150, { align: 'center', width: 503 });
     } else {
       d.rect(46, 42, 58, 58).fill('#075c91');
       d.fillColor('#fff').fontSize(20).text('ETU', 55, 62);
