@@ -34,7 +34,7 @@ export function getReportTestTypes(report) {
 
     if (!name) return;
 
-    const normCat = normalizeCategoryName(category);
+    const normCat = normalizeCategoryName(category, name);
     testNamesList.push(name);
     if (!categoriesMap.has(normCat)) categoriesMap.set(normCat, []);
     if (!categoriesMap.get(normCat).includes(name)) {
@@ -152,8 +152,9 @@ export function ReportPreview({ report }) {
         const rawTests = Array.isArray(report?.laboratoryTests) ? report.laboratoryTests : (Array.isArray(p?.laboratoryTests) ? p.laboratoryTests : []);
         rawTests.forEach(t => {
           if (!t || typeof t !== 'object') return;
-          const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
-          const normCat = normalizeCategoryName(catName);
+          const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || '') : String(t.category)) : '';
+          const firstParamName = Array.isArray(t.parameters) && t.parameters.length > 0 ? (typeof t.parameters[0] === 'string' ? t.parameters[0] : (t.parameters[0]?.name || t.parameters[0]?.sampleName)) : t.name;
+          const normCat = normalizeCategoryName(catName, firstParamName || t.name);
           const subcatName = t.subcategory || '';
           if (Array.isArray(t.parameters)) {
             t.parameters.forEach(pm => {
@@ -173,7 +174,7 @@ export function ReportPreview({ report }) {
         // Group results by category, then subcategory
         const groups = new Map();
         results.forEach(row => {
-          const catName = normalizeCategoryName(row.category || paramCatMap[row.sampleName]);
+          const catName = normalizeCategoryName(row.category || paramCatMap[row.sampleName], row.sampleName);
           const subcatName = (row.subcategory || paramSubcatMap[row.sampleName] || '').toUpperCase();
           if (!groups.has(catName)) groups.set(catName, new Map());
           const subMap = groups.get(catName);

@@ -92,26 +92,120 @@ export const CATEGORY_MAP_ALIASES = {
   ]
 };
 
-export function normalizeCategoryName(rawCategory) {
-  if (!rawCategory) return 'OTHER';
-  const clean = String(rawCategory).trim().toUpperCase();
+export const TEST_NAME_TO_CATEGORY = {
+  // Serology & Immunohematology
+  'CRP': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'C-REACTIVE PROTEIN': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'C-REACTIVE PROTEIN (CRP)': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'ASO': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'ASO TITER': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'ANTISTREPTOLYSIN O': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'RF': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'RHEUMATOID FACTOR': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'RHEUMATOID FACTOR (RF)': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'WIDAL': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'WIDAL TEST': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'WIDAL TEST (TYPHOID)': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'HIV': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'HIV I & II': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'HBSAG': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'HCV': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'VDRL': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'SYPHILIS': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'H. PYLORI AG': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'H. PYLORI AB': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'H. PYLORI AG/AB': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'BLOOD GROUP': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'BLOOD GROUP & RH': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'DIRECT COOMBS': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'INDIRECT COOMBS': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'CROSSMATCH': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'ANA SCREEN': 'SEROLOGY AND IMMUNOHEMATOLOGY',
+  'WEIL FELIX': 'SEROLOGY AND IMMUNOHEMATOLOGY',
 
-  // 1. Check exact match in MAIN_CATEGORY_ORDER
-  if (MAIN_CATEGORY_ORDER.includes(clean)) return clean;
+  // Hematology
+  'CBC': 'HEMATOLOGY',
+  'RBC': 'HEMATOLOGY',
+  'WBC': 'HEMATOLOGY',
+  'HGB': 'HEMATOLOGY',
+  'HEMOGLOBIN': 'HEMATOLOGY',
+  'HCT': 'HEMATOLOGY',
+  'HEMATOCRIT': 'HEMATOLOGY',
+  'PLATELET': 'HEMATOLOGY',
+  'PLATELET COUNT': 'HEMATOLOGY',
+  'MCV': 'HEMATOLOGY',
+  'MCH': 'HEMATOLOGY',
+  'MCHC': 'HEMATOLOGY',
+  'ESR': 'HEMATOLOGY',
 
-  // 2. Check exact match in CATEGORY_MAP_ALIASES
+  // Clinical Chemistry
+  'CREATININE': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'UREA': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'BUN': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'ALT': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'SGPT': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'AST': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'SGOT': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'ALP': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'TOTAL BILIRUBIN': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'DIRECT BILIRUBIN': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'URIC ACID': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'CHOLESTEROL': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'TRIGLYCERIDES': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'HDL': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+  'LDL': 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+
+  // Serum Electrolyte
+  'SODIUM': 'SERUM ELECTROLYTE',
+  'POTASSIUM': 'SERUM ELECTROLYTE',
+  'CHLORIDE': 'SERUM ELECTROLYTE',
+  'CALCIUM': 'SERUM ELECTROLYTE',
+
+  // Blood Sugar / Diabetic
+  'GLUCOSE': 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
+  'FBS': 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
+  'FASTING BLOOD SUGAR': 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
+  'RBS': 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
+  'RANDOM BLOOD SUGAR': 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
+  'HBA1C': 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP'
+};
+
+export function normalizeCategoryName(rawCategory, testName = '') {
+  const cleanCat = String(rawCategory || '').trim().toUpperCase();
+  const cleanTest = String(testName || '').trim().toUpperCase();
+
+  // 1. If testName matches TEST_NAME_TO_CATEGORY and rawCategory is missing or OTHER/GENERAL, resolve via testName
+  if ((!cleanCat || cleanCat === 'OTHER' || cleanCat === 'OTHER CATEGORY' || cleanCat === 'GENERAL LABORATORY') && cleanTest) {
+    if (TEST_NAME_TO_CATEGORY[cleanTest]) {
+      return TEST_NAME_TO_CATEGORY[cleanTest];
+    }
+    for (const [tn, targetCat] of Object.entries(TEST_NAME_TO_CATEGORY)) {
+      if (cleanTest === tn || cleanTest.includes(tn) || tn.includes(cleanTest)) {
+        return targetCat;
+      }
+    }
+  }
+
+  if (!cleanCat || cleanCat === 'OTHER' || cleanCat === 'OTHER CATEGORY' || cleanCat === 'GENERAL LABORATORY') {
+    return cleanTest ? (TEST_NAME_TO_CATEGORY[cleanTest] || 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS') : 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS';
+  }
+
+  // Check exact match in MAIN_CATEGORY_ORDER
+  if (MAIN_CATEGORY_ORDER.includes(cleanCat)) return cleanCat;
+
+  // Check exact match in CATEGORY_MAP_ALIASES
   for (const [mainCat, aliases] of Object.entries(CATEGORY_MAP_ALIASES)) {
-    if (aliases.some(alias => alias === clean)) {
+    if (aliases.some(alias => alias === cleanCat)) {
       return mainCat;
     }
   }
 
-  // 3. Check if clean starts with or equals alias
+  // Check if cleanCat starts with or equals alias
   for (const [mainCat, aliases] of Object.entries(CATEGORY_MAP_ALIASES)) {
-    if (aliases.some(alias => clean.startsWith(alias) || alias.startsWith(clean))) {
+    if (aliases.some(alias => cleanCat.startsWith(alias) || alias.startsWith(cleanCat))) {
       return mainCat;
     }
   }
 
-  return clean;
+  return cleanCat;
 }
