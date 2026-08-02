@@ -16,12 +16,12 @@ const __dirname = path.dirname(__filename);
 
 const getLogoPath = () => {
   const candidates = [
+    path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo3.jpg'),
+    path.resolve(process.cwd(), 'src', 'picture', 'logo3.jpg'),
+    path.resolve(__dirname, '../picture/logo3.jpg'),
     path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo2.png'),
     path.resolve(process.cwd(), 'src', 'picture', 'logo2.png'),
     path.resolve(__dirname, '../picture/logo2.png'),
-    path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.png'),
-    path.resolve(process.cwd(), 'src', 'picture', 'logo.png'),
-    path.resolve(__dirname, '../picture/logo.png'),
     path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.jpg'),
     path.resolve(process.cwd(), 'src', 'picture', 'logo.jpg'),
     path.resolve(__dirname, '../picture/logo.jpg')

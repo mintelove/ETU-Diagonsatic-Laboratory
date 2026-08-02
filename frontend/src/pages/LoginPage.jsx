@@ -18,7 +18,7 @@ import { login as apiLogin } from '../services/authService.js';
 import { useForm } from '../hooks/useForm.js';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import { api } from '../api/client.js';
-import labLogo from '../assets/logo2.png';
+import labLogo from '../assets/logo3.jpg';
 
 import slideMicroscope from '../assets/slide-microscope.png';
 import slideBloodTubes from '../assets/slide-blood-tubes.png';

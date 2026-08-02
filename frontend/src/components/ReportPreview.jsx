@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
 
-import labLogo from '../assets/logo2.png';
+import labLogo from '../assets/logo3.jpg';
 
 export function getReportTestTypes(report) {
   const patient = report?.patient || {};
@@ -89,7 +89,7 @@ export function ReportPreview({ report }) {
   return (
     <section className="table-card" style={{ margin: 0 }}>
       <div style={{ textAlign: 'center', marginBottom: '14px', borderBottom: '2px solid var(--color-outline-variant, #e2e8f0)', paddingBottom: '12px' }}>
-        <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '220px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 10px', display: 'block' }} />
+        <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '170px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 10px', display: 'block' }} />
         <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Review</p>
         <h2 style={{ margin: '2px 0 0', color: 'var(--color-primary, #075c91)', fontSize: '1.4rem' }}>ETU Diagnostic Laboratory</h2>
       </div>

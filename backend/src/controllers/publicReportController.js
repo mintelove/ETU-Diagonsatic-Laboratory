@@ -167,6 +167,9 @@ export async function downloadPublicPdf(req, res, next) {
     const __filename2 = fileURLToPath(import.meta.url);
     const __dirname2 = path.dirname(__filename2);
     const logoCandidates = [
+      path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo3.jpg'),
+      path.resolve(process.cwd(), 'src', 'picture', 'logo3.jpg'),
+      path.resolve(__dirname2, '../picture/logo3.jpg'),
       path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo2.png'),
       path.resolve(process.cwd(), 'src', 'picture', 'logo2.png'),
       path.resolve(__dirname2, '../picture/logo2.png'),
@@ -183,7 +186,7 @@ export async function downloadPublicPdf(req, res, next) {
 
     if (fs.existsSync(logoFile)) {
       const logoBuf = fs.readFileSync(logoFile);
-      d.image(logoBuf, 57.6, 10, { width: 480, align: 'center' });
+      d.image(logoBuf, 77.6, 10, { width: 440, align: 'center' });
       d.fillColor('#075c91').fontSize(22).text('ETU Diagnostic Laboratory', 46, 150, { align: 'center', width: 503 });
     } else {
       d.rect(46, 42, 58, 58).fill('#075c91');
