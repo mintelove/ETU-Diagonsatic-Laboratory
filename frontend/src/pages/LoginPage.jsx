@@ -414,16 +414,37 @@ export default function LoginPage() {
 
         <main className="login-card lab-glass-card">
           <header className="login-brand">
-            {/* 2x Larger LIMS Microscope/Flask Icon */}
+            {/* Modern Professional Microscope Icon */}
             <div className="lims-hero-icon-container">
               <div className="lims-hero-icon-wrapper-large">
                 <svg className="lims-hero-icon-svg-large" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M32 6V14M24 14H40M28 14V26M36 14V26M22 26H42L38 38H26L22 26Z" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M26 38L18 54H46L38 38" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-                  <circle cx="32" cy="46" r="3.5" fill="#F39C12" />
-                  <circle cx="27" cy="50" r="2.5" fill="#F39C12" />
-                  <circle cx="37" cy="49" r="2.8" fill="#F39C12" />
-                  <path d="M12 58H52" stroke="var(--scene-accent, #00d2ff)" strokeWidth="4.2" strokeLinecap="round" />
+                  {/* Binocular Eyepieces & Head */}
+                  <path d="M25 10L30 18M39 10L34 18" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  <rect x="21" y="6" width="7" height="5" rx="1.5" transform="rotate(-15 21 6)" fill="var(--scene-accent, #00d2ff)" />
+                  <rect x="36" y="6" width="7" height="5" rx="1.5" transform="rotate(15 36 6)" fill="var(--scene-accent, #00d2ff)" />
+                  <path d="M28 18H36L34 24H30L28 18Z" fill="var(--scene-accent, #00d2ff)" />
+
+                  {/* Objective Lenses & Revolving Nosepiece */}
+                  <path d="M29 24L26 31M35 24L38 31" stroke="var(--scene-accent, #00d2ff)" strokeWidth="2.8" strokeLinecap="round" />
+                  <path d="M32 24V32" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.2" strokeLinecap="round" />
+
+                  {/* Curved Arm */}
+                  <path d="M32 20C42 21 46 32 41 43" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.8" strokeLinecap="round" />
+
+                  {/* Stage Platform */}
+                  <path d="M18 36H42" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.5" strokeLinecap="round" />
+                  <path d="M20 36V39H40V36" fill="var(--scene-accent, #00d2ff)" opacity="0.4" />
+
+                  {/* Coarse & Fine Focus Knobs */}
+                  <circle cx="42" cy="40" r="3.5" fill="#F39C12" />
+                  <circle cx="42" cy="40" r="1.5" fill="#ffffff" />
+
+                  {/* Pillar & Solid Base */}
+                  <path d="M32 43V52" stroke="var(--scene-accent, #00d2ff)" strokeWidth="4" strokeLinecap="round" />
+                  <path d="M14 55H50C52 55 53 53.5 52 52L48 48H16L12 52C11 53.5 12 55 14 55Z" fill="var(--scene-accent, #00d2ff)" />
+
+                  {/* Light Source / Substage Condenser */}
+                  <circle cx="32" cy="47" r="2.5" fill="#F39C12" />
                 </svg>
               </div>
             </div>
