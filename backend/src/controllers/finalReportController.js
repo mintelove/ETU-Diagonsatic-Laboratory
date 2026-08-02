@@ -55,19 +55,129 @@ d.fillColor('#1f3640').fontSize(11)
   .text(`Phone: ${p.phone||'Not recorded'}`,300,198);
 
 let curY = 222;
+if (p.systolicBP || p.diastolicBP) {
+  d.text(`Blood Pressure: ${p.systolicBP || '—'}/${p.diastolicBP || '—'} mmHg`, 46, curY);
+  curY += 18;
+}
 if (p.referralHospital) {
   const refDoc = await ReferralHospital.findOne({ name: p.referralHospital }).lean();
   const refAddress = refDoc?.address || refDoc?.city || p.address || 'Not recorded';
-  d.text(`Referral Hospital Name: ${p.referralHospital}`, 46, 218)
-   .text(`Referral Hospital Address: ${refAddress}`, 300, 218);
-  curY = 242;
+  d.text(`Referral Hospital Name: ${p.referralHospital}`, 46, curY)
+   .text(`Referral Hospital Address: ${refAddress}`, 300, curY);
+  curY += 20;
 }
 
-const categoriesMap=new Map();(p.laboratoryTests||[]).forEach(t=>{const catName=t.category?.name||'GENERAL LABORATORY';if(!categoriesMap.has(catName))categoriesMap.set(catName,[]);categoriesMap.get(catName).push(t.name||t);});
-d.fontSize(11.5).fillColor('#075c91').text('REQUESTED LABORATORY TEST TYPES',46,curY);curY+=18;
-if(categoriesMap.size>0){categoriesMap.forEach((testsList,catName)=>{d.fontSize(10.5).fillColor('#075c91').text(catName.toUpperCase(),46,curY);curY+=15;testsList.forEach(tn=>{d.fontSize(10).fillColor('#1f3640').text(`• ${tn}`,56,curY);curY+=14;});curY+=4;});}else{d.fontSize(10).fillColor('#1f3640').text('• Not recorded',56,curY);curY+=14;}
-d.fontSize(11.5).fillColor('#075c91').text('Equipment Used',46,curY);curY+=16;d.fillColor('#1f3640').fontSize(10).text(r.equipment.join(', ') || 'Standard Analyzer',46,curY,{width:500});curY+=24;
-let y=curY;d.fillColor('#075c91').rect(46,y,503,24).fill();d.fillColor('#fff').fontSize(10.5).text('Parameter',55,y+6).text('Result',205,y+6).text('SI Unit',285,y+6).text('Reference Range',350,y+6).text('Flag',490,y+6);y+=24;r.results.forEach((x,i)=>{if(y>710){d.addPage();y=55;}if(i%2===0)d.fillColor('#f1f7fa').rect(46,y,503,24).fill();const flagVal=x.flag||'—';d.fillColor('#1f3640').fontSize(10).text(x.sampleName,55,y+6,{width:145}).text(x.result,205,y+6,{width:75}).text(x.unit||'',285,y+6,{width:60}).text(x.referenceValue,350,y+6,{width:125});d.fillColor('#1f3640').fontSize(10.5).text(flagVal,490,y+6);y+=24;});d.fillColor('#1f3640').fontSize(11).text(`Collected by: ${r.technician?.fullName||'Not recorded'}`,46,y+28).text(`Approved by: ${r.approvedBy?.fullName||'Not recorded'}`,46,y+46).text(`Date and time: ${new Date(r.approvedDate||r.updatedDate).toLocaleString()}`,46,y+64);d.fontSize(10).fillColor('#075c91').text('ETU Diagnostic Laboratory',46,788,{align:'center',width:503});d.end();await recordActivity(req.user.id,'Generated laboratory report PDF','LabReport',r.id);}catch(e){next(e)}}
+const getCategoryEquipment = (catName = '', reportEquipment = []) => {
+  if (!Array.isArray(reportEquipment) || reportEquipment.length === 0) return 'Standard Analyzer';
+  if (reportEquipment.length === 1) return reportEquipment[0];
+  const normCat = String(catName || '').toUpperCase();
+  const matched = reportEquipment.find(eq => {
+    const normEq = String(eq || '').toUpperCase();
+    if (normCat.includes('CHEMISTRY') || normCat.includes('IMMUNOASSAY')) {
+      if (normEq.includes('CHEM') || normEq.includes('BS-120') || normEq.includes('BS120') || normEq.includes('COBAS') || normEq.includes('FINECARE')) return true;
+    }
+    if (normCat.includes('HEMATOLOGY')) {
+      if (normEq.includes('HEMATO') || normEq.includes('BC-3000') || normEq.includes('BC3000') || normEq.includes('BC-6200') || normEq.includes('MINDRAY BC')) return true;
+    }
+    if (normCat.includes('COAGULATION')) {
+      if (normEq.includes('COAGULAT') || normEq.includes('SYSMEX') || normEq.includes('2-PART') || normEq.includes('SEMI AUTOMATIC')) return true;
+    }
+    if (normCat.includes('ELECTROLYTE')) {
+      if (normEq.includes('ELECTROLYTE') || normEq.includes('K-LITE') || normEq.includes('KLITE')) return true;
+    }
+    if (normCat.includes('URINE') || normCat.includes('FLUID')) {
+      if (normEq.includes('URINE') || normEq.includes('ANALYZER')) return true;
+    }
+    if (normCat.includes('PARASITOLOGY') || normCat.includes('MICROBIOLOGY')) {
+      if (normEq.includes('MICROSCOPE') || normEq.includes('CULTURE')) return true;
+    }
+    const words = normCat.split(/\s+/).filter(w => w.length > 3 && !['TEST', 'TESTS', 'AND', 'WITH'].includes(w));
+    return words.some(w => normEq.includes(w));
+  });
+  return matched || reportEquipment.join(', ');
+};
+
+const paramCatMap = {};
+const categoryOrder = [];
+(p.laboratoryTests || []).forEach(t => {
+  if (!t || typeof t !== 'object') return;
+  const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
+  const normCat = catName.toUpperCase();
+  if (!categoryOrder.includes(normCat)) categoryOrder.push(normCat);
+  if (Array.isArray(t.parameters)) {
+    t.parameters.forEach(pm => {
+      const pName = typeof pm === 'string' ? pm : (pm?.name || pm?.sampleName || '');
+      if (pName) paramCatMap[pName] = normCat;
+    });
+  }
+  if (t.name) paramCatMap[t.name] = normCat;
+});
+
+const categoriesMap = new Map();
+(p.laboratoryTests || []).forEach(t => {
+  const catName = t.category?.name || 'GENERAL LABORATORY';
+  if (!categoriesMap.has(catName)) categoriesMap.set(catName, []);
+  categoriesMap.get(catName).push(t.name || t);
+});
+
+d.fontSize(11.5).fillColor('#075c91').text('REQUESTED LABORATORY TEST TYPES', 46, curY); curY += 18;
+if (categoriesMap.size > 0) {
+  categoriesMap.forEach((testsList, catName) => {
+    d.fontSize(10.5).fillColor('#075c91').text(catName.toUpperCase(), 46, curY); curY += 15;
+    testsList.forEach(tn => { d.fontSize(10).fillColor('#1f3640').text(`• ${tn}`, 56, curY); curY += 14; });
+    curY += 4;
+  });
+} else {
+  d.fontSize(10).fillColor('#1f3640').text('• Not recorded', 56, curY); curY += 14;
+}
+
+d.fontSize(12).fillColor('#075c91').text('LABORATORY RESULTS', 46, curY); curY += 20;
+
+const resultGroups = new Map();
+(r.results || []).forEach(row => {
+  const catName = (row.category || paramCatMap[row.sampleName] || 'OTHER').toUpperCase();
+  if (!resultGroups.has(catName)) resultGroups.set(catName, []);
+  resultGroups.get(catName).push(row);
+});
+
+const sortedGroups = Array.from(resultGroups.entries()).sort(([catA], [catB]) => {
+  const idxA = categoryOrder.indexOf(catA);
+  const idxB = categoryOrder.indexOf(catB);
+  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+  if (idxA !== -1) return -1;
+  if (idxB !== -1) return 1;
+  return 0;
+});
+
+let y = curY;
+if (sortedGroups.length > 0) {
+  sortedGroups.forEach(([catName, rows]) => {
+    if (y > 670) { d.addPage(); y = 55; }
+    const catEq = getCategoryEquipment(catName, r.equipment);
+    d.fontSize(11).fillColor('#075c91').text(catName, 46, y); y += 14;
+    d.fontSize(9.5).fillColor('#475569').text(`Equipment Used: ${catEq}`, 46, y); y += 16;
+    d.fillColor('#075c91').rect(46, y, 503, 22).fill();
+    d.fillColor('#fff').fontSize(10).text('Parameter', 55, y + 5).text('Result', 205, y + 5).text('SI Unit', 285, y + 5).text('Reference Range', 350, y + 5).text('Flag', 490, y + 5);
+    y += 22;
+    rows.forEach((x, i) => {
+      if (y > 720) { d.addPage(); y = 55; }
+      if (i % 2 === 0) d.fillColor('#f1f7fa').rect(46, y, 503, 22).fill();
+      const flagVal = x.flag || '—';
+      d.fillColor('#1f3640').fontSize(9.5).text(x.sampleName, 55, y + 5, { width: 145 }).text(x.result, 205, y + 5, { width: 75 }).text(x.unit || '', 285, y + 5, { width: 60 }).text(x.referenceValue, 350, y + 5, { width: 125 });
+      d.fillColor('#1f3640').fontSize(10).text(flagVal, 490, y + 5);
+      y += 22;
+    });
+    y += 12;
+  });
+} else {
+  d.fillColor('#1f3640').fontSize(10).text('No laboratory results recorded.', 46, y); y += 20;
+}
+
+d.fillColor('#1f3640').fontSize(11).text(`Collected by: ${r.technician?.fullName || 'Not recorded'}`, 46, y + 20).text(`Approved by: ${r.approvedBy?.fullName || 'Not recorded'}`, 46, y + 38).text(`Date and time: ${new Date(r.approvedDate || r.updatedDate).toLocaleString()}`, 46, y + 56);
+d.fontSize(10).fillColor('#075c91').text('ETU Diagnostic Laboratory', 46, 788, { align: 'center', width: 503 });
+d.end();
+await recordActivity(req.user.id, 'Generated laboratory report PDF', 'LabReport', r.id);
+} catch (e) { next(e); } }
 
 /** GET /api/final-reports/:id/public-link — get existing public share link info (or generate on-the-fly) */
 export async function getPublicLink(req, res, next) {

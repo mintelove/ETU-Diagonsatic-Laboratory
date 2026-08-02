@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
+import { useScrollLock } from '../utils/useScrollLock.js';
 
 const ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
 
@@ -57,6 +58,9 @@ export default function InvestigationPage() {
   const [testSearch, setTestSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  useScrollLock(showConfirmationModal);
+  const [systolicBP, setSystolicBP] = useState('');
+  const [diastolicBP, setDiastolicBP] = useState('');
 
   const dismissToast = useCallback(() => setToast(null), []);
 
@@ -68,7 +72,9 @@ export default function InvestigationPage() {
         api('/laboratory-tests/catalog', { token, signal })
       ]);
       setPatients(resPatients.patients || []);
-      setCategories(resCatalog.categories || []);
+      const cats = resCatalog.categories || resCatalog.data?.categories || [];
+      setCategories(cats);
+      setExpandedCategories(prev => prev.length === 0 ? cats.map(c => String(c._id || c.id)) : prev);
     } catch (e) {
       if (e.name === 'AbortError') return;
       setToast({ message: e.message || 'Error loading investigation queue.', type: 'error' });
@@ -108,7 +114,7 @@ export default function InvestigationPage() {
   }, [categories]);
 
   const selectedTests = useMemo(() => {
-    return allTests.filter(t => selectedTestIds.includes(t._id));
+    return allTests.filter(t => selectedTestIds.includes(String(t._id || t.id || t)));
   }, [allTests, selectedTestIds]);
 
   const totalPrice = useMemo(() => {
@@ -128,19 +134,35 @@ export default function InvestigationPage() {
   const handleOpenPatient = (patient) => {
     setSelectedPatient(patient);
     setSymptoms(patient.investigationNotes || '');
-    setSelectedTestIds((patient.laboratoryTests || []).map(t => String(t._id || t)));
-    setExpandedCategories(categories.map(c => c._id));
+    setSystolicBP(patient.systolicBP || '');
+    setDiastolicBP(patient.diastolicBP || '');
+    setSelectedTestIds((patient.laboratoryTests || []).map(t => String(t._id || t.id || t)));
+    setExpandedCategories(categories.map(c => String(c._id || c.id)));
     setShowConfirmationModal(false);
   };
 
   const handleToggleTest = (id) => {
+    const idStr = String(id);
     setSelectedTestIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
     );
+  };
+
+  const validateBP = () => {
+    if (systolicBP && (Number(systolicBP) < 50 || Number(systolicBP) > 300)) {
+      setToast({ message: 'Systolic BP must be between 50 and 300 mmHg.', type: 'error' });
+      return false;
+    }
+    if (diastolicBP && (Number(diastolicBP) < 30 || Number(diastolicBP) > 200)) {
+      setToast({ message: 'Diastolic BP must be between 30 and 200 mmHg.', type: 'error' });
+      return false;
+    }
+    return true;
   };
 
   const handleSaveDraft = async () => {
     if (!selectedPatient) return;
+    if (!validateBP()) return;
     setSubmitting(true);
     try {
       await api(`/collection/investigation/${selectedPatient._id}/draft`, {
@@ -148,7 +170,9 @@ export default function InvestigationPage() {
         method: 'PUT',
         body: JSON.stringify({
           laboratoryTests: selectedTestIds,
-          symptoms: symptoms.trim()
+          symptoms: symptoms.trim(),
+          systolicBP: systolicBP ? Number(systolicBP) : null,
+          diastolicBP: diastolicBP ? Number(diastolicBP) : null
         })
       });
 
@@ -172,6 +196,7 @@ export default function InvestigationPage() {
       setToast({ message: 'Please select at least one laboratory test type.', type: 'error' });
       return;
     }
+    if (!validateBP()) return;
     setShowConfirmationModal(true);
   };
 
@@ -181,6 +206,7 @@ export default function InvestigationPage() {
       setToast({ message: 'Please select at least one laboratory test type.', type: 'error' });
       return;
     }
+    if (!validateBP()) return;
 
     setSubmitting(true);
     try {
@@ -189,7 +215,9 @@ export default function InvestigationPage() {
         method: 'POST',
         body: JSON.stringify({
           laboratoryTests: selectedTestIds,
-          symptoms: symptoms.trim()
+          symptoms: symptoms.trim(),
+          systolicBP: systolicBP ? Number(systolicBP) : null,
+          diastolicBP: diastolicBP ? Number(diastolicBP) : null
         })
       });
 
@@ -245,6 +273,7 @@ export default function InvestigationPage() {
                 <th>Age</th>
                 <th>Gender</th>
                 <th>Phone</th>
+                <th>Vital Signs (BP)</th>
                 <th>Registration Time</th>
                 <th>Branch</th>
                 <th>Receptionist</th>
@@ -255,13 +284,13 @@ export default function InvestigationPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', padding: '2rem' }}>
+                  <td colSpan={11} style={{ textAlign: 'center', padding: '2rem' }}>
                     Loading waiting investigation queue...
                   </td>
                 </tr>
               ) : filteredPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic' }}>
+                  <td colSpan={11} style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic' }}>
                     No Self-Aware patients waiting for investigation.
                   </td>
                 </tr>
@@ -273,6 +302,7 @@ export default function InvestigationPage() {
                     <td>{p.age}</td>
                     <td>{p.sex}</td>
                     <td>{p.phone}</td>
+                    <td>{(p.systolicBP || p.diastolicBP) ? <strong style={{ color: 'var(--color-primary)' }}>🫀 {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</strong> : <span style={{ color: 'var(--color-on-surface-variant)' }}>—</span>}</td>
                     <td>{new Date(p.registrationDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                     <td><span className="pm-badge">📍 {p.branchName || 'Main'}</span></td>
                     <td>{p.registeredBy?.fullName || '—'}</td>
@@ -313,7 +343,7 @@ export default function InvestigationPage() {
             </div>
 
             {/* Patient Symptoms Input */}
-            <div className="form-group" style={{ marginBottom: '20px' }}>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
               <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
                 🗣️ Patient Symptoms &amp; Clinical History Notes (Optional)
               </label>
@@ -328,6 +358,53 @@ export default function InvestigationPage() {
                   background: 'var(--color-surface, #ffffff)', color: 'var(--color-on-surface, #0f172a)'
                 }}
               />
+            </div>
+
+            {/* ═══ VITAL SIGNS (OPTIONAL) ═══ */}
+            <div style={{
+              background: 'var(--color-surface-container, #f8fafc)',
+              border: '1px solid var(--color-outline-variant, #cbd5e1)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🫀</span>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--color-primary, #075c91)' }}>Vital Signs (Optional)</strong>
+                </div>
+                {(selectedPatient.systolicBP || selectedPatient.diastolicBP) && (
+                  <span style={{ fontSize: '0.78rem', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '6px', fontWeight: 700 }}>
+                    ✓ Recorded from Registration: {selectedPatient.systolicBP || '—'}/{selectedPatient.diastolicBP || '—'} mmHg
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>Systolic BP (mmHg)</label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="300"
+                    placeholder="e.g. 120"
+                    value={systolicBP}
+                    onChange={e => setSystolicBP(e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #cbd5e1)', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>Diastolic BP (mmHg)</label>
+                  <input
+                    type="number"
+                    min="30"
+                    max="200"
+                    placeholder="e.g. 80"
+                    value={diastolicBP}
+                    onChange={e => setDiastolicBP(e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #cbd5e1)', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Laboratory Test Types Selector */}
@@ -351,16 +428,17 @@ export default function InvestigationPage() {
 
               <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
                 {visibleCategories.map(cat => {
-                  const expanded = expandedCategories.includes(cat._id);
-                  const selectedCount = (cat.tests || []).filter(t => selectedTestIds.includes(t._id)).length;
+                  const catIdStr = String(cat._id || cat.id);
+                  const expanded = expandedCategories.includes(catIdStr);
+                  const selectedCount = (cat.tests || []).filter(t => selectedTestIds.includes(String(t._id || t.id || t))).length;
                   const catIcon = categoryIcons[cat.name] || '🧪';
 
                   return (
-                    <section key={cat._id} className="investigation-cat-card">
+                    <section key={catIdStr} className="investigation-cat-card">
                       <button
                         type="button"
                         className="investigation-cat-header"
-                        onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== cat._id) : [...current, cat._id])}
+                        onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== catIdStr) : [...current, catIdStr])}
                       >
                         <span className="investigation-cat-icon">{catIcon}</span>
                         <div className="investigation-cat-title-wrap">
@@ -371,32 +449,74 @@ export default function InvestigationPage() {
                       </button>
 
                       {expanded && (
-                        <div className="investigation-test-grid">
-                          {(cat.tests || []).map(test => {
-                            const isSelected = selectedTestIds.includes(test._id);
-                            const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
-
-                            return (
-                              <div
-                                key={test._id}
-                                className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
-                                onClick={() => handleToggleTest(test._id)}
-                              >
-                                <div className="investigation-test-head">
-                                  <span className="investigation-test-name">{test.name}</span>
-                                  <div className="investigation-check-badge">
-                                    {isSelected ? '✓' : ''}
-                                  </div>
+                        <div className="investigation-test-grid-container" style={{ padding: '12px' }}>
+                          {(() => {
+                            const tests = cat.tests || [];
+                            const hasSubcats = tests.some(t => t.subcategory);
+                            if (!hasSubcats) {
+                              return (
+                                <div className="investigation-test-grid">
+                                  {tests.map(test => {
+                                    const isSelected = selectedTestIds.includes(String(test._id || test));
+                                    const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
+                                    return (
+                                      <div
+                                        key={test._id}
+                                        className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
+                                        onClick={() => handleToggleTest(test._id)}
+                                      >
+                                        <div className="investigation-test-head">
+                                          <span className="investigation-test-name">{test.name}</span>
+                                          <div className="investigation-check-badge">{isSelected ? '✓' : ''}</div>
+                                        </div>
+                                        <div className="investigation-test-footer">
+                                          <span className="investigation-sample-pill">{sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}</span>
+                                          <span className="investigation-test-price">{ETB(test.price)}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                                <div className="investigation-test-footer">
-                                  <span className="investigation-sample-pill">
-                                    {sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}
-                                  </span>
-                                  <span className="investigation-test-price">{ETB(test.price)}</span>
+                              );
+                            }
+
+                            const subMap = new Map();
+                            tests.forEach(test => {
+                              const sc = test.subcategory || 'GENERAL';
+                              if (!subMap.has(sc)) subMap.set(sc, []);
+                              subMap.get(sc).push(test);
+                            });
+
+                            return Array.from(subMap.entries()).map(([subName, subTests]) => (
+                              <div key={subName} style={{ marginBottom: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0 8px 2px', fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-primary, #075c91)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  <span>🏷️</span> {subName} ({subTests.length})
+                                </div>
+                                <div className="investigation-test-grid">
+                                  {subTests.map(test => {
+                                    const isSelected = selectedTestIds.includes(String(test._id || test));
+                                    const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
+                                    return (
+                                      <div
+                                        key={test._id}
+                                        className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
+                                        onClick={() => handleToggleTest(test._id)}
+                                      >
+                                        <div className="investigation-test-head">
+                                          <span className="investigation-test-name">{test.name}</span>
+                                          <div className="investigation-check-badge">{isSelected ? '✓' : ''}</div>
+                                        </div>
+                                        <div className="investigation-test-footer">
+                                          <span className="investigation-sample-pill">{sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}</span>
+                                          <span className="investigation-test-price">{ETB(test.price)}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
-                            );
-                          })}
+                            ));
+                          })()}
                         </div>
                       )}
                     </section>

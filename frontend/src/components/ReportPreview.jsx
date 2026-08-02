@@ -86,6 +86,9 @@ export function ReportPreview({ report }) {
         <p style={{ margin: 0 }}><strong>Collector:</strong> {report.technician?.fullName || report.submittedBy?.fullName || '—'}</p>
         <p style={{ margin: 0 }}><strong>Date / Time:</strong> {new Date(report.submittedDate || report.submittedAt || report.updatedDate || report.createdDate).toLocaleString()}</p>
         <p style={{ margin: 0 }}><strong>Report Status:</strong> <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{report.status === 'Submitted' ? 'Pending Approval' : report.status}</span></p>
+        {(p.systolicBP || p.diastolicBP) && (
+          <p style={{ margin: 0 }}><strong>Blood Pressure:</strong> {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</p>
+        )}
         {p.referralHospital && (
           <>
             <p style={{ margin: 0 }}><strong>Referring Hospital:</strong> {p.referralHospital}</p>
@@ -119,12 +122,7 @@ export function ReportPreview({ report }) {
         )}
       </div>
 
-      {/* Equipment Used */}
-      <p style={{ margin: '0 0 12px 0', fontSize: '0.88rem' }}>
-        <strong>Equipment Used:</strong> {report.equipment?.join(', ') || 'Standard Analyzer'}
-      </p>
-
-      {/* Test Parameters & Results Table — grouped by main category and subcategory */}
+      {/* Test Parameters & Results Table — grouped by main category, with category-level equipment */}
       {(() => {
         const results = report.results || [];
         if (!results.length) {
@@ -136,25 +134,59 @@ export function ReportPreview({ report }) {
           );
         }
 
-        // Build a map from parameter name → category & subcategory using laboratoryTests & report results
+        // Helper function to map equipment to specific main categories
+        const getCategoryEquipment = (catName = '', reportEquipment = []) => {
+          if (!Array.isArray(reportEquipment) || reportEquipment.length === 0) return 'Standard Analyzer';
+          if (reportEquipment.length === 1) return reportEquipment[0];
+          const normCat = String(catName || '').toUpperCase();
+          const matched = reportEquipment.find(eq => {
+            const normEq = String(eq || '').toUpperCase();
+            if (normCat.includes('CHEMISTRY') || normCat.includes('IMMUNOASSAY')) {
+              if (normEq.includes('CHEM') || normEq.includes('BS-120') || normEq.includes('BS120') || normEq.includes('COBAS') || normEq.includes('FINECARE')) return true;
+            }
+            if (normCat.includes('HEMATOLOGY')) {
+              if (normEq.includes('HEMATO') || normEq.includes('BC-3000') || normEq.includes('BC3000') || normEq.includes('BC-6200') || normEq.includes('MINDRAY BC')) return true;
+            }
+            if (normCat.includes('COAGULATION')) {
+              if (normEq.includes('COAGULAT') || normEq.includes('SYSMEX') || normEq.includes('2-PART') || normEq.includes('SEMI AUTOMATIC')) return true;
+            }
+            if (normCat.includes('ELECTROLYTE')) {
+              if (normEq.includes('ELECTROLYTE') || normEq.includes('K-LITE') || normEq.includes('KLITE')) return true;
+            }
+            if (normCat.includes('URINE') || normCat.includes('FLUID')) {
+              if (normEq.includes('URINE') || normEq.includes('ANALYZER')) return true;
+            }
+            if (normCat.includes('PARASITOLOGY') || normCat.includes('MICROBIOLOGY')) {
+              if (normEq.includes('MICROSCOPE') || normEq.includes('CULTURE')) return true;
+            }
+            const words = normCat.split(/\s+/).filter(w => w.length > 3 && !['TEST', 'TESTS', 'AND', 'WITH'].includes(w));
+            return words.some(w => normEq.includes(w));
+          });
+          return matched || reportEquipment.join(', ');
+        };
+
+        // Build parameter → category & subcategory map and preserve configured category order
         const paramCatMap = {};
         const paramSubcatMap = {};
+        const categoryOrder = [];
         const rawTests = Array.isArray(report?.laboratoryTests) ? report.laboratoryTests : (Array.isArray(p?.laboratoryTests) ? p.laboratoryTests : []);
         rawTests.forEach(t => {
           if (!t || typeof t !== 'object') return;
           const catName = t.category ? (typeof t.category === 'object' ? (t.category.name || 'GENERAL LABORATORY') : String(t.category)) : 'GENERAL LABORATORY';
+          const normCat = catName.toUpperCase();
+          if (!categoryOrder.includes(normCat)) categoryOrder.push(normCat);
           const subcatName = t.subcategory || '';
           if (Array.isArray(t.parameters)) {
             t.parameters.forEach(pm => {
               const pName = typeof pm === 'string' ? pm : (pm?.name || pm?.sampleName || '');
               if (pName) {
-                paramCatMap[pName] = catName.toUpperCase();
+                paramCatMap[pName] = normCat;
                 if (subcatName) paramSubcatMap[pName] = subcatName.toUpperCase();
               }
             });
           }
           if (t.name) {
-            paramCatMap[t.name] = catName.toUpperCase();
+            paramCatMap[t.name] = normCat;
             if (subcatName) paramSubcatMap[t.name] = subcatName.toUpperCase();
           }
         });
@@ -171,71 +203,120 @@ export function ReportPreview({ report }) {
           subMap.get(subKey).push(row);
         });
 
-        return Array.from(groups.entries()).map(([catName, subMap]) => (
-          <div key={catName} style={{ marginBottom: '20px' }}>
-            <h4 style={{
-              margin: '0 0 10px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, var(--color-primary, #075c91) 0%, #0ea5e9 100%)',
-              color: '#ffffff',
-              fontSize: '0.85rem',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
-              {catName}
-            </h4>
+        // Sort groups to match categoryOrder
+        const sortedGroups = Array.from(groups.entries()).sort(([catA], [catB]) => {
+          const idxA = categoryOrder.indexOf(catA);
+          const idxB = categoryOrder.indexOf(catB);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return 0;
+        });
 
-            {Array.from(subMap.entries()).map(([subKey, rows]) => (
-              <div key={subKey} style={{ marginBottom: '14px' }}>
-                {subKey !== 'GENERAL' && (
-                  <h5 style={{
-                    margin: '0 0 6px 0',
-                    padding: '4px 10px',
-                    background: '#e0f2fe',
-                    color: '#0369a1',
-                    borderRadius: '6px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    display: 'inline-block'
-                  }}>
-                    {subKey}
-                  </h5>
-                )}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
-                  <thead>
-                    <tr>
-                      <th>Parameter</th>
-                      <th>Result</th>
-                      <th>SI Unit</th>
-                      <th>Reference Range</th>
-                      <th style={{ textAlign: 'center' }}>Flag</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, i) => (
-                      <tr key={`${row.sampleName}-${i}`}>
-                        <td>
-                          <strong>{row.sampleName}</strong>
-                          {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
-                        </td>
-                        <td><strong>{row.result}</strong></td>
-                        <td>{row.unit || '—'}</td>
-                        <td>{row.referenceValue || '—'}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={p.sex} />
-                        </td>
-                      </tr>
+        const testInterpretations = Array.isArray(report.testInterpretations) ? report.testInterpretations : [];
+        const findTestInterps = (catName) => {
+          const norm = catName.toUpperCase();
+          const match = testInterpretations.find(t =>
+            t.testName?.toUpperCase() === norm ||
+            norm.includes(t.testName?.toUpperCase()) ||
+            t.testName?.toUpperCase().includes(norm)
+          );
+          return match?.interpretations || [];
+        };
+
+        return sortedGroups.map(([catName, subMap]) => {
+          const testInterps = findTestInterps(catName);
+          const catEq = getCategoryEquipment(catName, report.equipment);
+
+          return (
+            <div key={catName} style={{ marginBottom: '22px' }}>
+              <h4 style={{
+                margin: '0 0 4px 0',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, var(--color-primary, #075c91) 0%, #0ea5e9 100%)',
+                color: '#ffffff',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                {catName}
+              </h4>
+
+              <p style={{ margin: '4px 0 10px 4px', fontSize: '0.84rem', color: 'var(--color-on-surface-variant, #475569)' }}>
+                <strong>Equipment Used:</strong> {catEq}
+              </p>
+
+              {Array.from(subMap.entries()).map(([subKey, rows]) => {
+                return (
+                  <div key={subKey} style={{ marginBottom: '14px' }}>
+                    {subKey !== 'GENERAL' && (
+                      <h5 style={{
+                        margin: '0 0 6px 0',
+                        padding: '4px 10px',
+                        background: '#e0f2fe',
+                        color: '#0369a1',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        display: 'inline-block'
+                      }}>
+                        {subKey}
+                      </h5>
+                    )}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
+                      <thead>
+                        <tr>
+                          <th>Parameter</th>
+                          <th>Result</th>
+                          <th>SI Unit</th>
+                          <th>Reference Range</th>
+                          <th style={{ textAlign: 'center' }}>Flag</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row, i) => (
+                          <tr key={`${row.sampleName}-${i}`}>
+                            <td>
+                              <strong>{row.sampleName}</strong>
+                              {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
+                            </td>
+                            <td><strong>{row.result}</strong></td>
+                            <td>{row.unit || '—'}</td>
+                            <td>{row.referenceValue || '—'}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={p.sex} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+
+              {/* Render Clinical Interpretation for this Laboratory Test */}
+              {testInterps.length > 0 && (
+                <div style={{ marginTop: '10px', padding: '12px 16px', background: 'var(--color-surface-container, #f8fafc)', borderLeft: '4px solid var(--color-primary, #075c91)', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+                  <strong style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary, #075c91)', marginBottom: '8px', letterSpacing: '0.04em' }}>
+                    🩺 Clinical Interpretation
+                  </strong>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {testInterps.map((item, idx) => (
+                      <div key={idx} style={{ padding: '8px 12px', background: 'var(--card-bg, #ffffff)', borderRadius: '6px', border: '1px solid var(--card-border, #e2e8f0)' }}>
+                        <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-on-surface, #1e293b)', marginBottom: '2px' }}>{item.title}</strong>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--color-on-surface-variant, #516a75)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{item.interpretation}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        ));
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        });
       })()}
 
       {/* Public Sharing Banner */}

@@ -25,7 +25,9 @@ import systemRoutes from './routes/systemRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import laboratoryTestRoutes from './routes/laboratoryTestRoutes.js';
 import publicReportRoutes from './routes/publicReportRoutes.js';
+import clinicalInterpretationRoutes from './routes/clinicalInterpretationRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
+
 const app = express();
 app.use(helmet());
 const allowedOrigins = [
@@ -72,6 +74,7 @@ app.use('/api/counselling', counsellingRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/laboratory-tests', laboratoryTestRoutes);
+app.use('/api/clinical-interpretations', clinicalInterpretationRoutes);
 app.use('/api/public', publicReportRoutes);
 app.use(notFound);
 app.use(errorHandler);

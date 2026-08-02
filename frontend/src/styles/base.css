@@ -153,19 +153,37 @@ ul, ol {
    Global Professional Glassmorphism Modal Styles
    Used for Viewing Previously Saved Data across all pages & roles
    ============================================================ */
+/* Body lock class when any modal or report preview is open */
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
 .modal-backdrop,
 .pm-modal-backdrop,
-.global-modal-backdrop {
+.global-modal-backdrop,
+.global-modal-portal-backdrop,
+.report-preview-overlay,
+.investigation-modal-backdrop,
+.manual-stock-modal-backdrop {
   position: fixed !important;
-  inset: 0 !important;
-  background: rgba(10, 25, 40, 0.52) !important;
-  backdrop-filter: blur(14px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(180%) !important;
-  z-index: 1100 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 100000 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 16px !important;
+  background: rgba(10, 25, 40, 0.65) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  overflow: hidden !important;
   animation: glassBackdropFade 0.25s ease-out !important;
 }
 
@@ -176,30 +194,36 @@ ul, ol {
 
 .modal-content,
 .pm-modal,
-.global-modal {
-  background: rgba(255, 255, 255, 0.9) !important;
+.global-modal,
+.report-preview-modal,
+.investigation-confirm-modal {
+  background: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.3) !important;
   border-radius: 20px !important;
-  max-width: 840px;
+  max-width: 900px;
   width: 100%;
   max-height: 88vh !important;
+  display: flex !important;
+  flex-direction: column !important;
   overflow-y: auto !important;
-  display: flex;
-  flex-direction: column;
+  overscroll-behavior: contain !important;
   padding: 24px 28px !important;
   animation: glassPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   color: var(--color-on-surface, #19313b);
   box-sizing: border-box;
-  position: relative;
+  position: relative !important;
+  margin: auto !important;
 }
 
 [data-theme='dark'] .modal-content,
 [data-theme='dark'] .pm-modal,
-[data-theme='dark'] .global-modal {
-  background: rgba(20, 32, 44, 0.92) !important;
+[data-theme='dark'] .global-modal,
+[data-theme='dark'] .report-preview-modal,
+[data-theme='dark'] .investigation-confirm-modal {
+  background: rgba(20, 32, 44, 0.94) !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
   color: var(--color-on-surface, #e1f0f7) !important;

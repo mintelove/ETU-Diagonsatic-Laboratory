@@ -11,19 +11,35 @@ import { download } from '../api/download.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
+import { useScrollLock } from '../utils/useScrollLock.js';
 
 const KES_TO_ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
 const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
-const categoryIcons = {
-  'HEMATOLOGY and IMMUNO HEMATOLOGY': '🩸',
-  'CLINICAL CHEMISTRY and IMMUNOASSAY TESTS': '🧪',
-  'URINE AND BODY FLUID ANALYSIS': '🔬',
-  'PARASITOLOGY': '🦠',
-  'MICROBIOLOGY': '🧫',
-  'SEROLOGICAL TESTS': '🧬',
-  'REFERRAL TESTS': '🏥',
-  'OTHER TESTS': '⚡'
+const CATEGORY_THEMES = {
+  'HEMATOLOGY':                               { icon: '🩸', gradient: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', accent: '#dc2626', light: 'rgba(220,38,38,0.08)' },
+  'CLINICAL CHEMISTRY':                       { icon: '🧪', gradient: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)', accent: '#2563eb', light: 'rgba(37,99,235,0.08)' },
+  'COAGULATION':                              { icon: '🔬', gradient: 'linear-gradient(135deg, #9333ea 0%, #6b21a8 100%)', accent: '#9333ea', light: 'rgba(147,51,234,0.08)' },
+  'SERUM ELECTROLYTE':                        { icon: '⚡', gradient: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)', accent: '#ea580c', light: 'rgba(234,88,12,0.08)' },
+  'HORMONE':                                  { icon: '💊', gradient: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)', accent: '#0891b2', light: 'rgba(8,145,178,0.08)' },
+  'SEROLOGY':                                 { icon: '🧬', gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)', accent: '#059669', light: 'rgba(5,150,105,0.08)' },
+  'BLOOD SUGAR':                              { icon: '🍬', gradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)', accent: '#d97706', light: 'rgba(217,119,6,0.08)' },
+  'URINALYSIS':                               { icon: '🧫', gradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', accent: '#0d9488', light: 'rgba(13,148,136,0.08)' },
+  'BACTERIOLOGY':                             { icon: '🦠', gradient: 'linear-gradient(135deg, #65a30d 0%, #4d7c0f 100%)', accent: '#65a30d', light: 'rgba(101,163,13,0.08)' },
+  'PARASITOLOGY':                             { icon: '🦠', gradient: 'linear-gradient(135deg, #65a30d 0%, #4d7c0f 100%)', accent: '#65a30d', light: 'rgba(101,163,13,0.08)' },
+  'SEMEN':                                    { icon: '🔬', gradient: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)', accent: '#7c3aed', light: 'rgba(124,58,237,0.08)' },
+  'STOOL':                                    { icon: '🔎', gradient: 'linear-gradient(135deg, #b45309 0%, #92400e 100%)', accent: '#b45309', light: 'rgba(180,83,9,0.08)' },
+  'URINE AND BODY FLUID':                     { icon: '💧', gradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', accent: '#0284c7', light: 'rgba(2,132,199,0.08)' },
+  'REFERRAL':                                 { icon: '🏥', gradient: 'linear-gradient(135deg, #6b7280 0%, #374151 100%)', accent: '#6b7280', light: 'rgba(107,114,128,0.08)' },
+  'MICROBIOLOGY':                             { icon: '🧫', gradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', accent: '#16a34a', light: 'rgba(22,163,74,0.08)' },
+  '_DEFAULT':                                 { icon: '🧪', gradient: 'linear-gradient(135deg, #475569 0%, #334155 100%)', accent: '#475569', light: 'rgba(71,85,105,0.08)' }
 };
+function getCatTheme(catName) {
+  const n = (catName || '').toUpperCase();
+  for (const [key, val] of Object.entries(CATEGORY_THEMES)) {
+    if (key !== '_DEFAULT' && (n.includes(key) || key.includes(n))) return val;
+  }
+  return CATEGORY_THEMES._DEFAULT;
+}
 
 const ReceptionClock = memo(function ReceptionClock() { const [now,setNow]=useState(()=>new Date()); useEffect(()=>{const id=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(id)},[]); return <p className="intro">{now.toLocaleDateString('en-KE',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · {now.toLocaleTimeString('en-KE')}</p>; });
 
@@ -353,6 +369,7 @@ export default function ReceptionPage() {
   const [serviceDiscountType, setServiceDiscountType] = useState('Regular Patient');
   const [expandedCategories, setExpandedCategories] = useState([]);
   const [testSearch, setTestSearch] = useState('');
+  const [categorySearch, setCategorySearch] = useState({});
   const [testFilter, setTestFilter] = useState('All');
   const [hospitals, setHospitals] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -388,6 +405,8 @@ export default function ReceptionPage() {
   const [pendingManualStockPatient, setPendingManualStockPatient] = useState(null);
   const [stockItems, setStockItems] = useState([]);
 
+  useScrollLock(!!selectedCounselling || !!history || !!receiptData || !!manualStockPatient || !!pendingManualStockPatient);
+
   // Patient Registration Form State
   const [patientName, setPatientName] = useState('');
   const [patientAge, setPatientAge] = useState('');
@@ -397,6 +416,8 @@ export default function ReceptionPage() {
   const [referralHospital, setReferralHospital] = useState('');
   const [otherHospital, setOtherHospital] = useState('');
   const [patientAddress, setPatientAddress] = useState('');
+  const [systolicBP, setSystolicBP] = useState('');
+  const [diastolicBP, setDiastolicBP] = useState('');
 
   // Startup payload excludes reports and counselling; those load only when opened.
   const loadData = useCallback(async (signal) => {
@@ -426,24 +447,62 @@ export default function ReceptionPage() {
     } catch (_) { /* silent */ }
   }, [token]);
 
+  const loadReports = useCallback(async (signal) => {
+    try {
+      const data = await api(`/reception/reports?q=${encodeURIComponent(q)}`, { token, signal });
+      setReports(data.reports || []);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      setToast({ message: e.message || 'Failed to load approved reports.', type: 'error' });
+    }
+  }, [q, token]);
+
+  const loadCounselling = useCallback(async (signal) => {
+    try {
+      const data = await api(`/reception/counselling?q=${encodeURIComponent(q)}`, { token, signal });
+      setCounselling(data.records || []);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      setToast({ message: e.message || 'Failed to load counselling log.', type: 'error' });
+    }
+  }, [q, token]);
+
   useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     loadWaitingPayment();
     return () => controller.abort();
   }, [loadData, loadWaitingPayment]);
-  // Real-time sync — refresh dashboard data on changes
 
-  // Real-time sync — refresh dashboard data on changes
+  // Real-time sync — refresh dashboard and active view data on changes
   useEffect(() => {
-    const refresh = () => { loadData(); loadWaitingPayment(); };
+    const refresh = () => {
+      loadData();
+      loadWaitingPayment();
+      if (view === 'reports') loadReports();
+      if (view === 'counselling') loadCounselling();
+    };
     subscribe('reception:change', refresh);
     subscribe('reports:change', refresh);
     return () => {
       unsubscribe('reception:change', refresh);
       unsubscribe('reports:change', refresh);
     };
-  }, [subscribe, unsubscribe, loadData, loadWaitingPayment]);
+  }, [subscribe, unsubscribe, loadData, loadWaitingPayment, loadReports, loadCounselling, view]);
+
+  // View data fetching (reports & counselling)
+  useEffect(() => {
+    if (view === 'reports') {
+      const controller = new AbortController();
+      loadReports(controller.signal);
+      return () => controller.abort();
+    }
+    if (view === 'counselling') {
+      const controller = new AbortController();
+      loadCounselling(controller.signal);
+      return () => controller.abort();
+    }
+  }, [view, loadReports, loadCounselling]);
 
   // Live patient search
   useEffect(() => {
@@ -517,6 +576,14 @@ export default function ReceptionPage() {
       setToast({ message: 'Please fill in all required patient details.', type: 'error' });
       return;
     }
+    if (systolicBP && (Number(systolicBP) < 50 || Number(systolicBP) > 300)) {
+      setToast({ message: 'Systolic BP must be between 50 and 300 mmHg.', type: 'error' });
+      return;
+    }
+    if (diastolicBP && (Number(diastolicBP) < 30 || Number(diastolicBP) > 200)) {
+      setToast({ message: 'Diastolic BP must be between 30 and 200 mmHg.', type: 'error' });
+      return;
+    }
 
     submittingRef.current = true;
     setBusy(true);
@@ -532,7 +599,9 @@ export default function ReceptionPage() {
         laboratoryTests: [],
         patientCategory: 'Regular Patient',
         paymentMethod: 'Cash',
-        serviceType: 'Laboratory Test'
+        serviceType: 'Laboratory Test',
+        systolicBP: systolicBP ? Number(systolicBP) : null,
+        diastolicBP: diastolicBP ? Number(diastolicBP) : null,
       };
 
       await api('/reception/patients', {
@@ -565,6 +634,14 @@ export default function ReceptionPage() {
       setToast({ message: 'Please fill in all required patient details.', type: 'error' });
       return;
     }
+    if (systolicBP && (Number(systolicBP) < 50 || Number(systolicBP) > 300)) {
+      setToast({ message: 'Systolic BP must be between 50 and 300 mmHg.', type: 'error' });
+      return;
+    }
+    if (diastolicBP && (Number(diastolicBP) < 30 || Number(diastolicBP) > 200)) {
+      setToast({ message: 'Diastolic BP must be between 30 and 200 mmHg.', type: 'error' });
+      return;
+    }
     if (!counsellingOnly && Number(amountReceived) !== billTotal) {
       setToast({ message: 'Amount received must exactly equal the grand total.', type: 'error' });
       return;
@@ -589,6 +666,8 @@ export default function ReceptionPage() {
         serviceType: counsellingOnly ? 'Counseling Only' : 'Laboratory Test',
         counsellingReason: counsellingOnly ? counsellingReason : '',
         counsellingNotes: counsellingOnly ? counsellingNotes : '',
+        systolicBP: systolicBP ? Number(systolicBP) : null,
+        diastolicBP: diastolicBP ? Number(diastolicBP) : null,
       };
 
       const result = await api('/reception/patients', {
@@ -659,6 +738,8 @@ export default function ReceptionPage() {
     setReferralHospital('');
     setOtherHospital('');
     setPatientAddress('');
+    setSystolicBP('');
+    setDiastolicBP('');
     setSelectedWaitingPaymentPatient(null);
   };
 
@@ -668,6 +749,8 @@ export default function ReceptionPage() {
     setPatientAge(patient.age);
     setPatientSex(patient.sex);
     setPatientPhone(patient.phone);
+    setSystolicBP(patient.systolicBP || '');
+    setDiastolicBP(patient.diastolicBP || '');
     setRegistrationType('Self Aware');
     setSelectedSampleIds((patient.laboratoryTests || []).map(t => String(t._id || t)));
     setAmountReceived(String(patient.grandTotal || ''));
@@ -935,6 +1018,45 @@ export default function ReceptionPage() {
                     </div>
                   </div>
 
+                  {/* ═══ VITAL SIGNS (OPTIONAL) ═══ */}
+                  <div style={{
+                    background: 'var(--color-surface-container, #f8fafc)',
+                    border: '1px solid var(--color-outline-variant, #e2e8f0)',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    marginTop: '14px',
+                    marginBottom: '14px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1rem' }}>🫀</span>
+                      <strong style={{ fontSize: '0.85rem', color: 'var(--color-primary, #075c91)' }}>Vital Signs (Optional)</strong>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Systolic BP (mmHg)</label>
+                        <input
+                          type="number"
+                          min="50"
+                          max="300"
+                          placeholder="e.g. 120"
+                          value={systolicBP}
+                          onChange={e => setSystolicBP(e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Diastolic BP (mmHg)</label>
+                        <input
+                          type="number"
+                          min="30"
+                          max="200"
+                          placeholder="e.g. 80"
+                          value={diastolicBP}
+                          onChange={e => setDiastolicBP(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {registrationType === 'Referral' && (
                     <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
                       <label>Referral Hospital</label>
@@ -976,83 +1098,225 @@ export default function ReceptionPage() {
             {/* STEP 2: LABORATORY TEST TYPE SELECTION */}
             {wizardStep === 2 && (
               <div className="wizard-step-panel">
-                <h2>Step 2 — Laboratory Test Type Selection</h2>
-                <>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-on-surface-variant)', marginBottom: 'var(--space-3)' }}>
-                      Select requested laboratory tests. Specimens are assigned automatically and remain hidden at Reception.
-                    </p>
-                    <div className="lab-reception-tools">
-                      <label className="lab-reception-search"><span aria-hidden="true">⌕</span><input value={testSearch} onChange={e => setTestSearch(e.target.value)} placeholder="Search test name, category or keyword" aria-label="Search laboratory tests" /></label>
-                      <div className="lab-reception-filters" role="toolbar" aria-label="Laboratory test filters">{['All','Popular','Recently Added','Referral','Active','Selected'].map(item => <button key={item} type="button" className={testFilter === item ? 'active' : ''} onClick={() => setTestFilter(item)}>{item}</button>)}</div>
+                <div className="lab-step2-header">
+                  <div className="lab-step2-title-row">
+                    <div className="lab-step2-title-icon">🧬</div>
+                    <div>
+                      <h2>Laboratory Test Selection</h2>
+                      <p className="lab-step2-subtitle">Select requested laboratory tests. Specimens are assigned automatically.</p>
                     </div>
-                    <div className="laboratory-test-selector">
-                      {visibleTestCategories.map(category => {
-                        const expanded = expandedCategories.includes(category._id);
-                        const selectedCount = (category.tests || []).filter(t => selectedSampleIds.includes(t._id)).length;
-                        const catIcon = categoryIcons[category.name] || '🧪';
+                  </div>
+                  {selectedSampleIds.length > 0 && (
+                    <div className="lab-step2-selection-pill">
+                      <span className="lab-step2-pill-count">{selectedSampleIds.length}</span>
+                      <span>test{selectedSampleIds.length !== 1 ? 's' : ''} selected</span>
+                    </div>
+                  )}
+                </div>
 
-                        return (
-                          <section key={category._id} className={`laboratory-category-card ${expanded ? 'expanded' : ''}`}>
-                            <button
-                              type="button"
-                              className="laboratory-category-header"
-                              aria-expanded={expanded}
-                              onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}
-                            >
-                              <span className="lab-reception-category-icon">{catIcon}</span>
-                              <span className="lab-reception-category-copy">
-                                <small>Laboratory Category</small>
-                                <strong>{category.name}</strong>
-                                <em>
-                                  {category.tests.length} test{category.tests.length === 1 ? '' : 's'} available
-                                  {selectedCount > 0 && <b style={{ marginLeft: '6px', color: 'var(--color-primary)', fontWeight: 700 }}>({selectedCount} selected)</b>}
-                                </em>
-                              </span>
-                              <span className="lab-category-toggle">
-                                {expanded ? '▲' : '▼'}
-                                <small>{expanded ? 'Collapse' : 'Expand'}</small>
-                              </span>
-                            </button>
+                {/* Global Search & Filter Toolbar */}
+                <div className="lab-v2-toolbar">
+                  <div className="lab-v2-search-box">
+                    <span className="lab-v2-search-icon">🔍</span>
+                    <input
+                      value={testSearch}
+                      onChange={e => setTestSearch(e.target.value)}
+                      placeholder="Search tests across all categories..."
+                      aria-label="Search laboratory tests"
+                    />
+                    {testSearch && (
+                      <button type="button" className="lab-v2-search-clear" onClick={() => setTestSearch('')}>✕</button>
+                    )}
+                  </div>
+                  <div className="lab-v2-filter-chips" role="toolbar" aria-label="Laboratory test filters">
+                    {['All','Popular','Recently Added','Referral','Active','Selected'].map(item => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`lab-v2-chip ${testFilter === item ? 'active' : ''}`}
+                        onClick={() => setTestFilter(item)}
+                      >
+                        {item === 'Selected' && selectedSampleIds.length > 0 && (
+                          <span className="lab-v2-chip-badge">{selectedSampleIds.length}</span>
+                        )}
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                            {expanded && (
-                              <div className="laboratory-category-content">
-                                {(category.tests || []).map(test => {
-                                  const isSelected = selectedSampleIds.includes(test._id);
-                                  return (
-                                    <label key={test._id} className={`laboratory-test-option ${isSelected ? 'selected' : ''}`}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => handleToggleSample(test._id)}
-                                      />
-                                      <div className="lab-test-option-copy">
-                                        <strong>{test.name}</strong>
-                                        {test.description && <small>{test.description}</small>}
-                                      </div>
-                                      <strong className="lab-test-option-price">{KES_TO_ETB(test.price)}</strong>
-                                    </label>
-                                  );
-                                })}
+                {/* Category Cards Grid */}
+                <div className="lab-v2-categories">
+                  {visibleTestCategories.map((category, catIdx) => {
+                    const expanded = expandedCategories.includes(category._id);
+                    const selectedCount = (category.tests || []).filter(t => selectedSampleIds.includes(t._id)).length;
+                    const theme = getCatTheme(category.name);
+                    const catSearchVal = categorySearch[category._id] || '';
+                    const totalTests = (category.tests || []).length;
+
+                    // Filter tests within category by local search
+                    const filteredTests = catSearchVal
+                      ? (category.tests || []).filter(t => `${t.name} ${t.description || ''}`.toLowerCase().includes(catSearchVal.toLowerCase()))
+                      : (category.tests || []);
+
+                    return (
+                      <section
+                        key={category._id}
+                        className={`lab-v2-cat-card ${expanded ? 'expanded' : ''}`}
+                        style={{ '--cat-accent': theme.accent, '--cat-gradient': theme.gradient, '--cat-light': theme.light, animationDelay: `${catIdx * 0.04}s` }}
+                      >
+                        {/* Category Header */}
+                        <button
+                          type="button"
+                          className="lab-v2-cat-header"
+                          aria-expanded={expanded}
+                          onClick={() => setExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}
+                        >
+                          <div className="lab-v2-cat-icon-wrap" style={{ background: theme.gradient }}>
+                            <span className="lab-v2-cat-icon">{theme.icon}</span>
+                          </div>
+                          <div className="lab-v2-cat-info">
+                            <strong className="lab-v2-cat-name">{category.name}</strong>
+                            <span className="lab-v2-cat-meta">
+                              {totalTests} test{totalTests !== 1 ? 's' : ''} available
+                            </span>
+                          </div>
+                          <div className="lab-v2-cat-right">
+                            {selectedCount > 0 && (
+                              <span className="lab-v2-cat-selected-badge">
+                                ✓ {selectedCount}
+                              </span>
+                            )}
+                            <span className={`lab-v2-cat-chevron ${expanded ? 'open' : ''}`}>
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Expanded Content */}
+                        {expanded && (
+                          <div className="lab-v2-cat-body">
+                            {/* Category-level search & status */}
+                            <div className="lab-v2-cat-toolbar">
+                              <div className="lab-v2-cat-search">
+                                <span>🔍</span>
+                                <input
+                                  value={catSearchVal}
+                                  onChange={e => setCategorySearch(prev => ({ ...prev, [category._id]: e.target.value }))}
+                                  placeholder={`Search within ${category.name}...`}
+                                />
+                                {catSearchVal && (
+                                  <button type="button" className="lab-v2-search-clear" onClick={() => setCategorySearch(prev => ({ ...prev, [category._id]: '' }))}>✕</button>
+                                )}
+                              </div>
+                              <div className="lab-v2-cat-stats">
+                                <span className="lab-v2-cat-stat">
+                                  Showing <strong>{filteredTests.length}</strong> of {totalTests}
+                                </span>
+                                {selectedCount > 0 && (
+                                  <span className="lab-v2-cat-stat selected">
+                                    <strong>{selectedCount}</strong> selected · {KES_TO_ETB((category.tests || []).filter(t => selectedSampleIds.includes(t._id)).reduce((sum, t) => sum + (t.price || 0), 0))}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Test Items */}
+                            {(() => {
+                              const hasSubcats = filteredTests.some(t => t.subcategory);
+                              if (!hasSubcats) {
+                                return (
+                                  <div className="lab-v2-tests-grid">
+                                    {filteredTests.map(test => {
+                                      const isSelected = selectedSampleIds.includes(test._id);
+                                      return (
+                                        <label key={test._id} className={`lab-v2-test-card ${isSelected ? 'selected' : ''}`}>
+                                          <div className={`lab-v2-checkbox ${isSelected ? 'checked' : ''}`}>
+                                            <input type="checkbox" checked={isSelected} onChange={() => handleToggleSample(test._id)} />
+                                            {isSelected && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                          </div>
+                                          <div className="lab-v2-test-info">
+                                            <strong>{test.name}</strong>
+                                            {test.description && <small>{test.description}</small>}
+                                          </div>
+                                          <div className="lab-v2-test-price">{KES_TO_ETB(test.price)}</div>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              }
+
+                              // Subcategory grouping
+                              const subMap = new Map();
+                              filteredTests.forEach(test => {
+                                const sc = test.subcategory || 'GENERAL';
+                                if (!subMap.has(sc)) subMap.set(sc, []);
+                                subMap.get(sc).push(test);
+                              });
+
+                              return Array.from(subMap.entries()).map(([subName, subTests]) => {
+                                const subSelected = subTests.filter(t => selectedSampleIds.includes(t._id)).length;
+                                return (
+                                  <div key={subName} className="lab-v2-subcat-group">
+                                    <div className="lab-v2-subcat-header">
+                                      <span className="lab-v2-subcat-marker" style={{ background: theme.accent }}></span>
+                                      <span className="lab-v2-subcat-name">{subName}</span>
+                                      <span className="lab-v2-subcat-count">{subTests.length} test{subTests.length !== 1 ? 's' : ''}</span>
+                                      {subSelected > 0 && <span className="lab-v2-subcat-selected">{subSelected} selected</span>}
+                                    </div>
+                                    <div className="lab-v2-tests-grid">
+                                      {subTests.map(test => {
+                                        const isSelected = selectedSampleIds.includes(test._id);
+                                        return (
+                                          <label key={test._id} className={`lab-v2-test-card ${isSelected ? 'selected' : ''}`}>
+                                            <div className={`lab-v2-checkbox ${isSelected ? 'checked' : ''}`}>
+                                              <input type="checkbox" checked={isSelected} onChange={() => handleToggleSample(test._id)} />
+                                              {isSelected && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                            </div>
+                                            <div className="lab-v2-test-info">
+                                              <strong>{test.name}</strong>
+                                              {test.description && <small>{test.description}</small>}
+                                            </div>
+                                            <div className="lab-v2-test-price">{KES_TO_ETB(test.price)}</div>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
+
+                            {filteredTests.length === 0 && (
+                              <div className="lab-v2-empty">
+                                <span>🔍</span>
+                                <p>No tests match your search in this category.</p>
                               </div>
                             )}
-                          </section>
-                        );
-                      })}
-                    </div>
-                </>
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-4)' }}>
-                  <button
-                    className="secondary-button"
-                    onClick={() => setWizardStep(1)}
-                  >
-                    ← Back to Step 1 — Patient Registration
+                {visibleTestCategories.length === 0 && (
+                  <div className="lab-v2-no-results">
+                    <span style={{ fontSize: '2rem' }}>🔬</span>
+                    <p>No categories match your current filters.</p>
+                    <button type="button" className="secondary-button" onClick={() => { setTestSearch(''); setTestFilter('All'); }}>Clear Filters</button>
+                  </div>
+                )}
+
+                {/* Navigation Buttons */}
+                <div className="lab-v2-nav-buttons">
+                  <button className="secondary-button" onClick={() => setWizardStep(1)}>
+                    ← Back to Patient Registration
                   </button>
-                  <button
-                    className="primary-button"
-                    onClick={handleProceedToPayment}
-                  >
-                    Proceed to Step 3 — Payment →
+                  <button className="primary-button lab-v2-proceed-btn" onClick={handleProceedToPayment}>
+                    Proceed to Payment →
+                    {selectedSampleIds.length > 0 && <span className="lab-v2-proceed-badge">{selectedSampleIds.length}</span>}
                   </button>
                 </div>
               </div>
@@ -1062,6 +1326,23 @@ export default function ReceptionPage() {
             {wizardStep === 3 && (
               <div className="wizard-step-panel">
                 <h2>Step 3 — Payment</h2>
+
+                {selectedWaitingPaymentPatient && (
+                  <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--color-outline-variant, #e2e8f0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: '0.95rem' }}>{patientName}</strong> <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.85rem' }}>({patientAge} / {patientSex} · 📞 {patientPhone})</span>
+                    </div>
+                    <div>
+                      {(systolicBP || diastolicBP) ? (
+                        <span className="pm-badge" style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 700 }}>
+                          🫀 BP: {systolicBP || '—'}/{diastolicBP || '—'} mmHg
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>BP: Not recorded</span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
                   <label>Service &amp; Discount Type</label>
@@ -1123,23 +1404,58 @@ export default function ReceptionPage() {
 
           {/* WIZARD RIGHT SIDEBAR: LIVE BILL SUMMARY */}
           <div>
-            <div className="bill-summary-card lab-bill-summary">
-              <div className="lab-bill-heading"><span>▣</span><div><small>Live billing</small><h3>Receipt Bill Summary</h3></div></div>
-              <hr style={{ border: 'none', borderTop: '1px dashed var(--color-outline-variant)', marginBottom: '12px' }} />
-              
-              <div className="bill-items-list">
-                {selectedSamples.length === 0 ? (
-                  <p style={{ fontStyle: 'italic', color: 'var(--color-on-surface-variant)' }}>No test selected</p>
-                ) : selectedSamples.map(s => (
-                  <div key={s._id} className="bill-item">
-                    <span>{s.name}</span>
-                    <strong>{KES_TO_ETB(s.price)}</strong>
-                  </div>
-                ))}
+            <div className="bill-summary-card lab-bill-summary lab-v2-bill">
+              <div className="lab-v2-bill-header">
+                <div className="lab-v2-bill-icon">💰</div>
+                <div>
+                  <small>LIVE BILLING</small>
+                  <h3>Receipt Summary</h3>
+                </div>
               </div>
 
-              <div className="lab-bill-breakdown"><div><span>Selected Tests</span><strong>{selectedSampleIds.length}</strong></div><div><span>Subtotal</span><strong>{KES_TO_ETB(billSubtotal)}</strong></div><div><span>Discount</span><strong>− {KES_TO_ETB(discountAmount)}</strong></div><div><span>Counseling Fee</span><strong>{counsellingOnly && testSettings.counselingStatus === 'Paid' ? KES_TO_ETB(testSettings.counselingPrice) : KES_TO_ETB(0)}</strong></div></div>
-              <div className="bill-item total">
+              <div className="lab-v2-bill-items">
+                {selectedSamples.length === 0 ? (
+                  <div className="lab-v2-bill-empty">
+                    <span>🧪</span>
+                    <p>No tests selected yet</p>
+                    <small>Select laboratory tests to begin billing</small>
+                  </div>
+                ) : (() => {
+                  const grouped = new Map();
+                  selectedSamples.forEach(s => {
+                    const catName = testCategories.find(c => (c.tests || []).some(t => t._id === s._id))?.name || 'Other';
+                    if (!grouped.has(catName)) grouped.set(catName, []);
+                    grouped.get(catName).push(s);
+                  });
+                  return Array.from(grouped.entries()).map(([catName, tests]) => {
+                    const catTheme = getCatTheme(catName);
+                    return (
+                      <div key={catName} className="lab-v2-bill-cat-group">
+                        <div className="lab-v2-bill-cat-label">
+                          <span className="lab-v2-bill-cat-dot" style={{ background: catTheme.accent }}></span>
+                          <span>{catName}</span>
+                          <span className="lab-v2-bill-cat-count">{tests.length}</span>
+                        </div>
+                        {tests.map(s => (
+                          <div key={s._id} className="lab-v2-bill-item">
+                            <span className="lab-v2-bill-item-name">{s.name}</span>
+                            <strong>{KES_TO_ETB(s.price)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              <div className="lab-v2-bill-breakdown">
+                <div className="lab-v2-bill-row"><span>Selected Tests</span><strong>{selectedSampleIds.length}</strong></div>
+                <div className="lab-v2-bill-row"><span>Subtotal</span><strong>{KES_TO_ETB(billSubtotal)}</strong></div>
+                {discountAmount > 0 && <div className="lab-v2-bill-row discount"><span>Discount ({discountPercent}%)</span><strong>− {KES_TO_ETB(discountAmount)}</strong></div>}
+                {counsellingOnly && testSettings.counselingStatus === 'Paid' && <div className="lab-v2-bill-row"><span>Counseling Fee</span><strong>{KES_TO_ETB(testSettings.counselingPrice)}</strong></div>}
+              </div>
+
+              <div className="lab-v2-bill-total">
                 <span>Grand Total</span>
                 <strong>{KES_TO_ETB(billTotal)}</strong>
               </div>
@@ -1290,6 +1606,7 @@ export default function ReceptionPage() {
                     <th>Patient Name</th>
                     <th>Patient ID</th>
                     <th>Phone</th>
+                    <th>Vital Signs (BP)</th>
                     <th>Selected Tests</th>
                     <th>Grand Total</th>
                     <th>Branch</th>
@@ -1303,6 +1620,7 @@ export default function ReceptionPage() {
                       <td><strong>{p.name}</strong></td>
                       <td><code>{p.patientId}</code></td>
                       <td>{p.phone}</td>
+                      <td>{(p.systolicBP || p.diastolicBP) ? <strong style={{ color: 'var(--color-primary)' }}>🫀 {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</strong> : <span style={{ color: 'var(--color-on-surface-variant)' }}>—</span>}</td>
                       <td>{(p.laboratoryTests || []).map(t => t.name).join(', ') || '—'}</td>
                       <td><strong>{KES_TO_ETB(p.grandTotal)}</strong></td>
                       <td><span className="pm-badge">📍 {p.branchName || 'Main'}</span></td>

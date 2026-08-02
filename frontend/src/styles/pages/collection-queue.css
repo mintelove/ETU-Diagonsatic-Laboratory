@@ -405,6 +405,12 @@
   transform: scale(1.02);
 }
 
+.lims-cat-card.is-requested {
+  border-width: 2.5px;
+  border-color: color-mix(in srgb, var(--cat-color) 70%, #ffffff);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--cat-color) 18%, transparent);
+}
+
 .lims-cat-card-header {
   display: flex;
   align-items: center;
@@ -513,6 +519,11 @@
   background: color-mix(in srgb, var(--cat-color) 16%, #1e293b);
   border-color: var(--cat-color);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--cat-color) 30%, transparent);
+}
+
+[data-theme='dark'] .lims-cat-card.is-requested {
+  border-color: #10b981 !important;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important;
 }
 
 [data-theme='dark'] .lims-cat-card-footer {

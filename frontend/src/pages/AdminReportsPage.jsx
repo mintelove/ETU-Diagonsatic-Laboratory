@@ -14,6 +14,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api.js';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 
+import { useScrollLock } from '../utils/useScrollLock.js';
+import ModalPortal from '../components/ModalPortal.jsx';
+
 function toISO(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -38,6 +41,8 @@ export default function AdminReportsPage() {
   const [error, setError] = useState('');
   const [validationError, setValidationError] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+
+  useScrollLock(!!selectedTransaction);
 
   /* ── Date Range Validation ───────────────────────────── */
   useEffect(() => {
@@ -576,89 +581,82 @@ export default function AdminReportsPage() {
       </section>
 
       {/* ═══ TRANSACTION DETAIL GLASSMORPHISM MODAL ═══ */}
-      {selectedTransaction && (
-        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setSelectedTransaction(null); }}>
-          <div className="modal-content" style={{ maxWidth: '680px' }}>
-            <header className="modal-header">
-              <h2 style={{ fontSize: '1.2rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📑</span> Transaction Record — {selectedTransaction.transactionId}
-              </h2>
-              <button className="close-button" onClick={() => setSelectedTransaction(null)}>&times;</button>
-            </header>
+      <ModalPortal isOpen={!!selectedTransaction} onClose={() => setSelectedTransaction(null)}>
+        <div className="modal-content" style={{ maxWidth: '680px' }} onClick={e => e.stopPropagation()}>
+          <header className="modal-header">
+            <h2 style={{ fontSize: '1.2rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📑</span> Transaction Record — {selectedTransaction?.transactionId}
+            </h2>
+            <button className="close-button" onClick={() => setSelectedTransaction(null)}>&times;</button>
+          </header>
 
-            <div style={{ background: 'var(--color-primary-light, rgba(7, 92, 145, 0.08))', border: '1px solid rgba(7, 92, 145, 0.18)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '0.88rem' }}>
-                <div><strong>Patient Name:</strong> {selectedTransaction.patientName}</div>
-                <div><strong>Patient Code:</strong> {selectedTransaction.patientId}</div>
-                <div><strong>Age / Sex:</strong> {selectedTransaction.age} yrs / {selectedTransaction.sex}</div>
-                <div><strong>Branch:</strong> 📍 {selectedTransaction.branchName || 'Main'}</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
-              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Billing & Payment</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div><strong>Grand Total:</strong> ETB {selectedTransaction.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                  <div><strong>Payment Method:</strong> {selectedTransaction.paymentMethod}</div>
-                  <div><strong>Payment Status:</strong> {selectedTransaction.paymentStatus}</div>
-                  <div><strong>Receptionist:</strong> {selectedTransaction.receptionist}</div>
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Sample Collection & Processing</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div><strong>Sample Collector:</strong> {selectedTransaction.collector}</div>
-                  <div><strong>Collection Status:</strong> {selectedTransaction.collectionStatus}</div>
-                  <div><strong>Date:</strong> {selectedTransaction.date ? new Date(selectedTransaction.date).toLocaleString() : '—'}</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
-              <h4 style={{ margin: '0 0 6px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Requested Laboratory Tests</h4>
-              <p style={{ margin: 0, fontWeight: 600 }}>{selectedTransaction.tests}</p>
-            </div>
-
-            {selectedTransaction.report?.results && selectedTransaction.report.results.length > 0 && (
-              <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>
-                  Laboratory Test Results & Flags
-                </h4>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--color-background, #f4f8fa)', borderBottom: '1px solid #cfd8dc' }}>
-                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Parameter</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Result</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>SI Unit</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Reference Value</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'center' }}>Flag</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedTransaction.report.results.map((row, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #eceff1' }}>
-                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>{row.sampleName}</td>
-                        <td style={{ padding: '6px 8px' }}>{row.result}</td>
-                        <td style={{ padding: '6px 8px', color: '#607d8b' }}>{row.unit || '—'}</td>
-                        <td style={{ padding: '6px 8px', color: '#607d8b' }}>{row.referenceValue || '—'}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                          <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-              <button className="secondary" onClick={() => setSelectedTransaction(null)}>Close</button>
+          <div style={{ background: 'var(--color-primary-light, rgba(7, 92, 145, 0.08))', border: '1px solid rgba(7, 92, 145, 0.18)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '0.88rem' }}>
+              <div><strong>Patient Name:</strong> {selectedTransaction?.patientName}</div>
+              <div><strong>Patient Code:</strong> {selectedTransaction?.patientId}</div>
+              <div><strong>Age / Sex:</strong> {selectedTransaction?.age} yrs / {selectedTransaction?.sex}</div>
+              <div><strong>Branch:</strong> 📍 {selectedTransaction?.branchName || 'Main'}</div>
             </div>
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px', fontSize: '0.85rem' }}>
+            <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
+              <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Billing & Payment</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div><strong>Grand Total:</strong> {selectedTransaction?.grandTotal ? `${selectedTransaction.grandTotal.toLocaleString()} ETB` : '—'}</div>
+                <div><strong>Payment Status:</strong> {selectedTransaction?.paymentStatus}</div>
+                <div><strong>Payment Method:</strong> {selectedTransaction?.paymentMethod || 'Cash'}</div>
+                <div><strong>Receipt #:</strong> {selectedTransaction?.receiptNumber || '—'}</div>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
+              <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Staff & Dates</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div><strong>Receptionist:</strong> {selectedTransaction?.registeredBy || '—'}</div>
+                <div><strong>Collector:</strong> {selectedTransaction?.technician || '—'}</div>
+                <div><strong>Date & Time:</strong> {selectedTransaction?.registrationDate ? new Date(selectedTransaction.registrationDate).toLocaleString() : '—'}</div>
+                <div><strong>Report Status:</strong> {selectedTransaction?.reportStatus || '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Test results preview if report results exist */}
+          {selectedTransaction?.report?.results?.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Test Results ({selectedTransaction.report.results.length})</h4>
+              <table style={{ width: '100%', fontSize: '0.83rem', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--color-surface-container, #f0f4f8)', textTransform: 'uppercase', fontSize: '0.72rem' }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>Parameter</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>Result</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>Unit</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left' }}>Reference</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center' }}>Flag</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedTransaction.report.results.map((row, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #eceff1' }}>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{row.sampleName}</td>
+                      <td style={{ padding: '6px 8px' }}>{row.result}</td>
+                      <td style={{ padding: '6px 8px', color: '#607d8b' }}>{row.unit || '—'}</td>
+                      <td style={{ padding: '6px 8px', color: '#607d8b' }}>{row.referenceValue || '—'}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                        <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+            <button type="button" className="secondary" onClick={() => setSelectedTransaction(null)}>Close</button>
+          </div>
         </div>
-      )}
+      </ModalPortal>
     </section>
   );
 }

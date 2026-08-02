@@ -7,12 +7,15 @@ import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 
 import ReportPreview from '../components/ReportPreview.jsx';
 import { FlagBadge } from '../utils/flagHelper.jsx';
+import { useScrollLock } from '../utils/useScrollLock.js';
+import ModalPortal from '../components/ModalPortal.jsx';
 
 export default function ReportApprovalsPage() {
   const { token, user } = useAuth();
   const { subscribe, unsubscribe } = useRealtime();
   const [reports, setReports] = useState([]); const [history, setHistory] = useState([]);
   const [tab, setTab] = useState('pending'); const [selected, setSelected] = useState(null);
+  useScrollLock(!!selected);
   const [branchFilter, setBranchFilter] = useState('All');
   const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const load = async () => { try { const query = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : ''; const [pending, prior] = await Promise.all([api(`/report-approvals/pending${query}`, { token }), api(`/report-approvals/history${query}`, { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { setError(e.message); } };
@@ -29,13 +32,13 @@ export default function ReportApprovalsPage() {
     {error && <div className="alert error">{error}</div>}{message && <div className="alert success">{message}</div>}
     <div className="reception-tabs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div>
-        <button className={tab === 'pending' ? 'active' : ''} onClick={() => setTab('pending')}>Pending ({reports.length})</button>
-        <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Review history</button>
+        <button type="button" className={tab === 'pending' ? 'active' : ''} onClick={() => setTab('pending')}>Pending ({reports.length})</button>
+        <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Review history</button>
       </div>
       {user?.role === 'Admin' && (
         <div style={{ display: 'flex', gap: '6px' }}>
           {['All', 'Main', 'Otona'].map((b) => (
-            <button key={b} className={branchFilter === b ? 'active' : ''} onClick={() => setBranchFilter(b)}>
+            <button key={b} type="button" className={branchFilter === b ? 'active' : ''} onClick={() => setBranchFilter(b)}>
               {b === 'All' ? 'All Branches' : `${b} Branch`}
             </button>
           ))}
@@ -46,8 +49,31 @@ export default function ReportApprovalsPage() {
       const tests = (report.patient?.laboratoryTests || []).map(x => x?.name).filter(Boolean);
       const specimens = (report.patient?.sampleTypes || []).map(x => x?.name).filter(Boolean);
       const displayText = tests.length ? tests.join(', ') : (specimens.join(', ') || '—');
-      return <tr key={report._id}><td>{report.patient?.name}<span>{report.patient?.patientId}</span></td><td>{report.patient?.barcode || report.patient?.patientId}</td><td><strong>📍 {report.branchName || report.patient?.branchName || 'Main'}</strong></td><td>{report.technician?.fullName || '—'}</td><td>{displayText}</td><td>{new Date(report.submittedDate || report.updatedDate).toLocaleString()}</td><td>{report.priority || 'Routine'}</td><td>{report.status === 'Submitted' ? 'Pending Approval' : report.status}</td><td><button className="primary" onClick={() => { setSelected(report); setReason(report.rejectionReason || ''); }}>Review</button></td></tr>;
+      return <tr key={report._id}><td>{report.patient?.name}<span>{report.patient?.patientId}</span></td><td>{report.patient?.barcode || report.patient?.patientId}</td><td><strong>📍 {report.branchName || report.patient?.branchName || 'Main'}</strong></td><td>{report.technician?.fullName || '—'}</td><td>{displayText}</td><td>{new Date(report.submittedDate || report.updatedDate).toLocaleString()}</td><td>{report.priority || 'Routine'}</td><td>{report.status === 'Submitted' ? 'Pending Approval' : report.status}</td><td><button type="button" className="primary" onClick={() => { setSelected(report); setReason(report.rejectionReason || ''); }}>Review</button></td></tr>;
     })}</tbody></table> : <p className="empty">No reports in this view.</p>}</section>
-    {selected && <div className="modal-backdrop"><div className="modal-content" style={{ maxWidth: 900 }}><header className="modal-header"><h2>Report Review</h2><button className="close-button" onClick={() => setSelected(null)}>×</button></header><ReportPreview report={selected} /><div className="form-actions"><button className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>Print Preview</button>{selected.publicReport?.token && <button className="secondary" onClick={() => { const link = buildPublicReportUrl(selected.publicReport.token); navigator.clipboard.writeText(link); setMessage('Public report link copied to clipboard!'); }}>🔗 Copy Public Link</button>}</div>{['Pending', 'Submitted'].includes(selected.status) && <div className="form-actions"><label className="wide">Reason for rejection (required to return to collector)<textarea value={reason} onChange={e => setReason(e.target.value)} maxLength="2000" placeholder="Describe the correction required" /></label><button className="primary" disabled={busy} onClick={() => decide('Approved')}>{busy ? 'Saving…' : 'Approve Report'}</button><button className="secondary danger" disabled={busy} onClick={() => decide('Rejected')}>Return to Collector</button></div>}</div></div>}
+    <ModalPortal isOpen={!!selected} onClose={() => setSelected(null)}>
+      <div className="modal-content" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
+        <header className="modal-header">
+          <h2>Report Review</h2>
+          <button type="button" className="close-button" onClick={() => setSelected(null)}>×</button>
+        </header>
+        <div className="modal-body">
+          <ReportPreview report={selected} />
+        </div>
+        <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0 }}>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>Print Preview</button>
+          {selected?.publicReport?.token && <button type="button" className="secondary" onClick={() => { const link = buildPublicReportUrl(selected.publicReport.token); navigator.clipboard.writeText(link); setMessage('Public report link copied to clipboard!'); }}>🔗 Copy Public Link</button>}
+        </div>
+        {['Pending', 'Submitted'].includes(selected?.status) && (
+          <div className="form-actions" style={{ padding: '12px 24px 18px', borderTop: '1px dashed var(--color-outline-variant, #e2e8f0)', marginTop: 0 }}>
+            <label className="wide">Reason for rejection (required to return to collector)
+              <textarea value={reason} onChange={e => setReason(e.target.value)} maxLength="2000" placeholder="Describe the correction required" />
+            </label>
+            <button type="button" className="primary" disabled={busy} onClick={() => decide('Approved')}>{busy ? 'Saving…' : 'Approve Report'}</button>
+            <button type="button" className="secondary danger" disabled={busy} onClick={() => decide('Rejected')}>Return to Collector</button>
+          </div>
+        )}
+      </div>
+    </ModalPortal>
   </section>;
 }

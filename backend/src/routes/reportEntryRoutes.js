@@ -21,10 +21,11 @@ router.get('/catalog', allowRoles(ROLES.SAMPLE_COLLECTOR, ROLES.ADMIN, ROLES.REC
 router.get('/patients/:patientId/draft', allowRoles(ROLES.SAMPLE_COLLECTOR), draft);
 router.post('/patients/:patientId/generate', allowRoles(ROLES.SAMPLE_COLLECTOR), generate);
 
-// Admin parameter catalog management
+// Admin parameter catalog management — Sample Collectors can create (not update/delete)
 router.get('/parameters', allowRoles(ROLES.ADMIN), getAllParameters);
-router.post('/parameters', allowRoles(ROLES.ADMIN), createParameter);
+router.post('/parameters', allowRoles(ROLES.ADMIN, ROLES.SAMPLE_COLLECTOR), createParameter);
 router.put('/parameters/:id', allowRoles(ROLES.ADMIN), updateParameter);
 router.delete('/parameters/:id', allowRoles(ROLES.ADMIN), deleteParameter);
+
 
 export default router;

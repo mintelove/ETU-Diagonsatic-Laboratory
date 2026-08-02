@@ -7,6 +7,9 @@ import {printLabReport} from '../utils/printLabReport.js';
 import ReportPreview, { getReportTestTypes } from '../components/ReportPreview.jsx';
 import {FlagBadge} from '../utils/flagHelper.jsx';
 
+import ModalPortal from '../components/ModalPortal.jsx';
+import { useScrollLock } from '../utils/useScrollLock.js';
+
 const date=value=>value?new Date(value).toLocaleString():'—';
 const statusOf=report=>report.status==='Submitted'||report.status==='Pending'?'Pending Approval':report.status;
 const progress=report=>{const total=report.results?.length||0,complete=report.results?.filter(row=>String(row.result||'').trim()).length||0;return total?`${complete} of ${total} results entered`:'No results entered'};
@@ -22,8 +25,24 @@ export default function ReportManagementPage(){
  const resume=r=>go('/collection',{state:{resume:r}});
  return <section className="page collector-management"><header className="page-title"><div><p className="eyebrow">Laboratory Information Management</p><h1>Report Management</h1><p className="intro">Track your reports from saved draft through quality approval.</p></div></header>{error&&<div className="alert error">{error}</div>}{message&&<div className="alert success">{message}</div>}
  <div className="enterprise-grid"><Card label="Draft Reports" value={counts.Draft} tone="blue"/><Card label="Pending Approval" value={counts.Pending} tone="purple"/><Card label="Approved Reports" value={counts.Approved} tone="green"/><Card label="Rejected Reports" value={counts.Rejected} tone="orange"/><Card label="Reports Created Today" value={counts.today} tone="teal"/></div>
- <div className="reception-tabs">{[['Draft','Draft Reports'],['Pending','Pending Approval'],['Approved','Approved Reports'],['Rejected','Rejected Reports']].map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
+ <div className="reception-tabs">{[['Draft','Draft Reports'],['Pending','Pending Approval'],['Approved','Approved Reports'],['Rejected','Rejected Reports']].map(([id,label])=><button key={id} type="button" className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
  <div className="table-title"><h2>{tab} reports</h2><div className="form-actions"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search patient, ID, barcode or test/sample"/><select value={range} onChange={e=>setRange(e.target.value)}><option>All</option><option>Today</option><option>This Week</option></select></div></div>
-  <section className="table-card">{filtered.length?<table><thead><tr><th>Patient</th><th>Barcode / Tests</th><th>Status</th><th>{tab==='Draft'?'Progress':tab==='Approved'?'Approved by':tab==='Rejected'?'Rejection reason':'Submitted'}</th><th>Last saved / activity</th><th>Actions</th></tr></thead><tbody>{filtered.map(r=>{const desc=getReportTestTypes(r).formattedNames;return <tr key={r._id}><td>{r.patient?.name}<span>{r.patient?.patientId}</span></td><td>{r.patient?.barcode||'—'}<span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span></td><td>{statusOf(r)}</td><td>{tab==='Draft'?progress(r):tab==='Approved'?r.approvedBy?.fullName||'—':tab==='Rejected'?<strong className="danger">{r.rejectionReason}</strong>:date(r.submittedAt||r.submittedDate)}</td><td>{date(r.lastSavedAt||r.updatedDate)}</td><td><button className="secondary" onClick={()=>setSelected(r)}>{tab==='Draft'?'View Draft':'View Report'}</button>{tab==='Draft'&&<><button className="primary" onClick={()=>resume(r)}>▶ Continue Report Generation</button><button className="secondary danger" onClick={()=>remove(r)}>Delete Draft</button></>}{tab==='Rejected'&&<button className="primary" onClick={()=>resume(r)}>Continue & Generate Again</button>}</td></tr>})}</tbody></table>:<p className="empty">No reports match this view.</p>}</section>
-  {selected&&<div className="modal-backdrop"><div className="modal-content" style={{maxWidth:900}}><header className="modal-header"><h2>Laboratory Report</h2><button className="close-button" onClick={()=>setSelected(null)}>×</button></header>{selected.rejectionReason&&<div className="alert error"><strong>Rejection reason:</strong>&nbsp;{selected.rejectionReason}</div>}<ReportPreview report={selected}/><div className="form-actions"><button className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>Print Preview</button></div></div></div>}</section>
+  <section className="table-card">{filtered.length?<table><thead><tr><th>Patient</th><th>Barcode / Tests</th><th>Status</th><th>{tab==='Draft'?'Progress':tab==='Approved'?'Approved by':tab==='Rejected'?'Rejection reason':'Submitted'}</th><th>Last saved / activity</th><th>Actions</th></tr></thead><tbody>{filtered.map(r=>{const desc=getReportTestTypes(r).formattedNames;return <tr key={r._id}><td>{r.patient?.name}<span>{r.patient?.patientId}</span></td><td>{r.patient?.barcode||'—'}<span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span></td><td>{statusOf(r)}</td><td>{tab==='Draft'?progress(r):tab==='Approved'?r.approvedBy?.fullName||'—':tab==='Rejected'?<strong className="danger">{r.rejectionReason}</strong>:date(r.submittedAt||r.submittedDate)}</td><td>{date(r.lastSavedAt||r.updatedDate)}</td><td><button type="button" className="secondary" onClick={()=>setSelected(r)}>{tab==='Draft'?'View Draft':'View Report'}</button>{tab==='Draft'&&<><button type="button" className="primary" onClick={()=>resume(r)}>▶ Continue Report Generation</button><button type="button" className="secondary danger" onClick={()=>remove(r)}>Delete Draft</button></>}{tab==='Rejected'&&<button type="button" className="primary" onClick={()=>resume(r)}>Continue & Generate Again</button>}</td></tr>})}</tbody></table>:<p className="empty">No reports match this view.</p>}</section>
+  <ModalPortal isOpen={!!selected} onClose={()=>setSelected(null)}>
+    <div className="modal-content" style={{maxWidth:900}} onClick={e=>e.stopPropagation()}>
+      <header className="modal-header">
+        <h2>Laboratory Report</h2>
+        <button type="button" className="close-button" onClick={()=>setSelected(null)}>×</button>
+      </header>
+      <div className="modal-body">
+        {selected?.rejectionReason&&<div className="alert error"><strong>Rejection reason:</strong>&nbsp;{selected.rejectionReason}</div>}
+        <ReportPreview report={selected}/>
+      </div>
+      <div className="form-actions" style={{padding:'14px 24px',borderTop:'1px solid var(--color-outline-variant, #e2e8f0)',marginTop:0}}>
+        <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>🖨 Print Report</button>
+        <button type="button" className="secondary" onClick={()=>setSelected(null)}>Close</button>
+      </div>
+    </div>
+  </ModalPortal>
+  </section>;
 }

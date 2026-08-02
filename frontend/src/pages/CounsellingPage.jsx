@@ -3,9 +3,12 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 
+import { useScrollLock } from '../utils/useScrollLock.js';
+
 const blank = { chiefComplaint:'', symptoms:'', observations:'', adviceGiven:'', recommendedTests:'', recommendedDoctorVisit:false, followUp:'', additionalNotes:'', durationMinutes:'' };
 export default function CounsellingPage(){
  const {token,user}=useAuth(),{subscribe,unsubscribe}=useRealtime(),[queue,setQueue]=useState([]),[history,setHistory]=useState([]),[tab,setTab]=useState(user.role==='Sample Collector'?'queue':'history'),[q,setQ]=useState(''),[selected,setSelected]=useState(),[viewRecord,setViewRecord]=useState(null),[form,setForm]=useState(blank),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ useScrollLock(!!selected || !!viewRecord);
  const load=async()=>{try{const [a,b]=await Promise.all([api(`/counselling/queue?q=${encodeURIComponent(q)}`,{token}),api(`/counselling/history?q=${encodeURIComponent(q)}`,{token})]);setQueue(a.records);setHistory(b.records)}catch(e){setError(e.message)}};
  useEffect(()=>{load()},[token,q]);
  useEffect(() => {

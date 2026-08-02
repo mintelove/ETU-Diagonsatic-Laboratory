@@ -4,10 +4,14 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useLocation } from 'react-router-dom';
 import LaboratoryResultEditor from '../components/LaboratoryResultEditor.jsx';
+import { useScrollLock } from '../utils/useScrollLock.js';
+import ModalPortal from '../components/ModalPortal.jsx';
 const emptyReport = {
   equipment: [],
   results: [],
-  comments: ''
+  comments: '',
+  sampleCollectorComments: [],
+  testInterpretations: []
 };
 const emptyRequest = {
   item: '',
@@ -39,10 +43,11 @@ function OrderedTests({
 }) {
   const [openCategory, setOpenCategory] = useState(null);
   const groups = useMemo(() => {
-    const selected = new Set((patient?.laboratoryTests || []).map(idOf));
+    const selectedIds = new Set((patient?.laboratoryTests || []).map(idOf));
+    const selectedNames = new Set((patient?.laboratoryTests || []).map(t => typeof t === 'string' ? t : (t?.name || '')).filter(Boolean));
     return (catalog || []).map(category => ({
       ...category,
-      tests: (category.tests || []).filter(test => selected.has(idOf(test)))
+      tests: (category.tests || []).filter(test => selectedIds.has(idOf(test)) || selectedNames.has(test.name))
     })).filter(category => category.tests.length);
   }, [patient, catalog]);
 
@@ -83,18 +88,66 @@ export default function CollectionPage() {
     [editingParameters, setEditingParameters] = useState(false),
     [parameterSnapshot, setParameterSnapshot] = useState([]),
     [hidden, setHidden] = useState([]),
-    [confirmSubmit, setConfirmSubmit] = useState(false),
-    [request, setRequest] = useState(emptyRequest),
+    [confirmSubmit, setConfirmSubmit] = useState(false);
+
+  useScrollLock(previewOpen || confirmSubmit);
+  const [request, setRequest] = useState(emptyRequest),
     [message, setMessage] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [branchFilter, setBranchFilter] = useState('All'),
     [allocationByTest, setAllocationByTest] = useState({}),
-    [paramCatalog, setParamCatalog] = useState([]);
+    [paramCatalog, setParamCatalog] = useState([]),
+    [bpSystolic, setBpSystolic] = useState(''),
+    [bpDiastolic, setBpDiastolic] = useState('');
 
   const safeQueue = useMemo(() => (Array.isArray(queue) ? queue.filter(x => x && x.patient) : []), [queue]);
   const queuedList = useMemo(() => safeQueue.filter(x => x.collection?.status === 'Queued'), [safeQueue]);
   const unfinishedList = useMemo(() => safeQueue.filter(x => x.collection?.status === 'In Progress'), [safeQueue]);
+
+  useEffect(() => {
+    if (selected) {
+      setBpSystolic(selected.systolicBP || '');
+      setBpDiastolic(selected.diastolicBP || '');
+    } else {
+      setBpSystolic('');
+      setBpDiastolic('');
+    }
+  }, [selected]);
+
+  const handleSaveVitals = async () => {
+    if (!selected?._id) return;
+    if (bpSystolic && (Number(bpSystolic) < 50 || Number(bpSystolic) > 300)) {
+      setError('Systolic BP must be between 50 and 300 mmHg.');
+      return;
+    }
+    if (bpDiastolic && (Number(bpDiastolic) < 30 || Number(bpDiastolic) > 200)) {
+      setError('Diastolic BP must be between 30 and 200 mmHg.');
+      return;
+    }
+    try {
+      setBusy(true);
+      await api(`/collection/patients/${selected._id}/vital-signs`, {
+        token,
+        method: 'PATCH',
+        body: JSON.stringify({
+          systolicBP: bpSystolic ? Number(bpSystolic) : null,
+          diastolicBP: bpDiastolic ? Number(bpDiastolic) : null
+        })
+      });
+      setMessage('✅ Vital Signs updated successfully.');
+      setSelected(prev => ({
+        ...prev,
+        systolicBP: bpSystolic ? Number(bpSystolic) : null,
+        diastolicBP: bpDiastolic ? Number(bpDiastolic) : null
+      }));
+      load();
+    } catch (err) {
+      setError(err.message || 'Failed to update vital signs.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // Load per-patient allocation data per test from actual stock transactions
   const loadAllocation = (patientId) => {
@@ -117,7 +170,7 @@ export default function CollectionPage() {
     localStorage.setItem(localKey, JSON.stringify(report));
 
     const timer = setTimeout(() => {
-      if (report.results?.length || report.equipment?.length || report.comments) {
+      if (report.results?.length || report.equipment?.length || report.comments || report.sampleCollectorComments?.length || report.testInterpretations?.length) {
         api(`/collection/patients/${selected._id}/report`, {
           token,
           method: 'PUT',
@@ -129,6 +182,12 @@ export default function CollectionPage() {
 
     return () => clearTimeout(timer);
   }, [report, selected, token]);
+
+  const refreshParamCatalog = () => {
+    api('/report-entry/catalog', { token })
+      .then(res => setParamCatalog(Array.isArray(res?.catalog) ? res.catalog : []))
+      .catch(() => {});
+  };
 
   const load = async () => {
     try {
@@ -165,7 +224,9 @@ export default function CollectionPage() {
       setReport({
         equipment: resume.equipment || [],
         results: resume.results || [],
-        comments: resume.comments || ''
+        comments: resume.comments || '',
+        sampleCollectorComments: resume.sampleCollectorComments || [],
+        testInterpretations: resume.testInterpretations || []
       });
       setTab('report');
     }
@@ -325,7 +386,9 @@ export default function CollectionPage() {
       }
       const payload = {
         ...report,
-        results: cleanResults
+        results: cleanResults,
+        systolicBP: bpSystolic ? Number(bpSystolic) : null,
+        diastolicBP: bpDiastolic ? Number(bpDiastolic) : null
       };
 
       // 1. Save draft payload via PUT
@@ -414,92 +477,168 @@ export default function CollectionPage() {
     <button className="primary" style={{ background: '#e69c00', border: 'none' }} onClick={() => setTab('unfinished')}>View Unfinished Collections ({unfinishedList.length})</button>
   </div>
 )}
-<section className="collector-queue"><header><div><p className="eyebrow">Sample collection queue</p><h2>Patients awaiting laboratory work</h2></div></header><div className="collector-queue-list">{queuedList.length ? queuedList.map(row => <article className="collector-patient-card" key={row.patient._id}><div className="collector-patient-summary"><div className="collector-patient-avatar">{row.patient.name?.[0]}</div><div className="collector-patient-main"><h3>{row.patient.name}</h3><p>{row.patient.patientId} · {row.patient.age} · {row.patient.sex} · {row.patient.phone}</p></div><aside><span className="collector-paid">{row.patient.paymentStatus === 'Paid' ? 'Ready for Sample Collection' : 'Counseling'}</span><button className="primary" disabled={busy || row.collection.status === 'Completed'} onClick={() => start(row)}>{row.collection.status === 'In Progress' ? 'Continue Collection' : 'Start collection'}</button></aside></div><OrderedTests patient={row.patient} catalog={catalog} allocationByTest={row.allocationByTest || {}} /></article>) : <p className="empty">No queued patients awaiting sample collection.</p>}</div></section></>}
-{tab === 'unfinished' && <section className="collector-queue"><header><div><p className="eyebrow">Active & Recovered Work</p><h2>Unfinished Sample Collections</h2></div></header><div className="collector-queue-list">{unfinishedList.length ? unfinishedList.map(row => <article className="collector-patient-card unfinished-card" key={row.patient._id}><div className="collector-patient-summary"><div className="collector-patient-avatar unfinished-avatar">⏳</div><div className="collector-patient-main"><h3>{row.patient.name} <small className="unfinished-badge">Unfinished</small></h3><p>{row.patient.patientId} · {row.patient.barcode || ''} · Started: {row.collection?.startedAt ? new Date(row.collection.startedAt).toLocaleString() : 'In Progress'}</p></div><aside><button className="primary unfinished-btn" disabled={busy} onClick={() => start(row)}>Continue Collection</button></aside></div><OrderedTests patient={row.patient} catalog={catalog} allocationByTest={row.allocationByTest || {}} /></article>) : <div className="empty-state"><h2>No unfinished collections</h2><p>When you start a sample collection, it will be automatically saved and displayed here if left incomplete.</p></div>}</div></section>}
-{tab === 'report' && <section className="reception-form collector-report"><div><p className="eyebrow">Laboratory report</p><h2>{selected ? `${selected.name} · ${selected.patientId}` : 'Select a patient from the queue'}</h2></div>{selected && <><OrderedTests patient={selected} catalog={catalog} allocationByTest={allocationByTest} /><LaboratoryResultEditor patient={selected} catalog={paramCatalog} reportData={report} onChange={setReport} onSaveDraft={() => save(false)} onGeneratePreview={generate} onSubmitApproval={() => setConfirmSubmit(true)} busy={busy} isSavingDraft={isSavingDraft} isGeneratingPreview={isGeneratingPreview} isSubmitting={isSubmitting} equipmentData={equipment} onPickEquipment={pickEquipment} otherOpen={otherOpen} setOtherOpen={setOtherOpen} otherEquipmentForm={<div className="other-equipment-form"><h3>Other Equipment</h3><div className="form-grid">{[['name', 'Equipment Name'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['department', 'Department']].map(([key, label]) => <label key={key}>{label}<input value={other[key]} onChange={e => setOther({ ...other, [key]: e.target.value })} /></label>)}<label className="wide">Remarks<textarea value={other.remarks} onChange={e => setOther({ ...other, remarks: e.target.value })} /></label></div><div className="form-actions"><button type="button" className="secondary" onClick={() => setOtherOpen(false)}>Cancel</button><button type="button" className="primary" onClick={addOther}>Add equipment</button></div></div>} /></>}</section>}
-{tab === 'stock' && <section className="table-card"><h2>Available consumables</h2><table><thead><tr><th>Item</th><th>Code</th><th>Remaining</th><th>Status</th></tr></thead><tbody>{stock.map(item => <tr key={item._id}><td>{item.itemName}</td><td>{item.itemCode}</td><td>{item.remainingQuantity} {item.unit}</td><td>{item.remainingQuantity <= item.minimumThreshold ? 'Low stock' : 'Available'}</td></tr>)}</tbody></table></section>}
-{confirmSubmit && <div className="modal-backdrop"><div className="modal-content"><h2>Confirm report accuracy</h2><p>Please review the report carefully before submission.</p><div className="form-actions"><button className="secondary" onClick={() => setConfirmSubmit(false)}>Review again</button><button className="primary" onClick={() => {
-            setConfirmSubmit(false);
-            save(true);
-          }}>Submit for approval</button></div></div></div>}
-{previewOpen && generated && (
-  <div className="report-preview-overlay" onClick={() => setPreviewOpen(false)}>
-    <div className="report-preview-modal" onClick={e => e.stopPropagation()}>
-      <div className="report-preview-modal-header">
-        <div>
-          <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Preview</p>
-          <h2 className="preview-header-title">ETU Diagnostic Laboratory</h2>
-        </div>
-        <button type="button" className="report-preview-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">&times;</button>
-      </div>
-
-      <div className="report-preview-modal-body">
-        {/* Patient Info */}
-        <div className="report-preview-patient-info">
-          <p><strong>Patient Name:</strong> {selected?.name || '—'}</p>
-          <p><strong>Patient ID:</strong> {selected?.patientId || '—'}</p>
-          <p><strong>Age / Sex:</strong> {selected?.age || '—'} / {selected?.sex || '—'}</p>
-          <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
-        </div>
-
-        {/* Equipment */}
-        {generated.equipment?.length > 0 && (
-          <p style={{ fontSize: '0.88rem', margin: '0 0 12px' }}>
-            <strong>Equipment Used:</strong> {generated.equipment.join(', ')}
-          </p>
-        )}
-
-        {/* Results grouped by category */}
-        {(() => {
-          const grouped = groupResultsByCategory(generated.results);
-          return grouped.map(([catName, rows], gi) => (
-            <div key={catName} className="report-preview-category-group">
-              <h4 className="report-preview-category-title">{catName}</h4>
-              <table className="report-preview-table">
-                <thead>
-                  <tr>
-                    <th>Parameter</th>
-                    <th>Result</th>
-                    <th>SI Unit</th>
-                    <th>Reference Range</th>
-                    <th style={{ textAlign: 'center' }}>Flag</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={`${catName}-${i}`}>
-                      <td><strong>{row.sampleName}</strong></td>
-                      <td><strong>{row.result}</strong></td>
-                      <td>{row.unit || '—'}</td>
-                      <td>{row.referenceValue || '—'}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className={`flag-badge ${row.flag || flagFor(row, selected?.sex) || 'blank'}`}>
-                          {flagText(row.flag || flagFor(row, selected?.sex))}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ));
-        })()}
-
-        {/* Comments */}
-        {generated.comments && (
-          <p style={{ margin: '12px 0 0', fontSize: '0.88rem' }}>
-            <strong>Collector Comments:</strong> {generated.comments}
-          </p>
-        )}
-      </div>
-
-      <div className="report-preview-modal-footer">
-        <button type="button" className="secondary" onClick={() => setPreviewOpen(false)}>Close Preview</button>
-        <button type="button" className="primary" onClick={() => { setPreviewOpen(false); setConfirmSubmit(true); }}>🚀 Proceed to Submit</button>
+<section className="collector-queue"><header><div><p className="eyebrow">Sample collection queue</p><h2>Patients awaiting laboratory work</h2></div></header><div className="collector-queue-list">{queuedList.length ? queuedList.map(row => <article className="collector-patient-card" key={row.patient._id}><div className="collector-patient-summary"><div className="collector-patient-avatar">{row.patient.name?.[0]}</div><div className="collector-patient-main"><h3>{row.patient.name}</h3><p>{row.patient.patientId} · {row.patient.age} · {row.patient.sex} · {row.patient.phone}{(row.patient.systolicBP || row.patient.diastolicBP) ? ` · 🫀 BP: ${row.patient.systolicBP || '—'}/${row.patient.diastolicBP || '—'} mmHg` : ''}</p></div><aside><span className="collector-paid">{row.patient.paymentStatus === 'Paid' ? 'Ready for Sample Collection' : 'Counseling'}</span><button className="primary" disabled={busy || row.collection.status === 'Completed'} onClick={() => start(row)}>{row.collection.status === 'In Progress' ? 'Continue Collection' : 'Start collection'}</button></aside></div><OrderedTests patient={row.patient} catalog={catalog} allocationByTest={row.allocationByTest || {}} /></article>) : <p className="empty">No queued patients awaiting sample collection.</p>}</div></section></>}
+{tab === 'unfinished' && <section className="collector-queue"><header><div><p className="eyebrow">Active & Recovered Work</p><h2>Unfinished Sample Collections</h2></div></header><div className="collector-queue-list">{unfinishedList.length ? unfinishedList.map(row => <article className="collector-patient-card unfinished-card" key={row.patient._id}><div className="collector-patient-summary"><div className="collector-patient-avatar unfinished-avatar">⏳</div><div className="collector-patient-main"><h3>{row.patient.name} <small className="unfinished-badge">Unfinished</small></h3><p>{row.patient.patientId} · {row.patient.barcode || ''}{(row.patient.systolicBP || row.patient.diastolicBP) ? ` · 🫀 BP: ${row.patient.systolicBP || '—'}/${row.patient.diastolicBP || '—'} mmHg` : ''} · Started: {row.collection?.startedAt ? new Date(row.collection.startedAt).toLocaleString() : 'In Progress'}</p></div><aside><button className="primary unfinished-btn" disabled={busy} onClick={() => start(row)}>Continue Collection</button></aside></div><OrderedTests patient={row.patient} catalog={catalog} allocationByTest={row.allocationByTest || {}} /></article>) : <div className="empty-state"><h2>No unfinished collections</h2><p>When you start a sample collection, it will be automatically saved and displayed here if left incomplete.</p></div>}</div></section>}
+{tab === 'report' && <section className="reception-form collector-report"><div><p className="eyebrow">Laboratory report</p><h2>{selected ? `${selected.name} · ${selected.patientId}` : 'Select a patient from the queue'}</h2></div>{selected && <>
+  {/* Vital Signs (Blood Pressure) Bar */}
+  <div style={{
+    background: 'var(--color-surface-container, #f8fafc)',
+    border: '1px solid var(--color-outline-variant, #cbd5e1)',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    marginBottom: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: '12px'
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ fontSize: '1.2rem' }}>🫀</span>
+      <div>
+        <strong style={{ fontSize: '0.88rem', color: 'var(--color-primary, #075c91)', display: 'block' }}>
+          Vital Signs (Blood Pressure)
+        </strong>
+        <small style={{ color: 'var(--color-on-surface-variant, #64748b)' }}>
+          Shared clinical BP record across Reception &amp; Sample Collection
+        </small>
       </div>
     </div>
+
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Systolic (mmHg):</label>
+        <input
+          type="number"
+          min="50"
+          max="300"
+          placeholder="e.g. 120"
+          value={bpSystolic}
+          onChange={e => setBpSystolic(e.target.value)}
+          style={{ width: '85px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--color-outline-variant, #cbd5e1)', fontSize: '0.85rem' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Diastolic (mmHg):</label>
+        <input
+          type="number"
+          min="30"
+          max="200"
+          placeholder="e.g. 80"
+          value={bpDiastolic}
+          onChange={e => setBpDiastolic(e.target.value)}
+          style={{ width: '85px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--color-outline-variant, #cbd5e1)', fontSize: '0.85rem' }}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="secondary"
+        disabled={busy}
+        onClick={handleSaveVitals}
+        style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', cursor: 'pointer' }}
+      >
+        Update Vitals
+      </button>
+    </div>
   </div>
-)}
+
+  <OrderedTests patient={selected} catalog={catalog} allocationByTest={allocationByTest} />
+  <LaboratoryResultEditor patient={selected} catalog={paramCatalog} reportData={report} onChange={setReport} onSaveDraft={() => save(false)} onGeneratePreview={generate} onSubmitApproval={() => setConfirmSubmit(true)} busy={busy} isSavingDraft={isSavingDraft} isGeneratingPreview={isGeneratingPreview} isSubmitting={isSubmitting} equipmentData={equipment} onPickEquipment={pickEquipment} otherOpen={otherOpen} setOtherOpen={setOtherOpen} onCatalogRefresh={refreshParamCatalog} otherEquipmentForm={<div className="other-equipment-form"><h3>Other Equipment</h3><div className="form-grid">{[['name', 'Equipment Name'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['department', 'Department']].map(([key, label]) => <label key={key}>{label}<input value={other[key]} onChange={e => setOther({ ...other, [key]: e.target.value })} /></label>)}<label className="wide">Remarks<textarea value={other.remarks} onChange={e => setOther({ ...other, remarks: e.target.value })} /></label></div><div className="form-actions"><button type="button" className="secondary" onClick={() => setOtherOpen(false)}>Cancel</button><button type="button" className="primary" onClick={addOther}>Add equipment</button></div></div>} />
+</>}</section>}
+{tab === 'stock' && <section className="table-card"><h2>Available consumables</h2><table><thead><tr><th>Item</th><th>Code</th><th>Remaining</th><th>Status</th></tr></thead><tbody>{stock.map(item => <tr key={item._id}><td>{item.itemName}</td><td>{item.itemCode}</td><td>{item.remainingQuantity} {item.unit}</td><td>{item.remainingQuantity <= item.minimumThreshold ? 'Low stock' : 'Available'}</td></tr>)}</tbody></table></section>}
+<ModalPortal isOpen={confirmSubmit} onClose={() => setConfirmSubmit(false)}>
+  <div className="modal-content" onClick={e => e.stopPropagation()}>
+    <h2>Confirm report accuracy</h2>
+    <p>Please review the report carefully before submission.</p>
+    <div className="form-actions">
+      <button type="button" className="secondary" onClick={() => setConfirmSubmit(false)}>Review again</button>
+      <button type="button" className="primary" onClick={() => {
+        setConfirmSubmit(false);
+        save(true);
+      }}>Submit for approval</button>
+    </div>
+  </div>
+</ModalPortal>
+
+<ModalPortal isOpen={previewOpen && !!generated} onClose={() => setPreviewOpen(false)}>
+  <div className="report-preview-modal" onClick={e => e.stopPropagation()}>
+    <div className="report-preview-modal-header">
+      <div>
+        <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Preview</p>
+        <h2 className="preview-header-title">ETU Diagnostic Laboratory</h2>
+      </div>
+      <button type="button" className="report-preview-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">&times;</button>
+    </div>
+
+    <div className="report-preview-modal-body">
+      {/* Patient Info */}
+      <div className="report-preview-patient-info">
+        <p><strong>Patient Name:</strong> {selected?.name || '—'}</p>
+        <p><strong>Patient ID:</strong> {selected?.patientId || '—'}</p>
+        <p><strong>Age / Sex:</strong> {selected?.age || '—'} / {selected?.sex || '—'}</p>
+        <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
+      </div>
+
+      {/* Equipment */}
+      {generated?.equipment?.length > 0 && (
+        <p style={{ fontSize: '0.88rem', margin: '0 0 12px' }}>
+          <strong>Equipment Used:</strong> {generated.equipment.join(', ')}
+        </p>
+      )}
+
+      {/* Results grouped by category */}
+      {(() => {
+        if (!generated?.results) return null;
+        const grouped = groupResultsByCategory(generated.results);
+        return grouped.map(([catName, rows], gi) => (
+          <div key={catName} className="report-preview-category-group">
+            <h4 className="report-preview-category-title">{catName}</h4>
+            <table className="report-preview-table">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Result</th>
+                  <th>SI Unit</th>
+                  <th>Reference Range</th>
+                  <th style={{ textAlign: 'center' }}>Flag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={`${catName}-${i}`}>
+                    <td><strong>{row.sampleName}</strong></td>
+                    <td><strong>{row.result}</strong></td>
+                    <td>{row.unit || '—'}</td>
+                    <td>{row.referenceValue || '—'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className={`flag-badge ${row.flag || flagFor(row, selected?.sex) || 'blank'}`}>
+                        {flagText(row.flag || flagFor(row, selected?.sex))}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ));
+      })()}
+
+      {/* Comments */}
+      {generated?.comments && (
+        <p style={{ margin: '12px 0 0', fontSize: '0.88rem' }}>
+          <strong>Collector Comments:</strong> {generated.comments}
+        </p>
+      )}
+    </div>
+
+    <div className="report-preview-modal-footer" style={{ padding: '14px 28px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+      <button type="button" className="secondary" onClick={() => setPreviewOpen(false)}>Close Preview</button>
+      <button type="button" className="primary" onClick={() => { setPreviewOpen(false); setConfirmSubmit(true); }}>🚀 Proceed to Submit</button>
+    </div>
+  </div>
+</ModalPortal>
 {error && (
   <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRadius: '10px', background: '#ef4444', color: '#ffffff', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', fontWeight: 600, fontSize: '0.9rem', maxWidth: '450px' }}>
     <span>❌</span><span style={{ flex: 1 }}>{error}</span><button type="button" onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', padding: '0 4px' }}>×</button>

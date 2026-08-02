@@ -6,6 +6,8 @@ import LabReport from '../models/LabReport.js';
 import LaboratorySettings from '../models/LaboratorySettings.js';
 import { seedParameterCatalog } from './parameterCatalogSeeder.js';
 
+import dns from 'node:dns';
+
 const MAX_CONNECTION_ATTEMPTS = Math.max(1, Number(process.env.MONGODB_CONNECT_RETRIES || 3));
 const RETRY_DELAY_MS = Math.max(0, Number(process.env.MONGODB_CONNECT_RETRY_DELAY_MS || 3000));
 let connectionEventsRegistered = false;
@@ -33,32 +35,33 @@ export async function connectDatabase() {
 
   let lastError;
   for (const connectionUri of connectionUris) {
-    for (let attempt = 1; attempt <= MAX_CONNECTION_ATTEMPTS; attempt += 1) {
+    const isPrimary = connectionUri.label === 'primary URI';
+    const attemptsCount = isPrimary && fallbackUri ? 1 : MAX_CONNECTION_ATTEMPTS;
+    for (let attempt = 1; attempt <= attemptsCount; attempt += 1) {
       try {
-        console.log(`MongoDB ${connectionUri.label} connection attempt ${attempt}/${MAX_CONNECTION_ATTEMPTS}.`);
+        console.log(`MongoDB ${connectionUri.label} connection attempt ${attempt}/${attemptsCount}.`);
         await mongoose.connect(connectionUri.uri, {
           dbName: 'ETU_Diagonstic_Labratory',
           maxPoolSize: 10,
           minPoolSize: 1,
           maxIdleTimeMS: 60000,
-          serverSelectionTimeoutMS: 10000,
-          connectTimeoutMS: 10000,
+          serverSelectionTimeoutMS: isPrimary ? 4000 : 10000,
+          connectTimeoutMS: isPrimary ? 4000 : 10000,
           retryWrites: true
         });
         lastError = undefined;
         break;
       } catch (error) {
         lastError = error;
-        console.error(`MongoDB ${connectionUri.label} connection attempt ${attempt}/${MAX_CONNECTION_ATTEMPTS} failed:`, error.message);
+        console.error(`MongoDB ${connectionUri.label} connection attempt ${attempt}/${attemptsCount} failed:`, error.message);
         if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
         
-        // If SRV DNS lookup fails and fallback is available, skip remaining attempts for primary SRV
-        if (/querySrv|ETIMEOUT|ECONNREFUSED|ENOTFOUND/i.test(error.message) && connectionUri.label === 'primary URI' && fallbackUri) {
-          console.warn('DNS SRV lookup failed for primary URI; switching to fallback connection URI immediately.');
+        if (isPrimary && fallbackUri) {
+          console.warn('Primary connection URI failed or SRV lookup refused; switching to fallback connection URI immediately.');
           break;
         }
 
-        if (attempt < MAX_CONNECTION_ATTEMPTS) {
+        if (attempt < attemptsCount) {
           console.log(`Retrying MongoDB connection in ${RETRY_DELAY_MS / 1000} seconds.`);
           await wait(RETRY_DELAY_MS);
         }

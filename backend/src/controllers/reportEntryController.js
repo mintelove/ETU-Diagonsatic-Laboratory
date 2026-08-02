@@ -53,7 +53,7 @@ export async function getAllParameters(req, res, next) {
 
 export async function createParameter(req, res, next) {
   try {
-    const { parameterName, category, subcategory, unit, referenceValue, normalMin, normalMax } = req.body;
+    const { parameterName, category, subcategory, unit, referenceValue, normalMin, normalMax, resultType } = req.body;
     if (!parameterName?.trim() || !category?.trim()) {
       throw new AppError('Parameter Name and Category are required.', 422);
     }
@@ -62,22 +62,19 @@ export async function createParameter(req, res, next) {
     const cleanSub = subcategory ? subcategory.trim() : '';
 
     const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const existing = await LabTestParameter.findOne({
+
+    // Check for exact duplicate: same category + subcategory + parameterName
+    const exactDuplicate = await LabTestParameter.findOne({
       category: cleanCat,
+      subcategory: cleanSub,
       parameterName: new RegExp(`^${escapeRegex(cleanName)}$`, 'i')
     });
 
-    if (existing) {
-      existing.parameterName = cleanName;
-      existing.category = cleanCat;
-      existing.subcategory = cleanSub;
-      if (unit !== undefined) existing.unit = unit ? unit.trim() : '';
-      if (referenceValue !== undefined) existing.referenceValue = referenceValue ? referenceValue.trim() : '';
-      if (normalMin !== undefined) existing.normalMin = normalMin === '' || normalMin === null ? null : Number(normalMin);
-      if (normalMax !== undefined) existing.normalMax = normalMax === '' || normalMax === null ? null : Number(normalMax);
-      existing.status = 'Active';
-      await existing.save();
-      return res.status(200).json({ parameter: existing });
+    if (exactDuplicate) {
+      return res.status(409).json({
+        message: 'Parameter already exists in this category.',
+        parameter: exactDuplicate
+      });
     }
 
     const created = await LabTestParameter.create({
@@ -88,6 +85,7 @@ export async function createParameter(req, res, next) {
       referenceValue: referenceValue ? referenceValue.trim() : '',
       normalMin: normalMin !== undefined && normalMin !== '' ? Number(normalMin) : null,
       normalMax: normalMax !== undefined && normalMax !== '' ? Number(normalMax) : null,
+      resultType: resultType ? resultType.trim() : 'Text',
       status: 'Active'
     });
     res.status(201).json({ parameter: created });

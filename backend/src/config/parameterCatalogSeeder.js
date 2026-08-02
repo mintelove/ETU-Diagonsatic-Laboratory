@@ -305,11 +305,46 @@ export const MASTER_LAB_CATEGORIES = [
       { parameterName: 'GRAM STAIN', unit: '', referenceValue: 'NO GRAM REACTION', normalMin: null, normalMax: null, displayOrder: 18, aliases: ['GRAM STAIN', 'Gram Stain'] },
       { parameterName: 'AFB', unit: '', referenceValue: 'Negative for AFB', normalMin: null, normalMax: null, displayOrder: 19 }
     ]
+  },
+  {
+    category: 'REFERRAL',
+    subcategory: '',
+    parameters: [
+      { parameterName: 'CA-125', unit: 'U/mL', referenceValue: '0 – 35', normalMin: 0, normalMax: 35, displayOrder: 1 },
+      { parameterName: 'CA-19', unit: 'U/mL', referenceValue: '0 – 37', normalMin: 0, normalMax: 37, displayOrder: 2, aliases: ['CA-19-9', 'CA 19-9'] },
+      { parameterName: 'ANTI MULLERIAN HORMONE', unit: 'ng/mL', referenceValue: '1.0 – 4.0', normalMin: 1.0, normalMax: 4.0, displayOrder: 3, aliases: ['AMH', 'Anti-Mullerian Hormone'] },
+      { parameterName: 'ANA Titer 1100', unit: 'Titer', referenceValue: '< 1:160', normalMin: null, normalMax: null, displayOrder: 4, aliases: ['ANA Titer', 'ANA Titer 1:100'] },
+      { parameterName: 'Anti dsDNA', unit: 'IU/mL', referenceValue: '< 30', normalMin: null, normalMax: 30, displayOrder: 5, aliases: ['Anti-dsDNA', 'dsDNA'] },
+      { parameterName: 'ANTI CYCLIC CITRULLINATATED PEPTIDE 2000', unit: 'U/mL', referenceValue: '< 20', normalMin: null, normalMax: 20, displayOrder: 6, aliases: ['Anti-CCP', 'Anti CCP'] },
+      { parameterName: 'CA 15-3', unit: 'U/mL', referenceValue: '0 – 30', normalMin: 0, normalMax: 30, displayOrder: 7, aliases: ['CA 15.3', 'CA-15-3'] },
+      { parameterName: 'CD4', unit: 'cells/µL', referenceValue: '500 – 1500', normalMin: 500, normalMax: 1500, displayOrder: 8, aliases: ['CD4 Count'] },
+      { parameterName: 'Cortisol Serum', unit: 'µg/dL', referenceValue: '6.0 – 23.0', normalMin: 6.0, normalMax: 23.0, displayOrder: 9, aliases: ['Serum Cortisol', 'Cortisol'] },
+      { parameterName: 'Ferratin or Folate', unit: 'ng/mL', referenceValue: '12 – 300', normalMin: 12, normalMax: 300, displayOrder: 10, aliases: ['Ferritin', 'Folate', 'Ferratin'] },
+      { parameterName: 'HBV Viral Load', unit: 'IU/mL', referenceValue: 'Undetectable (< 20)', normalMin: null, normalMax: 20, displayOrder: 11, aliases: ['HBV DNA Quantitative', 'HBV DNA'] },
+      { parameterName: 'HCV Viral Load', unit: 'IU/mL', referenceValue: 'Undetectable (< 15)', normalMin: null, normalMax: 15, displayOrder: 12, aliases: ['HCV RNA Quantitative', 'HCV RNA'] },
+      { parameterName: 'HCV Genotype', unit: '', referenceValue: 'Reported by Genotype (1-6)', normalMin: null, normalMax: null, displayOrder: 13 },
+      { parameterName: 'Hepatitis C Screen', unit: '', referenceValue: 'Non-Reactive', normalMin: null, normalMax: null, displayOrder: 14, aliases: ['HCV Screen', 'Anti-HCV'] },
+      { parameterName: 'HIV Viral Load', unit: 'copies/mL', referenceValue: 'Undetectable (< 20)', normalMin: null, normalMax: 20, displayOrder: 15, aliases: ['HIV-1 Viral Load', 'HIV RNA'] },
+      { parameterName: 'HIV 1 RNA Quantitative', unit: 'copies/mL', referenceValue: 'Undetectable (< 20)', normalMin: null, normalMax: 20, displayOrder: 16, aliases: ['HIV 1 RNA'] },
+      { parameterName: 'Lipase', unit: 'U/L', referenceValue: '10 – 140', normalMin: 10, normalMax: 140, displayOrder: 17 },
+      { parameterName: 'PTH', unit: 'pg/mL', referenceValue: '15 – 65', normalMin: 15, normalMax: 65, displayOrder: 18, aliases: ['Parathyroid Hormone', 'PTH Serum'] },
+      { parameterName: 'Testosterone', unit: 'ng/dL', referenceValue: 'Male: 300 – 1000 | Female: 15 – 70', normalMin: 15, normalMax: 1000, displayOrder: 19 },
+      { parameterName: 'Vitamin B12', unit: 'pg/mL', referenceValue: '200 – 900', normalMin: 200, normalMax: 900, displayOrder: 20, aliases: ['Vit B12', 'B12'] },
+      { parameterName: 'Female Cancer Markers', unit: '', referenceValue: 'Negative / Normal Panel', normalMin: null, normalMax: null, displayOrder: 21 },
+      { parameterName: 'Male Cancer Marker', unit: '', referenceValue: 'Negative / Normal Panel', normalMin: null, normalMax: null, displayOrder: 22 },
+      { parameterName: 'Vit B12 & Folate', unit: '', referenceValue: 'B12: 200–900 pg/mL | Folate: > 3.0 ng/mL', normalMin: null, normalMax: null, displayOrder: 23 },
+      { parameterName: 'Hepatitis B Surface Quantitative (10 Days)', unit: 'IU/mL', referenceValue: '< 0.05', normalMin: null, normalMax: 0.05, displayOrder: 24, aliases: ['HBsAg Quantitative'] }
+    ]
   }
 ];
 
-export async function seedParameterCatalog() {
+export async function seedParameterCatalog(force = false) {
   try {
+    if (!force) {
+      const referralCount = await LabTestParameter.countDocuments({ category: { $in: ['REFERRAL', 'REFERRAL TESTS'] } });
+      const totalCount = await LabTestParameter.countDocuments();
+      if (totalCount > 0 && referralCount > 0) return;
+    }
     let count = 0;
     let fallbackOrder = 1;
 

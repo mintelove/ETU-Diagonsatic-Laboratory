@@ -52,7 +52,14 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
     const data = response.status === 204 ? null : await response.json().catch(() => ({}));
     if (!response.ok) {
       isCurrentError = true;
-      const serverMsg = data.message || data.error || (data.errors && data.errors.map(e => e.msg || e.message).join(', ')) || `HTTP ${response.status}: ${response.statusText}`;
+      let serverMsg = data?.message || data?.error || (data?.errors && data.errors.map(e => e.msg || e.message).join(', '));
+      if (!serverMsg) {
+        if (response.status === 401) serverMsg = 'Authentication required. Session may be expired.';
+        else if (response.status === 403) serverMsg = 'You do not have permission to perform this action.';
+        else if (response.status === 404) serverMsg = 'Requested API endpoint not found.';
+        else if (response.status >= 500) serverMsg = `Server error (${response.status}). Please try again later.`;
+        else serverMsg = `Request failed with status ${response.status}.`;
+      }
       const err = new Error(serverMsg);
       err.status = response.status;
       err.data = data;
@@ -72,8 +79,10 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
       error.isNetworkError = false;
       throw error;
     }
-    error.isNetworkError = true;
-    throw error;
+    const netErr = new Error('Unable to connect to the server. Please check your network connection and try again.');
+    netErr.isNetworkError = true;
+    netErr.originalError = error;
+    throw netErr;
   } finally {
     clearTimeout(timer);
     if (shouldTriggerLoading) {

@@ -33,11 +33,29 @@ export default function LaboratoryTestsPage() {
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState('');
 
+  const [paramTabOpen, setParamTabOpen] = useState(false);
+  const [paramList, setParamList] = useState([]);
+  const [paramForm, setParamForm] = useState({ parameterName: '', category: 'HEMATOLOGY', subcategory: '', unit: '', referenceValue: '', normalMin: '', normalMax: '' });
+  const [editingParam, setEditingParam] = useState(null);
+
+  const [interpTabOpen, setInterpTabOpen] = useState(false);
+  const [interpList, setInterpList] = useState([]);
+  const [interpForm, setInterpForm] = useState({ laboratoryTestName: 'Lipid Profile', title: '', interpretation: '' });
+
   const load = () => api('/laboratory-tests/admin', { token }).then(catalog => {
     setData(catalog);
+    if (catalog.categories?.length > 0) {
+      setSelectedId(prev => prev || catalog.categories[0]._id);
+    }
   }).catch(error => setMessage(error.message));
 
+  const loadParams = () => api('/report-entry/parameters', { token }).then(res => setParamList(res.parameters || [])).catch(() => {});
+  const loadInterps = () => api('/clinical-interpretations/admin', { token }).then(res => setInterpList(res.interpretations || [])).catch(() => {});
+
   useEffect(() => { load(); }, [token]);
+  useEffect(() => { if (paramTabOpen) loadParams(); }, [paramTabOpen, token]);
+  useEffect(() => { if (interpTabOpen) loadInterps(); }, [interpTabOpen, token]);
+
 
   const selected = data.categories.find(category => category._id === selectedId);
   const categoryTests = useMemo(() => data.tests.filter(test => test.category?._id === selected?._id), [data.tests, selected]);
@@ -245,7 +263,7 @@ export default function LaboratoryTestsPage() {
                   <label>Parameter Name<input required value={paramForm.parameterName} onChange={e => setParamForm({ ...paramForm, parameterName: e.target.value })} placeholder="e.g. HGB" /></label>
                   <label>Category
                     <select value={paramForm.category} onChange={e => setParamForm({ ...paramForm, category: e.target.value })}>
-                      {['HEMATOLOGY', 'CLINICAL CHEMISTRY', 'COAGULATION TEST', 'SERUM ELECTROLYTE', 'HORMONE', 'SEROLOGY AND IMMUNOHEMATOLOGY', 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP', 'URINALYSIS', 'URINE AND BODY FLUID ANALYSIS', 'BACTERIOLOGY / PARASITOLOGY', 'STOOL EXAMINATION', 'SEMEN ANALYSIS'].map(c => <option key={c} value={c}>{c}</option>)}
+                      {['HEMATOLOGY', 'CLINICAL CHEMISTRY', 'COAGULATION TEST', 'SERUM ELECTROLYTE', 'HORMONE', 'SEROLOGY AND IMMUNOHEMATOLOGY', 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP', 'URINALYSIS', 'URINE AND BODY FLUID ANALYSIS', 'BACTERIOLOGY / PARASITOLOGY', 'STOOL EXAMINATION', 'SEMEN ANALYSIS', 'REFERRAL'].map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </label>
                   <label>Subcategory<input value={paramForm.subcategory} onChange={e => setParamForm({ ...paramForm, subcategory: e.target.value })} placeholder="e.g. Chemical Analysis" /></label>
@@ -300,6 +318,103 @@ export default function LaboratoryTestsPage() {
                             }}
                           >
                             Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Master Clinical Interpretation Template Library */}
+        <section className="lab-form-card" style={{ marginTop: '24px', width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <p className="eyebrow">Clinical Interpretation Library</p>
+              <h2>Test-Specific Preloaded Clinical Interpretations</h2>
+            </div>
+            <button className="secondary" type="button" onClick={() => setInterpTabOpen(!interpTabOpen)}>
+              {interpTabOpen ? 'Collapse Library' : '🩺 Manage Clinical Interpretation Templates'}
+            </button>
+          </div>
+
+          {interpTabOpen && (
+            <div style={{ marginTop: '16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '16px' }}>
+                Preload and manage professional diagnostic interpretation templates mapped to specific laboratory test types for Sample Collector selection.
+              </p>
+
+              {/* Add New Interpretation Form */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!interpForm.title.trim() || !interpForm.interpretation.trim()) return;
+                  try {
+                    await api('/clinical-interpretations', { token, method: 'POST', body: JSON.stringify(interpForm) });
+                    setMessage('New clinical interpretation template added.');
+                    setInterpForm({ laboratoryTestName: 'Lipid Profile', title: '', interpretation: '' });
+                    loadInterps();
+                  } catch (err) { setMessage(err.message); }
+                }}
+                style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}
+              >
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#075c91' }}>＋ Add New Interpretation Template</h4>
+                <div className="form-grid" style={{ gap: '10px' }}>
+                  <label>Laboratory Test Type
+                    <input
+                      required
+                      value={interpForm.laboratoryTestName}
+                      onChange={e => setInterpForm({ ...interpForm, laboratoryTestName: e.target.value })}
+                      placeholder="e.g. Lipid Profile, Semen Analysis, CBC"
+                    />
+                  </label>
+                  <label>Template Title<input required value={interpForm.title} onChange={e => setInterpForm({ ...interpForm, title: e.target.value })} placeholder="e.g. Lipid Profile Risk Assessment" /></label>
+                  <label className="wide">Interpretation Body
+                    <textarea required rows={3} value={interpForm.interpretation} onChange={e => setInterpForm({ ...interpForm, interpretation: e.target.value })} placeholder="Enter standard non-diagnostic clinical interpretation text..." />
+                  </label>
+                </div>
+                <button className="primary" style={{ marginTop: '12px' }}>Save Template</button>
+              </form>
+
+              {/* Interpretations List */}
+              <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 10px' }}>Test Type</th>
+                      <th style={{ padding: '8px 10px' }}>Title</th>
+                      <th style={{ padding: '8px 10px' }}>Interpretation</th>
+                      <th style={{ padding: '8px 10px' }}>Status</th>
+                      <th style={{ padding: '8px 10px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {interpList.map(item => (
+                      <tr key={item._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 700, color: '#075c91' }}>{item.laboratoryTestName}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 700 }}>{item.title}</td>
+                        <td style={{ padding: '8px 10px', maxWidth: '360px', whiteSpace: 'pre-line' }}>{item.interpretation}</td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, background: item.active ? '#dcfce7' : '#f1f5f9', color: item.active ? '#15803d' : '#64748b' }}>
+                            {item.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <button
+                            type="button"
+                            className="secondary"
+                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                            onClick={async () => {
+                              try {
+                                await api(`/clinical-interpretations/${item._id}`, { token, method: 'PUT', body: JSON.stringify({ active: !item.active }) });
+                                loadInterps();
+                              } catch (err) { setMessage(err.message); }
+                            }}
+                          >
+                            {item.active ? 'Deactivate' : 'Activate'}
                           </button>
                         </td>
                       </tr>
