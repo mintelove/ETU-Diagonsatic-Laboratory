@@ -43,10 +43,113 @@ const MAIN_CATEGORY_ORDER = [
   'REFERRAL'
 ];
 
+const CATEGORY_MAP_ALIASES = {
+  'SEROLOGY AND IMMUNOHEMATOLOGY': [
+    'SEROLOGY AND IMMUNOHEMATOLOGY',
+    'SEROLOGY & IMMUNOHEMATOLOGY',
+    'SEROLOGY/IMMUNOHEMATOLOGY',
+    'SEROLOGY',
+    'IMMUNOHEMATOLOGY'
+  ],
+  'HEMATOLOGY': [
+    'HEMATOLOGY',
+    'HAEMATOLOGY',
+    'CBC',
+    'COMPLETE BLOOD COUNT'
+  ],
+  'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS': [
+    'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+    'CLINICAL CHEMISTRY',
+    'CHEMISTRY',
+    'LIPID PROFILE',
+    'RENAL FUNCTION TESTS',
+    'LIVER FUNCTION TEST',
+    'OTHER CHEMISTRY TESTS'
+  ],
+  'COAGULATION TEST': [
+    'COAGULATION TEST',
+    'COAGULATION',
+    'COAGULATION TESTS'
+  ],
+  'SERUM ELECTROLYTE': [
+    'SERUM ELECTROLYTE',
+    'SERUM ELECTROLYTES',
+    'ELECTROLYTES',
+    'ELECTROLYTE'
+  ],
+  'HORMONE': [
+    'HORMONE',
+    'HORMONES',
+    'HORMONAL TESTS'
+  ],
+  'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP': [
+    'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
+    'BLOOD SUGAR TEST',
+    'BLOOD SUGAR',
+    'DIABETIC',
+    'DM CHECKUP',
+    'RBS/FBS'
+  ],
+  'URINALYSIS': [
+    'URINALYSIS',
+    'URINE ANALYSIS'
+  ],
+  'BACTERIOLOGY / PARASITOLOGY': [
+    'BACTERIOLOGY / PARASITOLOGY',
+    'BACTERIOLOGY',
+    'PARASITOLOGY',
+    'MICROBIOLOGY'
+  ],
+  'SEMEN ANALYSIS': [
+    'SEMEN ANALYSIS',
+    'SEMEN'
+  ],
+  'STOOL EXAMINATION': [
+    'STOOL EXAMINATION',
+    'STOOL EXAM',
+    'STOOL'
+  ],
+  'URINE AND BODY FLUID ANALYSIS': [
+    'URINE AND BODY FLUID ANALYSIS',
+    'URINE AND BODY FLUID',
+    'BODY FLUID',
+    'BODY FLUIDS'
+  ],
+  'REFERRAL': [
+    'REFERRAL',
+    'REFERRAL TESTS'
+  ]
+};
+
+export function normalizeCategoryName(rawCategory) {
+  if (!rawCategory) return 'OTHER';
+  const clean = String(rawCategory).trim().toUpperCase();
+
+  // 1. Check exact match in MAIN_CATEGORY_ORDER
+  if (MAIN_CATEGORY_ORDER.includes(clean)) return clean;
+
+  // 2. Check exact match in CATEGORY_MAP_ALIASES
+  for (const [mainCat, aliases] of Object.entries(CATEGORY_MAP_ALIASES)) {
+    if (aliases.some(alias => alias === clean)) {
+      return mainCat;
+    }
+  }
+
+  // 3. Check if clean starts with or equals alias
+  for (const [mainCat, aliases] of Object.entries(CATEGORY_MAP_ALIASES)) {
+    if (aliases.some(alias => clean.startsWith(alias) || alias.startsWith(clean))) {
+      return mainCat;
+    }
+  }
+
+  return clean;
+}
+
 function getCategoryMeta(catName) {
-  const norm = String(catName || '').trim().toUpperCase();
+  const norm = normalizeCategoryName(catName);
+  if (CATEGORY_META[norm]) return CATEGORY_META[norm];
   for (const [key, meta] of Object.entries(CATEGORY_META)) {
-    if (norm.includes(key) || key.includes(norm)) return meta;
+    if (norm === key || norm.startsWith(key) || key.startsWith(norm)) return meta;
   }
   return CATEGORY_META['OTHER'];
 }
@@ -465,10 +568,14 @@ export default function LaboratoryResultEditor({
 
     const addParam = (item) => {
       if (!item || !item.parameterName) return;
-      const key = `${(item.category || '').toUpperCase().trim()}::${(item.parameterName || '').toUpperCase().trim()}`;
+      const catNorm = normalizeCategoryName(item.category);
+      const key = `${catNorm}::${(item.parameterName || '').toUpperCase().trim()}`;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
-        combined.push(item);
+        combined.push({
+          ...item,
+          category: catNorm
+        });
       }
     };
 
@@ -535,7 +642,7 @@ export default function LaboratoryResultEditor({
           ? t.category.name
           : (typeof t.category === 'string' ? t.category : '');
         if (catVal && typeof catVal === 'string') {
-          const normCat = catVal.toUpperCase().includes('REFERRAL') ? 'REFERRAL' : catVal.toUpperCase();
+          const normCat = normalizeCategoryName(catVal);
           selectedTestCategories.push(normCat);
           categories.add(normCat);
         }
@@ -560,7 +667,7 @@ export default function LaboratoryResultEditor({
         const pSub = (param.subcategory || '').trim().toUpperCase();
         const pCat = (param.category || '').trim().toUpperCase();
         const pId = String(param._id || '');
-        const normCat = pCat.includes('REFERRAL') ? 'REFERRAL' : pCat;
+        const normCat = normalizeCategoryName(pCat);
         const pAliases = Array.isArray(param.aliases) ? param.aliases.map(a => String(a).trim().toUpperCase()) : [];
 
         names.forEach(nUpper => {
@@ -600,14 +707,9 @@ export default function LaboratoryResultEditor({
 
     if (!effectiveCatalog || !Array.isArray(effectiveCatalog)) return map;
 
-    // 2. Map all catalog parameters into their category
+    // 2. Map all catalog parameters into their category strictly
     effectiveCatalog.forEach(p => {
-      let cat = (p.category || 'OTHER').trim();
-      if (cat.toUpperCase().includes('REFERRAL')) cat = 'REFERRAL';
-
-      // Match against MAIN_CATEGORY_ORDER if present
-      const matchMain = MAIN_CATEGORY_ORDER.find(m => m.toUpperCase() === cat.toUpperCase() || cat.toUpperCase().includes(m) || m.includes(cat.toUpperCase()));
-      const key = matchMain || cat;
+      const key = normalizeCategoryName(p.category);
 
       if (!map.has(key)) map.set(key, []);
       const existing = map.get(key);
@@ -646,8 +748,10 @@ export default function LaboratoryResultEditor({
   const categoryList = useMemo(() => {
     const list = Array.from(categoriesGrouped.keys());
     list.sort((a, b) => {
-      const idxA = MAIN_CATEGORY_ORDER.findIndex(m => a.toUpperCase() === m || a.toUpperCase().includes(m) || m.includes(a.toUpperCase()));
-      const idxB = MAIN_CATEGORY_ORDER.findIndex(m => b.toUpperCase() === m || b.toUpperCase().includes(m) || m.includes(b.toUpperCase()));
+      const normA = normalizeCategoryName(a);
+      const normB = normalizeCategoryName(b);
+      const idxA = MAIN_CATEGORY_ORDER.indexOf(normA);
+      const idxB = MAIN_CATEGORY_ORDER.indexOf(normB);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
