@@ -414,15 +414,26 @@ export default function LoginPage() {
 
         <main className="login-card lab-glass-card">
           <header className="login-brand">
-            {/* Prominent Laboratory Logo matching final printable report visual size */}
-            <div className="login-brand__logo-wrapper lab-logo-wrapper-large">
-              <img
-                src={labLogo}
-                alt="ETU Diagnostic Laboratory Logo"
-                className="login-brand__logo-img-large"
-              />
+            {/* LIMS Microscope/Flask Icon */}
+            <div className="lims-hero-icon-container">
+              <div className="lims-hero-icon-wrapper">
+                <svg className="lims-hero-icon-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M32 6V14M24 14H40M28 14V26M36 14V26M22 26H42L38 38H26L22 26Z" stroke="#0B6B3A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M26 38L18 54H46L38 38" stroke="#0B6B3A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="32" cy="46" r="3.5" fill="#F39C12" />
+                  <circle cx="27" cy="50" r="2.5" fill="#F39C12" />
+                  <circle cx="37" cy="49" r="2.8" fill="#F39C12" />
+                  <path d="M12 58H52" stroke="#0B6B3A" strokeWidth="4.5" strokeLinecap="round" />
+                </svg>
+              </div>
             </div>
-            <span className="login-brand__name">ETU Diagnostic Laboratory</span>
+
+            {/* Modern Typography Logo */}
+            <div className="lims-typography-logo">
+              <span className="lims-typography-brand">ETU</span>
+              <span className="lims-typography-subtitle">DIAGNOSTIC LABORATORY</span>
+            </div>
+
             <h1 className="login-brand__title">{text.welcome}</h1>
             <p className="login-brand__subtitle">{text.subtitle}</p>
           </header>
