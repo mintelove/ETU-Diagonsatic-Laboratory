@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
@@ -9,6 +9,27 @@ export function PublicReportViewer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
+  useLayoutEffect(() => {
+    const origBg = document.body.style.backgroundColor;
+    const origTheme = document.documentElement.getAttribute('data-theme');
+    const origClass = document.body.className;
+
+    document.body.style.backgroundColor = '#f1f3f5';
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.remove('dark');
+    document.body.classList.remove('dark');
+
+    return () => {
+      document.body.style.backgroundColor = origBg;
+      if (origTheme) {
+        document.documentElement.setAttribute('data-theme', origTheme);
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      document.body.className = origClass;
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchPublicReport() {
@@ -60,7 +81,7 @@ export function PublicReportViewer() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#0f172a', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '16px', boxSizing: 'border-box' }}>
+      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f3f5', color: '#0f172a', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '16px', boxSizing: 'border-box' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: '48px', height: '48px', margin: '0 auto 16px', border: '4px solid #e2e8f0', borderTopColor: '#075c91', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <h2 style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 700, margin: '0 0 4px 0' }}>Processing...</h2>
@@ -72,8 +93,8 @@ export function PublicReportViewer() {
 
   if (error || !report) {
     return (
-      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#0f172a', padding: '20px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box' }}>
-        <div style={{ maxWidth: '480px', width: '100%', background: '#ffffff', borderRadius: '16px', padding: '32px 24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
+      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f3f5', color: '#0f172a', padding: '20px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: '480px', width: '100%', background: '#ffffff', borderRadius: '16px', padding: '32px 24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: error.includes('not available') ? '#fef3c7' : '#fef2f2', color: error.includes('not available') ? '#d97706' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto 16px' }}>
             {error.includes('not available') ? '🔒' : '⚠️'}
           </div>
@@ -164,10 +185,12 @@ export function PublicReportViewer() {
   };
 
   return (
-    <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: '#f8fafc', color: '#0f172a', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
+    <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: '#f1f3f5', color: '#0f172a', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
       <style>{`
         :root, html, body {
           color-scheme: light !important;
+          background-color: #f1f3f5 !important;
+          color: #0f172a !important;
         }
         .public-report-page,
         .public-report-page *,
@@ -177,7 +200,7 @@ export function PublicReportViewer() {
           box-sizing: border-box !important;
         }
         .public-report-page {
-          background-color: #f8fafc !important;
+          background-color: #f1f3f5 !important;
           color: #0f172a !important;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         }
@@ -230,7 +253,7 @@ export function PublicReportViewer() {
       <div style={{ maxWidth: '850px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         
         {/* Top Action Bar */}
-        <header className="public-report-actions" style={{ background: '#ffffff', borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', boxSizing: 'border-box' }}>
+        <header className="public-report-actions" style={{ background: '#ffffff', borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid #cbd5e1', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', boxSizing: 'border-box' }}>
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#e0f2fe', color: '#0369a1', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px' }}>
               ✓ VERIFIED DIAGNOSTIC REPORT
@@ -260,7 +283,7 @@ export function PublicReportViewer() {
         </header>
 
         {/* Main A4 Document Preview */}
-        <main className="public-report-main" style={{ background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.04)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+        <main className="public-report-main" style={{ background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
           
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '3px solid #087ca8', paddingBottom: '16px', marginBottom: '20px' }}>
