@@ -414,23 +414,23 @@ export default function LoginPage() {
 
         <main className="login-card lab-glass-card">
           <header className="login-brand">
-            {/* LIMS Microscope/Flask Icon */}
+            {/* 2x Larger LIMS Microscope/Flask Icon */}
             <div className="lims-hero-icon-container">
-              <div className="lims-hero-icon-wrapper">
-                <svg className="lims-hero-icon-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M32 6V14M24 14H40M28 14V26M36 14V26M22 26H42L38 38H26L22 26Z" stroke="#0B6B3A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M26 38L18 54H46L38 38" stroke="#0B6B3A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+              <div className="lims-hero-icon-wrapper-large">
+                <svg className="lims-hero-icon-svg-large" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M32 6V14M24 14H40M28 14V26M36 14V26M22 26H42L38 38H26L22 26Z" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M26 38L18 54H46L38 38" stroke="var(--scene-accent, #00d2ff)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
                   <circle cx="32" cy="46" r="3.5" fill="#F39C12" />
                   <circle cx="27" cy="50" r="2.5" fill="#F39C12" />
                   <circle cx="37" cy="49" r="2.8" fill="#F39C12" />
-                  <path d="M12 58H52" stroke="#0B6B3A" strokeWidth="4.5" strokeLinecap="round" />
+                  <path d="M12 58H52" stroke="var(--scene-accent, #00d2ff)" strokeWidth="4.2" strokeLinecap="round" />
                 </svg>
               </div>
             </div>
 
-            {/* Modern Typography Logo */}
-            <div className="lims-typography-logo">
-              <span className="lims-typography-brand">ETU</span>
+            {/* Animated Typography Logo */}
+            <div className="lims-typography-logo lims-animated-logo">
+              <span className="lims-typography-brand lims-shimmer-text">ETU</span>
               <span className="lims-typography-subtitle">DIAGNOSTIC LABORATORY</span>
             </div>
 
