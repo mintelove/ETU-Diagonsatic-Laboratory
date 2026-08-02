@@ -2,6 +2,7 @@ import LabReport from '../models/LabReport.js';
 import LabTestParameter from '../models/LabTestParameter.js';
 import { AppError } from '../utils/appError.js';
 import { equipmentPayload } from '../constants/equipment.js';
+import { seedParameterCatalog } from '../config/parameterCatalogSeeder.js';
 
 export function parameters(req, res) {
   res.json(equipmentPayload());
@@ -9,6 +10,7 @@ export function parameters(req, res) {
 
 export async function catalog(req, res, next) {
   try {
+    await seedParameterCatalog();
     const list = await LabTestParameter.find({ status: 'Active' })
       .sort({ category: 1, displayOrder: 1, subcategory: 1, parameterName: 1 })
       .lean();

@@ -425,6 +425,7 @@ function TestClinicalInterpretationSection({ testName, testInterpretations = [],
 export default function LaboratoryResultEditor({
   patient,
   catalog = [],
+  labTestCatalog = [],
   reportData,
   onChange,
   onSaveDraft,
@@ -456,6 +457,50 @@ export default function LaboratoryResultEditor({
   useEffect(() => {
     setUserInteractedCats(false);
   }, [patient?._id]);
+
+  // Unified master catalog merging parameter catalog and receptionist laboratory test catalog
+  const effectiveCatalog = useMemo(() => {
+    const combined = [];
+    const seenKeys = new Set();
+
+    const addParam = (item) => {
+      if (!item || !item.parameterName) return;
+      const key = `${(item.category || '').toUpperCase().trim()}::${(item.parameterName || '').toUpperCase().trim()}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        combined.push(item);
+      }
+    };
+
+    if (Array.isArray(catalog)) {
+      catalog.forEach(addParam);
+    }
+
+    if (Array.isArray(labTestCatalog)) {
+      labTestCatalog.forEach(catObj => {
+        const catName = typeof catObj === 'string' ? catObj : (catObj?.name || '');
+        const tests = Array.isArray(catObj?.tests) ? catObj.tests : [];
+        tests.forEach(t => {
+          const tName = typeof t === 'string' ? t : (t?.name || '');
+          if (tName) {
+            addParam({
+              _id: t._id || tName,
+              parameterName: tName,
+              category: catName || 'OTHER',
+              subcategory: t.subcategory || '',
+              unit: t.unit || '',
+              referenceValue: t.referenceValue || '—',
+              normalMin: t.normalMin ?? null,
+              normalMax: t.normalMax ?? null,
+              status: 'Active'
+            });
+          }
+        });
+      });
+    }
+
+    return combined;
+  }, [catalog, labTestCatalog]);
 
   // Map patient's receptionist-selected tests & categories with precision
   const requestedInfo = useMemo(() => {
@@ -509,8 +554,8 @@ export default function LaboratoryResultEditor({
     }
 
     // Match catalog parameters against receptionist-selected test names strictly
-    if (names.size > 0 && Array.isArray(catalog)) {
-      catalog.forEach(param => {
+    if (names.size > 0 && Array.isArray(effectiveCatalog)) {
+      effectiveCatalog.forEach(param => {
         const pName = (param.parameterName || '').trim().toUpperCase();
         const pSub = (param.subcategory || '').trim().toUpperCase();
         const pCat = (param.category || '').trim().toUpperCase();
@@ -542,7 +587,7 @@ export default function LaboratoryResultEditor({
     console.log('Categories marked as Requested:', Array.from(categories));
 
     return { selectedTestIds, selectedTestNames, selectedTestCategories, names, categories };
-  }, [patient, catalog]);
+  }, [patient, effectiveCatalog]);
 
   // Group ALL catalog parameters by category — ALWAYS INCLUDE ALL CATEGORIES
   const categoriesGrouped = useMemo(() => {
@@ -553,10 +598,10 @@ export default function LaboratoryResultEditor({
       map.set(cat, []);
     });
 
-    if (!catalog || !Array.isArray(catalog)) return map;
+    if (!effectiveCatalog || !Array.isArray(effectiveCatalog)) return map;
 
     // 2. Map all catalog parameters into their category
-    catalog.forEach(p => {
+    effectiveCatalog.forEach(p => {
       let cat = (p.category || 'OTHER').trim();
       if (cat.toUpperCase().includes('REFERRAL')) cat = 'REFERRAL';
 
@@ -596,7 +641,7 @@ export default function LaboratoryResultEditor({
     }
 
     return map;
-  }, [catalog, patient]);
+  }, [effectiveCatalog, patient]);
 
   const categoryList = useMemo(() => {
     const list = Array.from(categoriesGrouped.keys());
