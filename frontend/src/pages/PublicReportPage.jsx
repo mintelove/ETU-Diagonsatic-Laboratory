@@ -61,7 +61,7 @@ export function PublicReportViewer() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface, #f8fafc)', fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface, #f8fafc)', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '16px', boxSizing: 'border-box' }}>
         <div style={{ textAlign: 'center' }}>
           <div className="lims-spinner" style={{ width: '48px', height: '48px', margin: '0 auto 16px', border: '4px solid #e2e8f0', borderTopColor: '#075c91', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <h2 style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 700, margin: '0 0 4px 0' }}>Processing...</h2>
@@ -73,8 +73,8 @@ export function PublicReportViewer() {
 
   if (error || !report) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ maxWidth: '480px', width: '100%', background: '#ffffff', borderRadius: '16px', padding: '32px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+      <div style={{ minHeight: '100vh', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: '480px', width: '100%', background: '#ffffff', borderRadius: '16px', padding: '32px 24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: error.includes('not available') ? '#fef3c7' : '#fef2f2', color: error.includes('not available') ? '#d97706' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto 16px' }}>
             {error.includes('not available') ? '🔒' : '⚠️'}
           </div>
@@ -165,17 +165,24 @@ export function PublicReportViewer() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-surface, #f8fafc)', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <div style={{ maxWidth: '850px', margin: '0 auto' }}>
+    <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: 'var(--color-surface, #f8fafc)', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
+      <style>{`
+        @media print {
+          .public-report-actions { display: none !important; }
+          .public-report-page { background: #ffffff !important; padding: 0 !important; }
+          .public-report-main { box-shadow: none !important; border: none !important; padding: 0 !important; }
+        }
+      `}</style>
+      <div style={{ maxWidth: '850px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         
         {/* Top Action Bar */}
-        <header style={{ background: '#ffffff', borderRadius: '16px', padding: '20px 24px', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+        <header className="public-report-actions" style={{ background: '#ffffff', borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', boxSizing: 'border-box' }}>
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#e0f2fe', color: '#0369a1', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px' }}>
               ✓ VERIFIED DIAGNOSTIC REPORT
             </div>
-            <h1 style={{ margin: 0, fontSize: '1.4rem', color: '#075c91', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>ETU DIAGNOSTIC LABORATORY</h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Laboratory Test Report</p>
+            <h1 style={{ margin: 0, fontSize: '1.3rem', color: '#075c91', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>ETU DIAGNOSTIC LABORATORY</h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Laboratory Test Report</p>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -199,11 +206,11 @@ export function PublicReportViewer() {
         </header>
 
         {/* Main A4 Document Preview */}
-        <main style={{ background: '#ffffff', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 14px rgba(0,0,0,0.04)', border: '1px solid #cbd5e1' }}>
+        <main className="public-report-main" style={{ background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.04)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
           
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '3px solid #087ca8', paddingBottom: '16px', marginBottom: '20px' }}>
-            <h2 style={{ margin: 0, color: '#075c91', fontSize: '1.6rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 800 }}>ETU Diagnostic Laboratory</h2>
+            <h2 style={{ margin: 0, color: '#075c91', fontSize: '1.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 800 }}>ETU Diagnostic Laboratory</h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '1px' }}>Laboratory Test Report</p>
           </div>
 
@@ -212,19 +219,19 @@ export function PublicReportViewer() {
             <h3 style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Patient Information
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px 24px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 18px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Patient Name:</strong> <span>{patientName}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Patient ID:</strong> <span>{patientId}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Age / Sex:</strong> <span>{age} / {sex}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Phone:</strong> <span>{phone}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Sample Type:</strong> <span>{sampleTypesStr}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Collection Date:</strong> <span>{collectionDateStr}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Report Date:</strong> <span>{reportDateStr}</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient Name:</strong> <span>{patientName}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient ID:</strong> <span>{patientId}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Age / Sex:</strong> <span>{age} / {sex}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Phone:</strong> <span>{phone}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Sample Type:</strong> <span>{sampleTypesStr}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Collection Date:</strong> <span>{collectionDateStr}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Report Date:</strong> <span>{reportDateStr}</span></div>
               {(p.systolicBP || p.diastolicBP) && (
-                <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Blood Pressure:</strong> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
+                <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Blood Pressure:</strong> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
               )}
               {p.referralHospital && (
-                <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Referral Hospital:</strong> <span>{p.referralHospital}</span></div>
+                <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Referral Hospital:</strong> <span>{p.referralHospital}</span></div>
               )}
             </div>
           </div>
@@ -251,36 +258,38 @@ export function PublicReportViewer() {
                             {subKey}
                           </h5>
                         )}
-                        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
-                          <thead>
-                            <tr>
-                              <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Test / Parameter</th>
-                              <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Result</th>
-                              <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>SI Unit</th>
-                              <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Reference Range</th>
-                              <th style={{ background: '#075c91', color: 'white', textAlign: 'center', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Flag</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((row, idx) => {
-                              const pName = row.parameter || row.sampleName || row.name || '';
-                              return (
-                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #d6e2e7' }}>
-                                  <td style={{ padding: '9px', fontSize: '0.88rem' }}>
-                                    <strong style={{ color: '#0f172a' }}>{pName}</strong>
-                                    {row.remarks && <small style={{ display: 'block', color: '#657d87', marginTop: '2px', fontSize: '0.75rem' }}>{row.remarks}</small>}
-                                  </td>
-                                  <td style={{ padding: '9px', fontSize: '0.88rem', fontWeight: 700, color: '#075c91' }}>{row.result}</td>
-                                  <td style={{ padding: '9px', fontSize: '0.88rem', color: '#475569' }}>{row.unit || '—'}</td>
-                                  <td style={{ padding: '9px', fontSize: '0.88rem', color: '#475569' }}>{row.referenceValue || '—'}</td>
-                                  <td style={{ padding: '9px', textAlign: 'center' }}>
-                                    <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={sex} />
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                        <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '6px' }}>
+                          <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr>
+                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Test / Parameter</th>
+                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Result</th>
+                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>SI Unit</th>
+                                <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Reference Range</th>
+                                <th style={{ background: '#075c91', color: 'white', textAlign: 'center', padding: '9px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Flag</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row, idx) => {
+                                const pName = row.parameter || row.sampleName || row.name || '';
+                                return (
+                                  <tr key={idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #d6e2e7' }}>
+                                    <td style={{ padding: '9px', fontSize: '0.88rem' }}>
+                                      <strong style={{ color: '#0f172a' }}>{pName}</strong>
+                                      {row.remarks && <small style={{ display: 'block', color: '#657d87', marginTop: '2px', fontSize: '0.75rem' }}>{row.remarks}</small>}
+                                    </td>
+                                    <td style={{ padding: '9px', fontSize: '0.88rem', fontWeight: 700, color: '#075c91' }}>{row.result}</td>
+                                    <td style={{ padding: '9px', fontSize: '0.88rem', color: '#475569' }}>{row.unit || '—'}</td>
+                                    <td style={{ padding: '9px', fontSize: '0.88rem', color: '#475569' }}>{row.referenceValue || '—'}</td>
+                                    <td style={{ padding: '9px', textAlign: 'center' }}>
+                                      <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={sex} />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     ))}
 
@@ -298,20 +307,22 @@ export function PublicReportViewer() {
                 );
               })
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Test / Parameter</th>
-                    <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Result</th>
-                    <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>SI Unit</th>
-                    <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Reference Range</th>
-                    <th style={{ background: '#075c91', color: 'white', textAlign: 'center', padding: '9px', fontSize: '0.8rem' }}>Flag</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td colSpan="5" style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>No laboratory results recorded.</td></tr>
-                </tbody>
-              </table>
+              <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Test / Parameter</th>
+                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Result</th>
+                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>SI Unit</th>
+                      <th style={{ background: '#075c91', color: 'white', textAlign: 'left', padding: '9px', fontSize: '0.8rem' }}>Reference Range</th>
+                      <th style={{ background: '#075c91', color: 'white', textAlign: 'center', padding: '9px', fontSize: '0.8rem' }}>Flag</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colSpan="5" style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>No laboratory results recorded.</td></tr>
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -328,15 +339,15 @@ export function PublicReportViewer() {
             <h3 style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Authorization
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px 24px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 18px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Prepared By:</strong> <span>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Approved By:</strong> <span>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '110px', display: 'inline-block' }}>Approval Date:</strong> <span>{reportDateStr}</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span>{reportDateStr}</span></div>
             </div>
           </div>
 
           {/* Footer Sign-off */}
-          <footer style={{ borderTop: '1px solid #c9d9df', paddingTop: '14px', marginTop: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', fontSize: '0.78rem', color: '#59727c' }}>
+          <footer style={{ borderTop: '1px solid #c9d9df', paddingTop: '14px', marginTop: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', fontSize: '0.78rem', color: '#59727c', gap: '12px' }}>
             <div>Prepared by<br/><strong style={{ color: '#203640' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</strong></div>
             <div>Approved by<br/><strong style={{ color: '#203640' }}>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</strong></div>
             <div><br/><strong style={{ color: '#203640' }}>ETU Diagnostic Laboratory</strong></div>
