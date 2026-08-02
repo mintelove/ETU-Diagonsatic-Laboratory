@@ -109,30 +109,7 @@ export function ReportPreview({ report }) {
         )}
       </div>
 
-      {/* Requested Laboratory Test Types Section */}
-      <div style={{ background: 'var(--color-surface-container, #f0f7fa)', border: '1px solid var(--color-outline-variant, #cfe1e9)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px' }}>
-        <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          🧪 REQUESTED LABORATORY TEST TYPES ({testNames.length})
-        </h4>
-        {categoriesMap.size > 0 ? (
-          Array.from(categoriesMap.entries()).map(([catName, tests]) => (
-            <div key={catName} style={{ marginBottom: '8px' }}>
-              <strong style={{ display: 'block', fontSize: '0.78rem', color: 'var(--color-on-surface-variant, #516a75)', textTransform: 'uppercase', marginBottom: '2px' }}>
-                {catName}
-              </strong>
-              <ul style={{ margin: '0 0 4px 18px', padding: 0, fontSize: '0.88rem' }}>
-                {tests.map(tn => (
-                  <li key={tn} style={{ fontWeight: 600, color: 'var(--color-on-surface, #1e293b)' }}>
-                    {tn}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
-        ) : (
-          <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-on-surface, #1e293b)' }}>{formattedNames}</p>
-        )}
-      </div>
+
 
       {/* Test Parameters & Results Table — grouped by main category */}
       {(() => {
