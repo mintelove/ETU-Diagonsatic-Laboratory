@@ -167,15 +167,12 @@ export async function downloadPublicPdf(req, res, next) {
     const __filename2 = fileURLToPath(import.meta.url);
     const __dirname2 = path.dirname(__filename2);
     const logoCandidates = [
+      path.resolve(process.cwd(), 'backend', 'src', 'picture', 'etu.jpg'),
+      path.resolve(process.cwd(), 'src', 'picture', 'etu.jpg'),
+      path.resolve(__dirname2, '../picture/etu.jpg'),
       path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo3.jpg'),
       path.resolve(process.cwd(), 'src', 'picture', 'logo3.jpg'),
-      path.resolve(__dirname2, '../picture/logo3.jpg'),
-      path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo2.png'),
-      path.resolve(process.cwd(), 'src', 'picture', 'logo2.png'),
-      path.resolve(__dirname2, '../picture/logo2.png'),
-      path.resolve(__dirname2, '../picture/logo.jpg'),
-      path.resolve(process.cwd(), 'src', 'picture', 'logo.jpg'),
-      path.resolve(process.cwd(), 'backend', 'src', 'picture', 'logo.jpg')
+      path.resolve(__dirname2, '../picture/logo3.jpg')
     ];
     let logoFile = logoCandidates[0];
     for (const c of logoCandidates) { if (fs.existsSync(c)) { logoFile = c; break; } }
@@ -186,7 +183,7 @@ export async function downloadPublicPdf(req, res, next) {
 
     if (fs.existsSync(logoFile)) {
       const logoBuf = fs.readFileSync(logoFile);
-      d.image(logoBuf, 127.6, 10, { width: 340, align: 'center' });
+      d.image(logoBuf, 167.6, 10, { width: 260, align: 'center' });
       d.fillColor('#075c91').fontSize(22).text('ETU Diagnostic Laboratory', 46, 120, { align: 'center', width: 503 });
     } else {
       d.rect(46, 42, 58, 58).fill('#075c91');
