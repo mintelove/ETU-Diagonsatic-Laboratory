@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import Logo from '../assets/Logo.jsx';
-import labLogo from '../assets/etu.jpg';
 
 const icon = {
   dashboard: '⌂',
@@ -168,7 +167,7 @@ export default function AppLayout() {
             <div className="main-header-logo-wrapper" title="ETU Diagnostic Laboratory">
               <span className="main-header-logo-glow"></span>
               <span className="main-header-logo-ripple"></span>
-              <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" className="main-header-logo-img" />
+              <Logo className="main-header-logo-img" />
             </div>
             <span className="main-header-logo-title">ETU Diagnostic Laboratory</span>
           </div>
