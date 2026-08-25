@@ -156,8 +156,20 @@ export default function AppLayout() {
         </div>
 
         <div className="user-card">
-          <strong>{user.fullName}</strong>
-          <span>{t(user.role)} • 📍 {user.branchName || 'Main'}</span>
+          <div className="user-card-info">
+            <strong>{user.fullName}</strong>
+            <span>{t(user.role)} • 📍 {user.branchName || 'Main'}</span>
+          </div>
+          <button
+            type="button"
+            className="sidebar-logout-btn"
+            onClick={logout}
+            title={t('signOut')}
+            aria-label={t('signOut')}
+          >
+            <span aria-hidden="true">⎋</span>
+            <span>{t('signOut')}</span>
+          </button>
         </div>
       </aside>
 

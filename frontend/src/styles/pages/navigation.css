@@ -1,38 +1,83 @@
+/* ============================================================
+   ETU Diagnostic Laboratory — Modern Responsive Navigation & Header Styles
+   ============================================================ */
+
 .top-navigation {
-    height: 78px;
-    padding: 0 1.8rem;
+    height: 64px;
+    padding: 0 clamp(0.75rem, 2vw, 1.6rem);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
     background: var(--etu-header, var(--color-surface-bright));
     border-bottom: 1px solid var(--color-outline-variant);
     box-shadow: var(--shadow-xs);
-    min-width: 0
+    min-width: 0;
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    box-sizing: border-box;
+}
+
+.main-header-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.main-header-logo-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--color-on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.top-navigation .clock {
+    font-size: 0.78rem;
+    color: var(--color-on-surface-variant);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .top-navigation .top-tools {
-    gap: .55rem;
     display: flex;
     align-items: center;
+    gap: 0.5rem;
     flex-shrink: 0;
-    flex-wrap: nowrap
+    flex-wrap: nowrap;
+    margin-left: auto;
 }
 
 .lang-toggle-btn,
+.theme-toggle-btn,
 .logout-button {
-    flex-shrink: 0 !important
+    flex-shrink: 0 !important;
 }
 
 .profile-chip {
     display: inline-flex;
     align-items: center;
-    gap: .4rem;
-    padding: .48rem .7rem;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
     border-radius: 999px;
     background: var(--color-surface-container-low);
-    font-size: .8rem;
-    min-width: 0
+    font-size: 0.78rem;
+    max-width: 220px;
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: nowrap;
+    color: var(--color-on-surface);
+}
+
+.profile-chip b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100px;
 }
 
 .logout-button {
@@ -40,76 +85,277 @@
     background: #fff5f5;
     color: #a52222;
     border-radius: 8px;
-    padding: .5rem .8rem;
-    font-weight: 700
+    padding: 0.42rem 0.8rem;
+    font-weight: 700;
+    font-size: 0.82rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
+.logout-button:hover {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+[data-theme='dark'] .logout-button {
+    background: rgba(220, 38, 38, 0.18);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+
+[data-theme='dark'] .logout-button:hover {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+}
+
+/* ── Sidebar Component Styles ────────────────────────────── */
 .sidebar {
-    background: var(--etu-sidebar, #093f5d)
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    max-height: 100vh;
+    background: var(--etu-sidebar, #093f5d);
+    color: var(--etu-sidebar-color, #ffffff);
+    padding: 1.25rem 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    z-index: 95;
 }
 
-.primary {
-    background: var(--etu-button, var(--color-primary))
+.sidebar .brand {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0.25rem;
 }
 
-@media(max-width:1180px) {
-    .top-navigation {
-        padding: 0 1rem;
-        gap: .5rem
-    }
+.sidebar nav {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0.75rem 0;
+    padding-right: 4px;
+}
 
+/* Slim scrollbar for sidebar nav */
+.sidebar nav::-webkit-scrollbar {
+    width: 4px;
+}
+.sidebar nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+.sidebar nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    color: #bad8e4;
+    text-decoration: none;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.86rem;
+    font-weight: 500;
+    transition: background 0.2s, transform 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.sidebar nav a:hover {
+    background: var(--etu-sidebar-active, #126e98);
+    color: #ffffff;
+    transform: translateX(2px);
+}
+
+.sidebar nav a.active {
+    background: var(--etu-sidebar-active, #126e98);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar nav a span {
+    font-size: 1.05rem;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.sidebar-collapse {
+    border: 0;
+    border-radius: 7px;
+    background: #126e98;
+    color: #fff;
+    padding: 0.35rem 0.5rem;
+    margin-bottom: 0.25rem;
+    cursor: pointer;
+    align-self: flex-start;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.sidebar-collapse:hover {
+    background: #1a88bb;
+}
+
+/* User Card & Sidebar Logout Button */
+.sidebar .user-card {
+    flex-shrink: 0;
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    padding-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.sidebar .user-card strong {
+    font-size: 0.85rem;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar .user-card span {
+    color: #bdd7e2;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar .sidebar-logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.38);
+    color: #fca5a5;
+    border-radius: 8px;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 0.25rem;
+    width: 100%;
+}
+
+.sidebar .sidebar-logout-btn:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+/* Sidebar Collapsed State */
+.sidebar-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+}
+
+.sidebar-collapsed .sidebar {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+    align-items: center;
+}
+
+.sidebar-collapsed .brand small,
+.sidebar-collapsed .sidebar nav b,
+.sidebar-collapsed .user-card .user-card-info,
+.sidebar-collapsed .sidebar .sidebar-logout-btn span:last-child {
+    display: none !important;
+}
+
+.sidebar-collapsed .sidebar nav a {
+    justify-content: center;
+    padding: 0.6rem;
+}
+
+.sidebar-collapsed .sidebar .sidebar-logout-btn {
+    padding: 0.45rem;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+}
+
+/* ── Responsive Header Breakpoints ───────────────────────── */
+@media (max-width: 1366px) {
     .top-navigation .clock {
-        display: none !important
+        display: none !important;
     }
 }
 
-@media(max-width:980px) {
+@media (max-width: 1180px) {
     .top-navigation {
-        padding: 0 .5rem;
-        gap: .35rem
+        padding: 0 0.85rem;
+        gap: 0.5rem;
     }
 
     .main-header-logo-title {
-        font-size: .92rem;
-        max-width: 130px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap
+        font-size: 0.88rem;
+        max-width: 160px;
     }
 
     .profile-role {
-        display: none !important
+        display: none !important;
     }
 
     .profile-chip {
-        padding: .35rem .5rem;
-        font-size: .75rem;
-        max-width: 120px
+        max-width: 160px;
+        padding: 0.3rem 0.55rem;
+        font-size: 0.75rem;
     }
 
-    .profile-chip b {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap
-    }
-
-    .top-navigation .top-tools {
-        gap: .35rem
+    .profile-chip small {
+        display: none !important;
     }
 }
 
-@media(max-width:720px) {
+@media (max-width: 980px) {
     .top-navigation {
-        padding: 0 .8rem;
-        height: 62px
+        padding: 0 0.5rem;
+        gap: 0.35rem;
     }
 
-    .top-navigation .clock,
-    .profile-chip b {
-        display: none
+    .main-header-logo-title {
+        max-width: 120px;
     }
 
-    .sidebar {
-        display: none
+    .profile-chip {
+        max-width: 120px;
+    }
+
+    .top-navigation .top-tools {
+        gap: 0.35rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .top-navigation {
+        display: none !important;
     }
 }
