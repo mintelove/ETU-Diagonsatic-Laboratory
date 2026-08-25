@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import api from '../services/api.js';
+import api, { isSilentNetworkError } from '../services/api.js';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 
 import { useScrollLock } from '../utils/useScrollLock.js';
@@ -81,7 +81,7 @@ export default function AdminReportsPage() {
       const res = await api.get('/reports/transactions', { params });
       setData(res.data);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to load report data');
+      if (!isSilentNetworkError(err)) setError(err.response?.data?.message || err.message || 'Failed to load report data');
     } finally {
       setLoading(false);
     }

@@ -28,11 +28,12 @@ export const EQUIPMENT = Object.freeze({
 
 export const equipmentPayload = () => ({ equipment: Object.keys(EQUIPMENT), equipmentDetails: Object.fromEntries(Object.entries(EQUIPMENT).map(([name, detail]) => [name, { type: detail.type, manufacturer: detail.manufacturer, automation: detail.automation, icon: detail.icon, parameterCount: detail.parameters.length }])), parameters: Object.fromEntries(Object.entries(EQUIPMENT).map(([name, detail]) => [name, detail.parameters])) });
 
-export function calculateFlag(result, referenceValue, sex = '') {
+export function calculateFlag(result, referenceValue, sex = '', criticalLow = null, criticalHigh = null) {
   const strVal = String(result ?? '').trim().toUpperCase();
   const strRef = String(referenceValue ?? '').trim().toUpperCase();
   if (!strVal) return '';
 
+  // Qualitative checks
   if (['REACTIVE', 'POSITIVE', 'POS'].includes(strVal)) {
     if (['NON-REACTIVE', 'NEGATIVE', 'NEG'].some(r => strRef.includes(r))) return 'H';
   }
@@ -44,7 +45,23 @@ export function calculateFlag(result, referenceValue, sex = '') {
 
   const value = Number(String(result ?? '').replace(',', '.'));
   if (!Number.isFinite(value)) return '';
+
+  // Critical cutoff check if provided directly
+  const cLow = criticalLow !== null && criticalLow !== undefined && criticalLow !== '' ? Number(criticalLow) : null;
+  const cHigh = criticalHigh !== null && criticalHigh !== undefined && criticalHigh !== '' ? Number(criticalHigh) : null;
+  if (cLow !== null && Number.isFinite(cLow) && value <= cLow) return 'CL';
+  if (cHigh !== null && Number.isFinite(cHigh) && value >= cHigh) return 'CH';
+
   let range = String(referenceValue ?? '').replace(/,/g, '.');
+  if (range.toLowerCase().includes('requires') || range.toLowerCase().includes('not configured')) {
+    return '';
+  }
+
+  // Parse inline critical limits from reference text if present (e.g. Critical: < 7.0 or > 20.0)
+  const critLowMatch = range.match(/critical\s*low\s*:\s*(-?\d+(?:\.\d+)?)/i);
+  if (critLowMatch && value <= Number(critLowMatch[1])) return 'CL';
+  const critHighMatch = range.match(/critical\s*high\s*:\s*(-?\d+(?:\.\d+)?)/i);
+  if (critHighMatch && value >= Number(critHighMatch[1])) return 'CH';
 
   if (sex && /male|female|m|f/i.test(sex)) {
     const isFemale = /^f(emale)?$/i.test(sex.trim());
@@ -59,9 +76,13 @@ export function calculateFlag(result, referenceValue, sex = '') {
   }
 
   const bounds = range.match(/(-?\d+(?:\.\d+)?)\s*(?:–|-|to)\s*(-?\d+(?:\.\d+)?)/i);
-  if (bounds) { const low = Number(bounds[1]), high = Number(bounds[2]); return value < low ? 'L' : value > high ? 'H' : 'N'; }
+  if (bounds) {
+    const low = Number(bounds[1]), high = Number(bounds[2]);
+    return value < low ? 'L' : value > high ? 'H' : 'N';
+  }
   const upper = range.match(/^\s*[<≤]\s*(-?\d+(?:\.\d+)?)/);
   if (upper) return value > Number(upper[1]) ? 'H' : 'N';
   const lower = range.match(/^\s*[>≥]\s*(-?\d+(?:\.\d+)?)/);
-  return lower ? (value < Number(lower[1]) ? 'L' : 'N') : '';
+  if (lower) return value < Number(lower[1]) ? 'L' : 'N';
+  return '';
 }

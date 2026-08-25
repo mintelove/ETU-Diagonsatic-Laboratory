@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { download } from '../api/download.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
@@ -74,14 +74,16 @@ export default function StockPage() {
   }, []);
 
   const load = () => {
-    api(`/stock?${query}`, { token }).then(x => { setItems(x.items); setMeta(x.pagination); }).catch(e => setError(e.message));
+    api(`/stock?${query}`, { token }).then(x => { setItems(x.items); setMeta(x.pagination); }).catch(e => {
+      if (!isSilentNetworkError(e)) setError(e.message);
+    });
     if (canManage) {
       api('/extra-requests', { token }).then(x => setRequests(x.requests || [])).catch(() => {});
     }
   };
 
   useEffect(() => {
-    api('/categories', { token }).then(x => setCategories(x.categories));
+    api('/categories', { token }).then(x => setCategories(x.categories)).catch(() => {});
     api('/laboratory-tests/settings', { token }).then(x => setStockManagementMode(x.settings?.stockManagementMode || 'Smart')).catch(() => {});
     load();
   }, [query]);
@@ -107,7 +109,9 @@ export default function StockPage() {
       await api('/laboratory-tests/settings', { token, method: 'PUT', body: JSON.stringify({ stockManagementMode: newMode }) });
       setStockManagementMode(newMode);
       setMessage(`Stock management mode changed to ${newMode} Stock Management.`);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message);
+    }
   }
 
   const openApprovalModal = (item) => {
@@ -138,7 +142,7 @@ export default function StockPage() {
       setRequestedQty('');
       load();
     } catch (err) {
-      setError(err.message);
+      if (!isSilentNetworkError(err)) setError(err.message);
     } finally {
       setBusy(false);
     }
@@ -155,9 +159,11 @@ export default function StockPage() {
       setSelected(null);
       load();
     } catch (e) {
-      setError(e.message);
-      if (isReception && e.message.includes('Administrator approval is required') && selected) {
-        openApprovalModal(selected);
+      if (!isSilentNetworkError(e)) {
+        setError(e.message);
+        if (isReception && e.message.includes('Administrator approval is required') && selected) {
+          openApprovalModal(selected);
+        }
       }
     } finally { setBusy(false); }
   }
@@ -168,7 +174,9 @@ export default function StockPage() {
       await api(`/stock/${i._id}`, { token, method: 'DELETE' });
       setMessage('Stock item deleted.');
       load();
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message);
+    }
   }
 
   async function quantity(i) {
@@ -183,9 +191,11 @@ export default function StockPage() {
       setMessage('Stock quantity updated successfully.');
       load();
     } catch (e) {
-      setError(e.message);
-      if (isReception && e.message.includes('Administrator approval is required')) {
-        openApprovalModal(i);
+      if (!isSilentNetworkError(e)) {
+        setError(e.message);
+        if (isReception && e.message.includes('Administrator approval is required')) {
+          openApprovalModal(i);
+        }
       }
     }
   }

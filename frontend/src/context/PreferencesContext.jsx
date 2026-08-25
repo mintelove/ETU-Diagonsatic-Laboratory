@@ -140,7 +140,7 @@ export function resetCustomColors() {
 }
 
 export function PreferencesProvider({ children }) {
-  const { user, token } = useAuth();
+  const { user, token, loading } = useAuth();
   const [preferences, setPreferences] = useState(() => ({
     ...defaults,
     ...JSON.parse(localStorage.getItem('etu_preferences') || '{}'),
@@ -159,14 +159,14 @@ export function PreferencesProvider({ children }) {
 
     if (preferences.customTheme) {
       applyCustomColors(preferences.customTheme, preferences.theme);
-    } else if (token) {
+    } else if (token && !loading) {
       api('/system/theme', { token })
         .then((res) => {
           if (res?.theme) applyCustomColors(res.theme, preferences.theme);
         })
         .catch(() => {});
     }
-  }, [preferences, token]);
+  }, [preferences, token, loading]);
 
   const updatePreferences = useCallback(
     async (updates) => {

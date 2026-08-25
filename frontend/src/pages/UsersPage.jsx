@@ -16,6 +16,7 @@ import {
   resetUserPassword,
   deleteUser as deleteUserApi,
 } from '../services/userService.js';
+import { isSilentNetworkError } from '../services/api.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -123,7 +124,7 @@ export default function UsersPage() {
       const { users: data } = await getUsers();
       setUsers(data);
     } catch (e) {
-      setError(e.message);
+      if (!isSilentNetworkError(e)) setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -208,7 +209,7 @@ export default function UsersPage() {
       setPasswordModal(null);
       setNewPassword('');
     } catch (e) {
-      setError(e.message);
+      if (!isSilentNetworkError(e)) setError(e.message);
     } finally {
       setBusy(false);
     }
@@ -228,7 +229,7 @@ export default function UsersPage() {
       setConfirmModal(null);
       loadUsers();
     } catch (e) {
-      setError(e.message);
+      if (!isSilentNetworkError(e)) setError(e.message);
     } finally {
       setBusy(false);
     }

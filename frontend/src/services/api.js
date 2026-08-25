@@ -4,7 +4,7 @@
  * Centralized Axios instance with:
  * - JWT Authorization header injection
  * - Automatic 401 handling (session expiry → redirect to login)
- * - Network error handling
+ * - Silent network error handling (never exposed to UI)
  * - Configurable base URL from environment
  * - Future-ready for token refresh
  */
@@ -21,6 +21,28 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export function isSilentNetworkError(err) {
+  if (!err) return false;
+  if (err.isNetworkError || err.isTimeout) return true;
+  const msg = String(err.message || '').toLowerCase();
+  const name = String(err.name || '').toLowerCase();
+  return (
+    name === 'aborterror' ||
+    name === 'timeouterror' ||
+    (name === 'typeerror' && (msg.includes('fetch') || msg.includes('network'))) ||
+    msg.includes('failed to fetch') ||
+    msg.includes('network error') ||
+    msg.includes('networkrequest') ||
+    msg.includes('connection failed') ||
+    msg.includes('unable to connect') ||
+    msg.includes('econnrefused') ||
+    msg.includes('err_network') ||
+    msg.includes('server unavailable') ||
+    msg.includes('load failed') ||
+    msg.includes('timeout')
+  );
+}
 
 /* ── Request Interceptor: Attach JWT ──────────────────── */
 api.interceptors.request.use(
@@ -43,15 +65,8 @@ api.interceptors.response.use(
 
     // Genuine network error or timeout — no HTTP response received from server
     if (!error.response) {
-      let message;
-      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        message = 'The server is taking too long to respond. Please try again.';
-        console.error(`API Timeout — ${method} ${url} — Request exceeded ${error.config?.timeout || 30000}ms`);
-      } else {
-        message = 'Unable to connect to the server. Please check your network connection and try again.';
-        console.error(`API Network Error — ${method} ${url}`, error.message);
-      }
-      const networkError = new Error(message);
+      console.warn(`API Network Error (handled silently) — ${method} ${url}`, error.message);
+      const networkError = new Error('Network request failed');
       networkError.isNetworkError = true;
       networkError.isTimeout = error.code === 'ECONNABORTED';
       return Promise.reject(networkError);
@@ -92,7 +107,7 @@ api.interceptors.response.use(
           : status === 429
             ? 'Too many requests. Please wait a moment and try again.'
             : status >= 500
-              ? `Server error (${status}). ${data?.error || data?.message || 'Please try again.'}`
+              ? 'A temporary server error occurred. Please try again.'
               : `Request failed with status ${status}.`);
 
     const apiError = new Error(message);

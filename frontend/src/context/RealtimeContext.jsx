@@ -25,7 +25,7 @@ const RealtimeContext = createContext(null);
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export function RealtimeProvider({ children }) {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, loading } = useAuth();
 
   // Registry: Map<eventName, Set<callback>>
   const registry = useRef(new Map());
@@ -41,7 +41,7 @@ export function RealtimeProvider({ children }) {
 
   /** Open the SSE connection */
   const connect = useCallback(() => {
-    if (!token || !isAuthenticated) return;
+    if (!token || !isAuthenticated || loading) return;
     if (esRef.current) esRef.current.close();
 
     const url = `${API_BASE}/events`;
@@ -92,11 +92,11 @@ export function RealtimeProvider({ children }) {
         connect();
       }, retryDelay.current);
     };
-  }, [token, isAuthenticated, dispatch]);
+  }, [token, isAuthenticated, loading, dispatch]);
 
   /** Open connection when user is authenticated; close on logout */
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isAuthenticated && token && !loading) {
       connect();
     } else {
       if (esRef.current) { esRef.current.close(); esRef.current = null; }
@@ -106,7 +106,7 @@ export function RealtimeProvider({ children }) {
       if (esRef.current) { esRef.current.close(); esRef.current = null; }
       if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
     };
-  }, [isAuthenticated, token, connect]);
+  }, [isAuthenticated, token, loading, connect]);
 
   /**
    * Subscribe a callback to a named SSE event.

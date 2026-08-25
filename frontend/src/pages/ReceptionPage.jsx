@@ -6,12 +6,13 @@
  */
 
 import { memo, useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { download } from '../api/download.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 import { useScrollLock } from '../utils/useScrollLock.js';
+import { preparePOS80ReceiptData, isCbcParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
 
 const KES_TO_ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
 const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
@@ -145,6 +146,10 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
       setToast({ message: 'Manual stock update confirmed & deducted successfully.', type: 'success' });
       onClose();
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Manual stock update network error:', e);
+        return;
+      }
       setToast({ message: e.message || 'Failed to update manual stock.', type: 'error' });
     } finally {
       setSaving(false);
@@ -264,35 +269,36 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
 }
 
 // POS 80mm Thermal Receipt Component
-function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, token }) {
+function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, token, cbcGroupPrice = 150, testCategories = [] }) {
   const [printing, setPrinting] = useState(false);
   if (!patientData) return null;
 
-  const isReprint = !!patientData._id;
-  const pName = isReprint ? patientData.name : patientData.name || 'Walk-in Patient';
-  const pId = isReprint ? patientData.patientId : 'TEMP-REG';
-  const recNo = isReprint ? patientData.receiptNumber : 'RC-PENDING';
-  const rawDate = patientData.paymentDate || patientData.registrationDate;
-  const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) ? new Date(rawDate) : new Date();
-  const dateStr = validDate.toLocaleDateString();
-  const timeStr = validDate.toLocaleTimeString();
-  const sampleList = (isReprint ? (patientData.laboratoryTests || patientData.sampleTypes) : patientData.samplesSelected) || [];
+  // Single source of truth: transforms raw patient/order data into structured receipt items
+  const receipt = useMemo(() => {
+    return preparePOS80ReceiptData(patientData, {
+      testCategories,
+      cbcGroupPrice,
+      paymentDetails
+    });
+  }, [patientData, testCategories, cbcGroupPrice, paymentDetails]);
 
   const handlePrint = async () => {
     if (printing) return;
     setPrinting(true);
-    if (isReprint) {
+    if (receipt.isReprint && patientData._id) {
       try {
         await api(`/reception/patients/${patientData._id}/receipt-print`, { token, method: 'POST' });
       } catch (e) {
         console.error('Failed to log reprint activity:', e.message);
-      } finally {
-        setPrinting(false);
       }
-    } else {
-      setPrinting(false);
     }
-    window.print();
+    // Prints directly via 80mm continuous thermal driver without browser headers or A4 breaks
+    printPOS80ThermalReceipt(patientData, {
+      testCategories,
+      cbcGroupPrice,
+      paymentDetails
+    });
+    setPrinting(false);
   };
 
   return (
@@ -307,44 +313,85 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
         <div className="receipt-subtitle">Official Payment Receipt</div>
         <hr />
         
-        <div style={{ fontSize: '10px' }}>
-          <div><strong>Receipt #:</strong> {recNo}</div>
-          <div><strong>Patient ID:</strong> {pId}</div>
-          <div><strong>Patient:</strong> {pName}</div>
-          <div><strong>Date:</strong> {dateStr}</div>
-          <div><strong>Time:</strong> {timeStr}</div>
+        <div style={{ fontSize: '9.5px', lineHeight: '1.35' }}>
+          <div><strong>Receipt #:</strong> {receipt.receiptNumber}</div>
+          <div><strong>Patient ID:</strong> {receipt.patientId}</div>
+          <div><strong>Patient:</strong> {receipt.patientName}</div>
+          <div><strong>Date:</strong> {receipt.dateStr}</div>
+          <div><strong>Time:</strong> {receipt.timeStr}</div>
         </div>
         <hr />
 
-        <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '4px' }}>SELECTED TESTS</div>
-        {sampleList.map((s) => (
-          <div key={s._id} className="item-row">
-            <span>{s.name}</span>
-            <span>{KES_TO_ETB(s.price)}</span>
+        <div style={{ fontWeight: 'bold', fontSize: '10.5px', marginBottom: '4px', textTransform: 'uppercase' }}>SELECTED TESTS</div>
+
+        {!receipt.hasTests ? (
+          <div style={{ fontSize: '9.5px', color: '#666666', fontStyle: 'italic', padding: '4px 0' }}>
+            Counseling Only Service
           </div>
-        ))}
+        ) : (
+          receipt.categories.map((cat) => (
+            <div key={cat.categoryName} style={{ marginBottom: '6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '10px', textTransform: 'uppercase', color: '#000000', marginBottom: '2px', borderBottom: '1px dotted #444', paddingBottom: '1px' }}>
+                {cat.categoryName}
+              </div>
+
+              {cat.items.map((item) => {
+                if (item.isCbcParent) {
+                  return (
+                    <div key="cbc-parent-group" style={{ marginBottom: '4px' }}>
+                      <div className="item-row cbc-main-row">
+                        <span className="item-name">{item.name}</span>
+                        <span className="item-price">{KES_TO_ETB(item.price)}</span>
+                      </div>
+                      <div style={{ paddingLeft: '8px', marginTop: '2px', marginBottom: '3px' }}>
+                        {item.children.map((child) => (
+                          <div key={child._id || child.name} className="cbc-subtest-row">
+                            <span style={{ fontWeight: 'bold' }}>✓</span>
+                            <span>{child.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={item._id || item.name} className="item-row">
+                    <span className="item-name">{item.name}</span>
+                    <span className="item-price">{KES_TO_ETB(item.price)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+
         <hr />
 
         <div className="total-row">
           <span>GRAND TOTAL</span>
-          <span>{KES_TO_ETB(total)}</span>
+          <span>{KES_TO_ETB(total !== undefined ? total : receipt.grandTotal)}</span>
         </div>
-        {isReprint && <div style={{ fontSize: '10px', marginTop: '5px' }}>
-          <div><strong>Patient Category:</strong> {patientData.registrationType}</div>
-          <div><strong>Service Type:</strong> {patientData.patientCategory || patientData.serviceType}</div>
-          <div><strong>Discount:</strong> {patientData.discountPercent || 0}% ({KES_TO_ETB(patientData.discountAmount)})</div>
-        </div>}
+        {receipt.isReprint && (
+          <div style={{ fontSize: '9.5px', lineHeight: '1.35', marginTop: '4px' }}>
+            <div><strong>Patient Category:</strong> {receipt.registrationType}</div>
+            <div><strong>Service Type:</strong> {receipt.patientCategory}</div>
+            {receipt.discountPercent > 0 && (
+              <div><strong>Discount:</strong> {receipt.discountPercent}% ({KES_TO_ETB(receipt.discountAmount)})</div>
+            )}
+          </div>
+        )}
         <hr />
 
-        <div style={{ fontSize: '10px' }}>
-          <div><strong>Payment Method:</strong> {paymentDetails.method}</div>
-          {paymentDetails.received !== undefined && (
+        <div style={{ fontSize: '9.5px', lineHeight: '1.35' }}>
+          <div><strong>Payment Method:</strong> {receipt.paymentMethod}</div>
+          {receipt.amountReceived !== undefined && (
             <>
-              <div><strong>Amount Received:</strong> {KES_TO_ETB(paymentDetails.received)}</div>
-              <div><strong>Change:</strong> {KES_TO_ETB(paymentDetails.balance)}</div>
+              <div><strong>Amount Received:</strong> {KES_TO_ETB(receipt.amountReceived)}</div>
+              <div><strong>Change:</strong> {KES_TO_ETB(receipt.changeBalance)}</div>
             </>
           )}
-          <div><strong>Cashier:</strong> {paymentDetails.cashier || 'Receptionist'}</div>
+          <div><strong>Cashier:</strong> {receipt.cashier}</div>
         </div>
         <hr />
 
@@ -429,13 +476,13 @@ export default function ReceptionPage() {
         api('/stock', { token, signal }).catch(() => ({ items: [] }))
       ]);
       setDash(d);
-      setSamples(s.categories.flatMap(category => category.tests || []));
+      setSamples(s.categories.flatMap(category => (category.tests || []).map(t => ({ ...t, categoryName: category.name }))));
       setTestCategories(s.categories);
       setTestSettings(s.settings || {});
       setHospitals(h.hospitals);
       setStockItems(stk.items || []);
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' || isSilentNetworkError(e)) return;
       setToast({ message: e.message || 'Error loading reception settings.', type: 'error' });
     }
   }, [token]);
@@ -452,7 +499,7 @@ export default function ReceptionPage() {
       const data = await api(`/reception/reports?q=${encodeURIComponent(q)}`, { token, signal });
       setReports(data.reports || []);
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' || isSilentNetworkError(e)) return;
       setToast({ message: e.message || 'Failed to load approved reports.', type: 'error' });
     }
   }, [q, token]);
@@ -462,7 +509,7 @@ export default function ReceptionPage() {
       const data = await api(`/reception/counselling?q=${encodeURIComponent(q)}`, { token, signal });
       setCounselling(data.records || []);
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' || isSilentNetworkError(e)) return;
       setToast({ message: e.message || 'Failed to load counselling log.', type: 'error' });
     }
   }, [q, token]);
@@ -511,12 +558,20 @@ export default function ReceptionPage() {
     const t = setTimeout(() => {
       api(`/reception/patients?q=${encodeURIComponent(q)}&limit=15`, { token, signal: controller.signal })
         .then(x => setPatients(x.patients))
-        .catch(error => { if (error.name !== 'AbortError') setToast({ message: 'Unable to search patients. Please try again.', type: 'error' }); });
+        .catch(error => {
+          if (error.name === 'AbortError' || isSilentNetworkError(error)) return;
+          setToast({ message: 'Unable to search patients. Please try again.', type: 'error' });
+        });
     }, q ? 300 : 0);
     return () => { clearTimeout(t); controller.abort(); };
   }, [q, token, view]);
 
   // Bill Calculations
+  const isCbcTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isCbcParameter(t, catName);
+  }, []);
+
   const selectedSamples = useMemo(() => {
     return samples.filter(s => selectedSampleIds.includes(s._id));
   }, [samples, selectedSampleIds]);
@@ -527,7 +582,34 @@ export default function ReceptionPage() {
     return matchSearch&&matchFilter;
   })})).filter(category=>category.tests.length),[testCategories,testSearch,testFilter,selectedSampleIds]);
 
-  const billSubtotal = useMemo(() => selectedSamples.reduce((sum, s) => sum + s.price, 0), [selectedSamples]);
+  const calcCategoryTotal = useCallback((catTests) => {
+    const selected = catTests.filter(t => selectedSampleIds.includes(t._id));
+    const cbcTests = selected.filter(isCbcTest);
+    const nonCbcTests = selected.filter(t => !isCbcTest(t));
+    let total = nonCbcTests.reduce((sum, t) => sum + (t.price || 0), 0);
+    if (cbcTests.length > 0) {
+      total += Number(testSettings.cbcGroupPrice ?? 150);
+    }
+    return total;
+  }, [selectedSampleIds, testSettings, isCbcTest]);
+
+  const billSubtotal = useMemo(() => {
+    const cbcGroupPrice = Number(testSettings.cbcGroupPrice ?? 150);
+    const cbcTests = [];
+    const otherTests = [];
+    selectedSamples.forEach(s => {
+      if (isCbcTest(s)) {
+        cbcTests.push(s);
+      } else {
+        otherTests.push(s);
+      }
+    });
+    let subtotal = otherTests.reduce((sum, s) => sum + (s.price || 0), 0);
+    if (cbcTests.length > 0) {
+      subtotal += cbcGroupPrice;
+    }
+    return subtotal;
+  }, [selectedSamples, testSettings, isCbcTest]);
   const discountPercent = serviceDiscountType === 'Staff Member' ? Number(testSettings.staffDiscount || 20) : serviceDiscountType === 'Collaborator' ? Number(testSettings.collaboratorDiscount || 20) : 0;
   const discountAmount = serviceDiscountType === 'Counseling Only' ? 0 : billSubtotal * discountPercent / 100;
   const billTotal = serviceDiscountType === 'Counseling Only' ? (testSettings.counselingStatus === 'Paid' ? Number(testSettings.counselingPrice || 0) : 0) : billSubtotal - discountAmount;
@@ -542,6 +624,16 @@ export default function ReceptionPage() {
     setSelectedSampleIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
+
+  const handleToggleCbcGroup = (subTests) => {
+    const subTestIds = subTests.map(t => t._id);
+    const allSelected = subTestIds.length > 0 && subTestIds.every(id => selectedSampleIds.includes(id));
+    if (allSelected) {
+      setSelectedSampleIds(prev => prev.filter(id => !subTestIds.includes(id)));
+    } else {
+      setSelectedSampleIds(prev => [...new Set([...prev, ...subTestIds])]);
+    }
   };
 
   const handleProceedToTestSelection = (e) => {
@@ -619,6 +711,10 @@ export default function ReceptionPage() {
       loadData();
       setView('dashboard');
     } catch (err) {
+      if (isSilentNetworkError(err)) {
+        console.warn('Registration network error (silent):', err);
+        return;
+      }
       setToast({ message: err.message || 'Failed to complete registration.', type: 'error' });
     } finally {
       submittingRef.current = false;
@@ -682,6 +778,10 @@ export default function ReceptionPage() {
 
       handlePostPayment(result.patient, successMsg, counsellingOnly);
     } catch (err) {
+      if (isSilentNetworkError(err)) {
+        console.warn('Registration network error (silent):', err);
+        return;
+      }
       setToast({ message: err.message || 'Failed to complete registration.', type: 'error' });
     } finally {
       submittingRef.current = false;
@@ -778,6 +878,10 @@ export default function ReceptionPage() {
       const successMsg = `Payment completed for ${selectedWaitingPaymentPatient.name}. Returned to Sample Collector Queue.`;
       handlePostPayment(result.patient, successMsg, false);
     } catch (err) {
+      if (isSilentNetworkError(err)) {
+        console.warn('Payment network error (silent):', err);
+        return;
+      }
       setToast({ message: err.message || 'Failed to complete payment.', type: 'error' });
     } finally {
       submittingRef.current = false;
@@ -795,6 +899,10 @@ export default function ReceptionPage() {
       const data = await api(`/reception/patients/${patient._id}/history`, { token });
       setHistory(data);
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('History network error (silent):', e);
+        return;
+      }
       setToast({ message: e.message || 'Failed to fetch history.', type: 'error' });
     }
   };
@@ -810,6 +918,10 @@ export default function ReceptionPage() {
       setToast({ message: 'A4 report preview opened with the latest report data.', type: 'success' });
       loadData();
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Report print network error (silent):', e);
+        return;
+      }
       setToast({ message: e.message || 'Failed to log report print.', type: 'error' });
     } finally {
       setBusy(false);
@@ -1215,7 +1327,13 @@ export default function ReceptionPage() {
                                 </span>
                                 {selectedCount > 0 && (
                                   <span className="lab-v2-cat-stat selected">
-                                    <strong>{selectedCount}</strong> selected · {KES_TO_ETB((category.tests || []).filter(t => selectedSampleIds.includes(t._id)).reduce((sum, t) => sum + (t.price || 0), 0))}
+                                    {/^HEMATOLOGY$/i.test(category.name) ? (
+                                      <strong>{selectedCount} selected</strong>
+                                    ) : (
+                                      <>
+                                        <strong>{selectedCount}</strong> selected · {KES_TO_ETB(calcCategoryTotal(category.tests || []))}
+                                      </>
+                                    )}
                                   </span>
                                 )}
                               </div>
@@ -1256,6 +1374,8 @@ export default function ReceptionPage() {
                               });
 
                               return Array.from(subMap.entries()).map(([subName, subTests]) => {
+                                const isCbcSub = /^CBC$/i.test(subName) && /^HEMATOLOGY$/i.test(category.name);
+                                const allCbcSelected = subTests.length > 0 && subTests.every(t => selectedSampleIds.includes(t._id));
                                 const subSelected = subTests.filter(t => selectedSampleIds.includes(t._id)).length;
                                 return (
                                   <div key={subName} className="lab-v2-subcat-group">
@@ -1265,6 +1385,50 @@ export default function ReceptionPage() {
                                       <span className="lab-v2-subcat-count">{subTests.length} test{subTests.length !== 1 ? 's' : ''}</span>
                                       {subSelected > 0 && <span className="lab-v2-subcat-selected">{subSelected} selected</span>}
                                     </div>
+                                    {isCbcSub && (
+                                      <div
+                                        className={`lab-v2-test-card ${allCbcSelected ? 'selected' : ''}`}
+                                        style={{
+                                          margin: '8px 12px 14px 12px',
+                                          padding: '12px 16px',
+                                          border: allCbcSelected ? '2px solid var(--color-primary, #075c91)' : '2px dashed #0284c7',
+                                          background: allCbcSelected ? '#e0f2fe' : '#f0f9ff',
+                                          borderRadius: '10px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          cursor: 'pointer',
+                                          boxShadow: allCbcSelected ? '0 2px 8px rgba(7, 92, 145, 0.15)' : 'none'
+                                        }}
+                                        onClick={() => handleToggleCbcGroup(subTests)}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                          <div className={`lab-v2-checkbox ${allCbcSelected ? 'checked' : ''}`}>
+                                            <input
+                                              type="checkbox"
+                                              checked={allCbcSelected}
+                                              onChange={() => handleToggleCbcGroup(subTests)}
+                                            />
+                                            {allCbcSelected && (
+                                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                                <path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <div className="lab-v2-test-info">
+                                            <strong style={{ fontSize: '1.02rem', color: 'var(--color-primary, #075c91)' }}>
+                                              🩸 CBC — Complete Blood Count (Complete Group)
+                                            </strong>
+                                            <small style={{ color: 'var(--color-on-surface-variant, #475569)', display: 'block', marginTop: '2px' }}>
+                                              Single fixed price · Automatically includes all {subTests.length} CBC sub-test parameters for result entry &amp; reports
+                                            </small>
+                                          </div>
+                                        </div>
+                                        <div className="lab-v2-test-price" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-primary, #075c91)' }}>
+                                          {KES_TO_ETB(testSettings.cbcGroupPrice ?? 150)}
+                                        </div>
+                                      </div>
+                                    )}
                                     <div className="lab-v2-tests-grid">
                                       {subTests.map(test => {
                                         const isSelected = selectedSampleIds.includes(test._id);
@@ -1278,7 +1442,7 @@ export default function ReceptionPage() {
                                               <strong>{test.name}</strong>
                                               {test.description && <small>{test.description}</small>}
                                             </div>
-                                            <div className="lab-v2-test-price">{KES_TO_ETB(test.price)}</div>
+                                            <div className="lab-v2-test-price">{isCbcSub ? <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Included in CBC</span> : KES_TO_ETB(test.price)}</div>
                                           </label>
                                         );
                                       })}
@@ -1423,20 +1587,36 @@ export default function ReceptionPage() {
                 ) : (() => {
                   const grouped = new Map();
                   selectedSamples.forEach(s => {
-                    const catName = testCategories.find(c => (c.tests || []).some(t => t._id === s._id))?.name || 'Other';
+                    const catName = s.categoryName || testCategories.find(c => (c.tests || []).some(t => t._id === s._id))?.name || 'Other';
                     if (!grouped.has(catName)) grouped.set(catName, []);
                     grouped.get(catName).push(s);
                   });
                   return Array.from(grouped.entries()).map(([catName, tests]) => {
                     const catTheme = getCatTheme(catName);
+                    const isHematology = /^HEMATOLOGY$/i.test(catName);
+                    const cbcTests = isHematology ? tests.filter(isCbcTest) : [];
+                    const nonCbcTests = isHematology ? tests.filter(t => !isCbcTest(t)) : tests;
+
                     return (
                       <div key={catName} className="lab-v2-bill-cat-group">
                         <div className="lab-v2-bill-cat-label">
                           <span className="lab-v2-bill-cat-dot" style={{ background: catTheme.accent }}></span>
                           <span>{catName}</span>
-                          <span className="lab-v2-bill-cat-count">{tests.length}</span>
+                          <span className="lab-v2-bill-cat-count">
+                            {cbcTests.length > 0 ? (nonCbcTests.length + 1) : tests.length}
+                          </span>
                         </div>
-                        {tests.map(s => (
+                        {cbcTests.length > 0 && (
+                          <div className="lab-v2-bill-item" style={{ background: '#f0f9ff', borderRadius: '6px', padding: '6px 10px', borderLeft: '3px solid var(--color-primary, #075c91)' }}>
+                            <span className="lab-v2-bill-item-name" style={{ fontWeight: 700, color: 'var(--color-primary, #075c91)' }}>
+                              🩸 CBC — Complete Blood Count ({cbcTests.length} parameters)
+                            </span>
+                            <strong style={{ color: 'var(--color-primary, #075c91)' }}>
+                              {KES_TO_ETB(testSettings.cbcGroupPrice ?? 150)}
+                            </strong>
+                          </div>
+                        )}
+                        {nonCbcTests.map(s => (
                           <div key={s._id} className="lab-v2-bill-item">
                             <span className="lab-v2-bill-item-name">{s.name}</span>
                             <strong>{KES_TO_ETB(s.price)}</strong>
@@ -1890,15 +2070,17 @@ export default function ReceptionPage() {
       {receiptData && (
         <ThermalReceiptModal
           patientData={receiptData}
-          total={receiptData._id ? receiptData.grandTotal : billTotal}
+          total={receiptData._id && receiptData.grandTotal !== undefined ? receiptData.grandTotal : billTotal}
           paymentDetails={{
-            method: paymentMethod,
-            received: counsellingOnly ? undefined : Number(amountReceived),
-            balance: counsellingOnly ? undefined : balanceDue,
-            cashier: user.fullName
+            method: receiptData.paymentMethod || paymentMethod,
+            received: receiptData._id ? undefined : (counsellingOnly ? undefined : Number(amountReceived)),
+            balance: receiptData._id ? undefined : (counsellingOnly ? undefined : balanceDue),
+            cashier: (typeof receiptData.registeredBy === 'object' ? receiptData.registeredBy?.fullName : receiptData.registeredBy) || user?.fullName || 'Receptionist'
           }}
           token={token}
           onClose={handleCloseReceipt}
+          cbcGroupPrice={testSettings?.cbcGroupPrice ?? 150}
+          testCategories={testCategories}
         />
       )}
 

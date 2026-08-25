@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useLocation } from 'react-router-dom';
@@ -143,6 +143,10 @@ export default function CollectionPage() {
       }));
       load();
     } catch (err) {
+      if (isSilentNetworkError(err)) {
+        console.warn('Vital signs update network error (silent):', err);
+        return;
+      }
       setError(err.message || 'Failed to update vital signs.');
     } finally {
       setBusy(false);
@@ -207,6 +211,10 @@ export default function CollectionPage() {
       setCatalog(Array.isArray(tests?.categories) ? tests.categories : []);
       setParamCatalog(Array.isArray(pCat?.catalog) ? pCat.catalog : []);
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Collection load error (silent):', e);
+        return;
+      }
       setError(e.message || 'Failed to load collection workspace.');
     }
   };
@@ -290,6 +298,10 @@ export default function CollectionPage() {
       setMessage(draft.report || savedLocal ? 'Unfinished collection restored.' : 'Collection started.');
       load();
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Collection start error (silent):', e);
+        return;
+      }
       setError(e.message);
     } finally {
       setBusy(false);
@@ -414,6 +426,10 @@ export default function CollectionPage() {
       }
       load();
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Report save/submit error (silent):', e);
+        return;
+      }
       setError(e.message || 'Failed to process report action.');
     } finally {
       setIsSavingDraft(false);
@@ -446,6 +462,10 @@ export default function CollectionPage() {
       setGenerated(res.report);
       setPreviewOpen(true);
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Report preview error (silent):', e);
+        return;
+      }
       setError(e.message || 'Failed to generate report preview.');
     } finally {
       setIsGeneratingPreview(false);

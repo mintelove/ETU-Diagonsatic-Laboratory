@@ -9,6 +9,7 @@ import {
   getAllParameters,
   createParameter,
   updateParameter,
+  restoreParameter,
   deleteParameter
 } from '../controllers/reportEntryController.js';
 
@@ -25,6 +26,7 @@ router.post('/patients/:patientId/generate', allowRoles(ROLES.SAMPLE_COLLECTOR),
 router.get('/parameters', allowRoles(ROLES.ADMIN), getAllParameters);
 router.post('/parameters', allowRoles(ROLES.ADMIN, ROLES.SAMPLE_COLLECTOR), createParameter);
 router.put('/parameters/:id', allowRoles(ROLES.ADMIN), updateParameter);
+router.post('/parameters/:id/restore', allowRoles(ROLES.ADMIN), restoreParameter);
 router.delete('/parameters/:id', allowRoles(ROLES.ADMIN), deleteParameter);
 
 

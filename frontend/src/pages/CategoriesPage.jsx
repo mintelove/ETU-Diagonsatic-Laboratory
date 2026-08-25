@@ -17,6 +17,7 @@ import {
   updateCategoryStatus,
   deleteCategory,
 } from '../services/categoryService.js';
+import { isSilentNetworkError } from '../services/api.js';
 
 /** Format a date string nicely. */
 function formatDate(dateStr) {
@@ -81,7 +82,7 @@ export default function CategoriesPage() {
       const { categories: data } = await getCategories();
       setCategories(data);
     } catch (e) {
-      setError(e.message || 'Failed to load categories.');
+      if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load categories.');
     } finally {
       setLoading(false);
     }
@@ -178,7 +179,7 @@ export default function CategoriesPage() {
       setFormOpen(false);
       loadCategories();
     } catch (err) {
-      setError(err.message || 'An error occurred while saving.');
+      if (!isSilentNetworkError(err)) setError(err.message || 'An error occurred while saving.');
     } finally {
       setBusy(false);
     }
@@ -233,7 +234,7 @@ export default function CategoriesPage() {
       setConfirmModal(null);
       loadCategories();
     } catch (err) {
-      setError(err.message || 'Failed to complete action.');
+      if (!isSilentNetworkError(err)) setError(err.message || 'Failed to complete action.');
       setConfirmModal(null);
     } finally {
       setBusy(false);

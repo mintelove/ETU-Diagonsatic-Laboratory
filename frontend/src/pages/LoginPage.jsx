@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { login as apiLogin } from '../services/authService.js';
 import { useForm } from '../hooks/useForm.js';
 import { usePreferences } from '../context/PreferencesContext.jsx';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import labLogo from '../assets/logo3.jpg';
 
 import slideMicroscope from '../assets/slide-microscope.png';
@@ -313,7 +313,11 @@ export default function LoginPage() {
       }
       login(sessionData, values.rememberMe);
     } catch (err) {
-      setApiError(err.message || text.invalid);
+      if (isSilentNetworkError(err)) {
+        setApiError('');
+      } else {
+        setApiError(err.message || text.invalid);
+      }
     } finally {
       setIsSubmitting(false);
     }

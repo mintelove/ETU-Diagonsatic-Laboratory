@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import '../styles/pages/settings.css';
 
 const defaults={textAccent:'#19313b',background:'#f4f8fb',heading:'#075c91',bottom:'#e4eef5',primary:'#0873a2',secondary:'#126e98',sidebar:'#093f5d',card:'#ffffff',header:'#ffffff',button:'#0873a2',scope:'all'};
@@ -70,7 +70,7 @@ export default function SettingsPage() {
       if (res?.publicReportSharing) setPublicSharing(res.publicReportSharing);
       setNotice('Public report sharing settings updated successfully.');
     } catch (e) {
-      setNotice(e.message || 'Failed to update public sharing settings.');
+      if (!isSilentNetworkError(e)) setNotice(e.message || 'Failed to update public sharing settings.');
     }
   };
 
@@ -96,7 +96,7 @@ export default function SettingsPage() {
       await updatePreferences({ customTheme: null });
       setNotice('Theme colors successfully reset to original default combinations.');
     } catch (e) {
-      setNotice(e.message || 'Error resetting theme colors.');
+      if (!isSilentNetworkError(e)) setNotice(e.message || 'Error resetting theme colors.');
     }
   };
 
@@ -117,7 +117,7 @@ export default function SettingsPage() {
       }
       setNotice('Automatic Combination applied successfully with optimal medical laboratory color palette.');
     } catch (e) {
-      setNotice(e.message || 'Error applying automatic combination.');
+      if (!isSilentNetworkError(e)) setNotice(e.message || 'Error applying automatic combination.');
     }
   };
 
@@ -127,7 +127,7 @@ export default function SettingsPage() {
       setPreview(await api('/system/reset/preview', { token, method: 'POST', body: JSON.stringify({ password, selected }) }));
       setNotice('Password verified. Review the records below.');
     } catch (e) {
-      setNotice(e.message);
+      if (!isSilentNetworkError(e)) setNotice(e.message);
     } finally {
       setBusy(false);
     }
@@ -139,7 +139,7 @@ export default function SettingsPage() {
       setResult(await api('/system/reset/execute', { token, method: 'POST', body: JSON.stringify({ password, secondPassword, phrase, selected }) }));
       setPreview(null);
     } catch (e) {
-      setNotice(e.message);
+      if (!isSilentNetworkError(e)) setNotice(e.message);
     } finally {
       setBusy(false);
     }
@@ -152,7 +152,7 @@ export default function SettingsPage() {
       if (theme.scope === 'me') await updatePreferences({ customTheme: r.theme });
       setNotice(theme.scope === 'all' ? 'System theme saved for all users.' : 'Your personal theme has been saved.');
     } catch (e) {
-      setNotice(e.message);
+      if (!isSilentNetworkError(e)) setNotice(e.message);
     }
   };
 

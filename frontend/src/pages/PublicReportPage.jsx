@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
+import { isSilentNetworkError } from '../api/client.js';
 import labLogo from '../assets/etu.jpg';
 
 export function PublicReportViewer() {
@@ -60,7 +61,12 @@ export function PublicReportViewer() {
 
         setReport(data.report);
       } catch (err) {
-        setError(err.message || 'Unable to load report. Please try again.');
+        if (isSilentNetworkError(err)) {
+          // Do not show connection failed banners
+          setError('');
+        } else {
+          setError(err.message || 'Unable to load report.');
+        }
       } finally {
         setLoading(false);
       }

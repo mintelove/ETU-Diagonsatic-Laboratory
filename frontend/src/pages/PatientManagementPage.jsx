@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart, Bar, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { download } from '../api/download.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
@@ -21,7 +21,7 @@ export default function PatientManagementPage() {
   useScrollLock(!!profile || !!hospitalForm);
   const notify=(text,error=false)=>{setNotice({text,error});setTimeout(()=>setNotice(null),3500)};
   const query=useMemo(()=>new URLSearchParams(Object.entries({...filters,page,limit:15}).filter(([,v])=>v!=='' )).toString(),[filters,page]);
-  const load = useCallback(async()=>{setLoading(true);try{const [d,p,h,s,u]=await Promise.all([api(`/patient-management/dashboard?${query}`,{token}),api(`/patient-management/patients?${query}`,{token}),api('/patient-management/hospitals',{token}),api('/reception/sample-types',{token}),api('/users',{token})]);setDashboard(d);setPatients(p.patients);setPagination(p.pagination);setHospitals(h.hospitals);setSamples(s.sampleTypes);setUsers(u.users.filter(user=>user.role==='Reception'));}catch(e){notify(e.message,true)}finally{setLoading(false)}},[token,query]);
+  const load = useCallback(async()=>{setLoading(true);try{const [d,p,h,s,u]=await Promise.all([api(`/patient-management/dashboard?${query}`,{token}),api(`/patient-management/patients?${query}`,{token}),api('/patient-management/hospitals',{token}),api('/reception/sample-types',{token}),api('/users',{token})]);setDashboard(d);setPatients(p.patients);setPagination(p.pagination);setHospitals(h.hospitals);setSamples(s.sampleTypes);setUsers(u.users.filter(user=>user.role==='Reception'));}catch(e){if(!isSilentNetworkError(e))notify(e.message,true)}finally{setLoading(false)}},[token,query]);
   useEffect(()=>{load()},[load]);
   useEffect(() => {
     subscribe('patients:change', load);
@@ -32,10 +32,10 @@ export default function PatientManagementPage() {
     };
   }, [subscribe, unsubscribe, load]);
   const change=(key,value)=>{setFilters(old=>({...old,[key]:value}));setPage(1)};
-  const showProfile=async id=>{try{setProfile(await api(`/patient-management/patients/${id}`,{token}))}catch(e){notify(e.message,true)}};
-  const saveHospital=async event=>{event.preventDefault();try{const method=hospitalForm._id?'PUT':'POST',url=hospitalForm._id?`/patient-management/hospitals/${hospitalForm._id}`:'/patient-management/hospitals';await api(url,{token,method,body:JSON.stringify(hospitalForm)});setHospitalForm(null);notify('Referral hospital saved.');load()}catch(e){notify(e.message,true)}};
-  const updateStatus=async hospital=>{try{await api(`/patient-management/hospitals/${hospital._id}/status`,{token,method:'PATCH',body:JSON.stringify({active:!hospital.active})});load();notify(`Hospital ${hospital.active?'deactivated':'activated'}.`)}catch(e){notify(e.message,true)}};
-  const removeHospital=async hospital=>{if(!window.confirm(`Remove ${hospital.name}?`))return;try{await api(`/patient-management/hospitals/${hospital._id}`,{token,method:'DELETE'});notify('Referral hospital removed.');load()}catch(e){notify(e.message,true)}};
+  const showProfile=async id=>{try{setProfile(await api(`/patient-management/patients/${id}`,{token}))}catch(e){if(!isSilentNetworkError(e))notify(e.message,true)}};
+  const saveHospital=async event=>{event.preventDefault();try{const method=hospitalForm._id?'PUT':'POST',url=hospitalForm._id?`/patient-management/hospitals/${hospitalForm._id}`:'/patient-management/hospitals';await api(url,{token,method,body:JSON.stringify(hospitalForm)});setHospitalForm(null);notify('Referral hospital saved.');load()}catch(e){if(!isSilentNetworkError(e))notify(e.message,true)}};
+  const updateStatus=async hospital=>{try{await api(`/patient-management/hospitals/${hospital._id}/status`,{token,method:'PATCH',body:JSON.stringify({active:!hospital.active})});load();notify(`Hospital ${hospital.active?'deactivated':'activated'}.`)}catch(e){if(!isSilentNetworkError(e))notify(e.message,true)}};
+  const removeHospital=async hospital=>{if(!window.confirm(`Remove ${hospital.name}?`))return;try{await api(`/patient-management/hospitals/${hospital._id}`,{token,method:'DELETE'});notify('Referral hospital removed.');load()}catch(e){if(!isSilentNetworkError(e))notify(e.message,true)}};
   const cards=dashboard?[['👥','Total Registered Patients',dashboard.summary.total],['📅',"Today's Patients",dashboard.summary.today],['📆',"This Week's Patients",dashboard.summary.week],['🏥','Referral Patients',dashboard.summary.referral],['🙋','Self Patients',dashboard.summary.self],['💰',"Today's Income",money(dashboard.summary.todayIncome)],['💵','Total Income',money(dashboard.summary.totalIncome)],['🧪','Total Samples Collected',dashboard.summary.samples]]:[];
   return <div className="pm-page"><Toast notice={notice}/><div className="pm-heading"><div><p className="eyebrow">ADMINISTRATION / CENTRAL REGISTRY</p><h1>Patient Management</h1><span>Secure patient history, billing, sample and reporting oversight.</span></div><div className="pm-actions"><button onClick={()=>window.print()}>🖨 Print view</button><button onClick={()=>download(`/patient-management/exports/patients.pdf?${query}`,token)}>PDF</button><button onClick={()=>download(`/patient-management/exports/patients.csv?${query}`,token)}>CSV</button><button className="primary-button" onClick={()=>download(`/patient-management/exports/patients.xlsx?${query}`,token)}>Excel</button></div></div>
     <section className="pm-cards">{cards.map(([icon,label,value])=><article className="pm-card" key={label}><i>{icon}</i><div><small>{label}</small><strong>{value}</strong></div></article>)}</section>

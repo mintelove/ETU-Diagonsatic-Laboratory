@@ -17,6 +17,7 @@ import {
   updateSampleTypeStatus,
   deleteSampleType,
 } from '../services/sampleTypeService.js';
+import { isSilentNetworkError } from '../services/api.js';
 
 // Map categories to visual emojis
 function getCategoryIcon(category) {
@@ -99,8 +100,10 @@ export default function SampleTypesPage() {
       const data = await getSampleTypes();
       setSampleTypes(data);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve sample types.');
-      addToast(err.message || 'Failed to retrieve sample types.', 'error');
+      if (!isSilentNetworkError(err)) {
+        setError(err.message || 'Failed to retrieve sample types.');
+        addToast(err.message || 'Failed to retrieve sample types.', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -198,8 +201,10 @@ export default function SampleTypesPage() {
       }
       setFormOpen(false);
     } catch (err) {
-      setFormError(err.message || 'An error occurred while saving.');
-      addToast(err.message || 'Failed to save sample type.', 'error');
+      if (!isSilentNetworkError(err)) {
+        setFormError(err.message || 'An error occurred while saving.');
+        addToast(err.message || 'Failed to save sample type.', 'error');
+      }
     } finally {
       setFormSubmitting(false);
     }
@@ -216,7 +221,7 @@ export default function SampleTypesPage() {
       );
       addToast(`Sample Type status updated to ${newStatus}`, 'success');
     } catch (err) {
-      addToast(err.message || 'Failed to update sample type status.', 'error');
+      if (!isSilentNetworkError(err)) addToast(err.message || 'Failed to update sample type status.', 'error');
     }
   };
 
@@ -238,7 +243,7 @@ export default function SampleTypesPage() {
       addToast('Sample Type Deleted Successfully', 'success');
       setSampleTypeToDelete(null);
     } catch (err) {
-      addToast(err.message || 'Failed to delete sample type.', 'error');
+      if (!isSilentNetworkError(err)) addToast(err.message || 'Failed to delete sample type.', 'error');
     } finally {
       setDeleting(false);
     }

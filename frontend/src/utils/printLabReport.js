@@ -11,9 +11,11 @@ function getPrintableFlag(row, sex = '') {
   if (!f && row.result && row.referenceValue) {
     f = calculateFlag(row.result, row.referenceValue, sex);
   }
+  if (['CH', 'CRITICAL HIGH', 'CRITICAL_HIGH'].includes(f)) return 'CH';
+  if (['CL', 'CRITICAL LOW', 'CRITICAL_LOW'].includes(f)) return 'CL';
   if (f === 'H' || f === 'HIGH') return 'H';
   if (f === 'L' || f === 'LOW') return 'L';
-  if (f === 'N' || f === 'NORMAL') return 'N';
+  if (f === 'N' || f === 'NORMAL') return 'Normal';
   return '—';
 }
 

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
@@ -61,6 +61,7 @@ export default function InvestigationPage() {
   useScrollLock(showConfirmationModal);
   const [systolicBP, setSystolicBP] = useState('');
   const [diastolicBP, setDiastolicBP] = useState('');
+  const [testSettings, setTestSettings] = useState({});
 
   const dismissToast = useCallback(() => setToast(null), []);
 
@@ -74,9 +75,10 @@ export default function InvestigationPage() {
       setPatients(resPatients.patients || []);
       const cats = resCatalog.categories || resCatalog.data?.categories || [];
       setCategories(cats);
+      setTestSettings(resCatalog.settings || resCatalog.data?.settings || {});
       setExpandedCategories(prev => prev.length === 0 ? cats.map(c => String(c._id || c.id)) : prev);
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' || isSilentNetworkError(e)) return;
       setToast({ message: e.message || 'Error loading investigation queue.', type: 'error' });
     } finally {
       setLoading(false);
@@ -109,6 +111,11 @@ export default function InvestigationPage() {
     );
   }, [patients, q]);
 
+  const isCbcTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : '') || '';
+    return /^HEMATOLOGY$/i.test(catName) && /^CBC$/i.test(t.subcategory || '');
+  }, []);
+
   const allTests = useMemo(() => {
     return categories.flatMap(c => (c.tests || []).map(t => ({ ...t, categoryName: c.name })));
   }, [categories]);
@@ -118,8 +125,22 @@ export default function InvestigationPage() {
   }, [allTests, selectedTestIds]);
 
   const totalPrice = useMemo(() => {
-    return selectedTests.reduce((sum, t) => sum + (t.price || 0), 0);
-  }, [selectedTests]);
+    const cbcGroupPrice = Number(testSettings.cbcGroupPrice ?? 150);
+    const cbcTests = [];
+    const nonCbcTests = [];
+    selectedTests.forEach(t => {
+      if (isCbcTest(t)) {
+        cbcTests.push(t);
+      } else {
+        nonCbcTests.push(t);
+      }
+    });
+    let total = nonCbcTests.reduce((sum, t) => sum + (t.price || 0), 0);
+    if (cbcTests.length > 0) {
+      total += cbcGroupPrice;
+    }
+    return total;
+  }, [selectedTests, testSettings, isCbcTest]);
 
   const visibleCategories = useMemo(() => {
     return categories.map(cat => ({
@@ -146,6 +167,16 @@ export default function InvestigationPage() {
     setSelectedTestIds(prev =>
       prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
     );
+  };
+
+  const handleToggleCbcGroup = (subTests) => {
+    const subTestIds = subTests.map(t => String(t._id || t.id || t));
+    const allSelected = subTestIds.length > 0 && subTestIds.every(id => selectedTestIds.includes(id));
+    if (allSelected) {
+      setSelectedTestIds(prev => prev.filter(id => !subTestIds.includes(id)));
+    } else {
+      setSelectedTestIds(prev => [...new Set([...prev, ...subTestIds])]);
+    }
   };
 
   const validateBP = () => {
@@ -185,6 +216,10 @@ export default function InvestigationPage() {
       setShowConfirmationModal(false);
       loadData();
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Investigation draft save network error:', e);
+        return;
+      }
       setToast({ message: e.message || 'Failed to save investigation draft.', type: 'error' });
     } finally {
       setSubmitting(false);
@@ -230,6 +265,10 @@ export default function InvestigationPage() {
       setShowConfirmationModal(false);
       loadData();
     } catch (e) {
+      if (isSilentNetworkError(e)) {
+        console.warn('Investigation submit network error:', e);
+        return;
+      }
       setToast({ message: e.message || 'Failed to submit investigation.', type: 'error' });
     } finally {
       setSubmitting(false);
@@ -487,35 +526,85 @@ export default function InvestigationPage() {
                               subMap.get(sc).push(test);
                             });
 
-                            return Array.from(subMap.entries()).map(([subName, subTests]) => (
-                              <div key={subName} style={{ marginBottom: '14px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0 8px 2px', fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-primary, #075c91)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                  <span>🏷️</span> {subName} ({subTests.length})
-                                </div>
-                                <div className="investigation-test-grid">
-                                  {subTests.map(test => {
-                                    const isSelected = selectedTestIds.includes(String(test._id || test));
-                                    const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
-                                    return (
-                                      <div
-                                        key={test._id}
-                                        className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
-                                        onClick={() => handleToggleTest(test._id)}
-                                      >
-                                        <div className="investigation-test-head">
-                                          <span className="investigation-test-name">{test.name}</span>
-                                          <div className="investigation-check-badge">{isSelected ? '✓' : ''}</div>
+                            return Array.from(subMap.entries()).map(([subName, subTests]) => {
+                              const isCbcSub = /^CBC$/i.test(subName) && /^HEMATOLOGY$/i.test(cat.name);
+                              const allCbcSelected = subTests.length > 0 && subTests.every(t => selectedTestIds.includes(String(t._id || t.id || t)));
+                              const subSelected = subTests.filter(t => selectedTestIds.includes(String(t._id || t.id || t))).length;
+
+                              return (
+                                <div key={subName} style={{ marginBottom: '14px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 8px 2px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-primary, #075c91)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      <span>🏷️</span> {subName} ({subTests.length})
+                                    </div>
+                                    {subSelected > 0 && (
+                                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-primary, #075c91)', background: '#e0f2fe', padding: '2px 8px', borderRadius: '12px' }}>
+                                        {subSelected} selected
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {isCbcSub && (
+                                    <div
+                                      className={`investigation-test-card ${allCbcSelected ? 'selected' : ''}`}
+                                      style={{
+                                        marginBottom: '12px',
+                                        padding: '14px 16px',
+                                        border: allCbcSelected ? '2px solid var(--color-primary, #075c91)' : '2px dashed #0284c7',
+                                        background: allCbcSelected ? '#e0f2fe' : '#f0f9ff',
+                                        borderRadius: '10px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        cursor: 'pointer',
+                                        boxShadow: allCbcSelected ? '0 2px 8px rgba(7, 92, 145, 0.15)' : 'none'
+                                      }}
+                                      onClick={() => handleToggleCbcGroup(subTests)}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div className="investigation-check-badge" style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', background: allCbcSelected ? 'var(--color-primary, #075c91)' : '#ffffff', border: '2px solid var(--color-primary, #075c91)', color: allCbcSelected ? '#ffffff' : 'transparent', fontWeight: 800 }}>
+                                          ✓
                                         </div>
-                                        <div className="investigation-test-footer">
-                                          <span className="investigation-sample-pill">{sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}</span>
-                                          <span className="investigation-test-price">{ETB(test.price)}</span>
+                                        <div>
+                                          <strong style={{ fontSize: '1rem', color: 'var(--color-primary, #075c91)', display: 'block' }}>
+                                            🩸 CBC — Complete Blood Count (Complete Group)
+                                          </strong>
+                                          <small style={{ color: 'var(--color-on-surface-variant, #475569)', fontSize: '0.8rem', display: 'block', marginTop: '2px' }}>
+                                            Single fixed price · Automatically includes all {subTests.length} CBC sub-tests for result entry &amp; reports
+                                          </small>
                                         </div>
                                       </div>
-                                    );
-                                  })}
+                                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-primary, #075c91)' }}>
+                                        {ETB(testSettings.cbcGroupPrice ?? 150)}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div className="investigation-test-grid">
+                                    {subTests.map(test => {
+                                      const isSelected = selectedTestIds.includes(String(test._id || test));
+                                      const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
+                                      return (
+                                        <div
+                                          key={test._id}
+                                          className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
+                                          onClick={() => handleToggleTest(test._id)}
+                                        >
+                                          <div className="investigation-test-head">
+                                            <span className="investigation-test-name">{test.name}</span>
+                                            <div className="investigation-check-badge">{isSelected ? '✓' : ''}</div>
+                                          </div>
+                                          <div className="investigation-test-footer">
+                                            <span className="investigation-sample-pill">{sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}</span>
+                                            <span className="investigation-test-price">{isCbcSub ? <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Included in CBC</span> : ETB(test.price)}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            ));
+                              );
+                            });
                           })()}
                         </div>
                       )}
@@ -623,25 +712,52 @@ export default function InvestigationPage() {
             </div>
 
             <div className="investigation-confirm-list">
-              {selectedTests.map(t => {
-                const icon = categoryIcons[t.categoryName] || '🧪';
-                const samplesText = (t.requiredSampleTypes || []).map(s => s.name || s).join(', ');
+              {(() => {
+                const cbcTests = selectedTests.filter(isCbcTest);
+                const nonCbcTests = selectedTests.filter(t => !isCbcTest(t));
 
                 return (
-                  <div key={t._id} className="investigation-confirm-row">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '1.2rem' }}>{icon}</span>
-                      <div>
-                        <strong style={{ display: 'block', fontSize: '0.9rem' }}>{t.name}</strong>
-                        <small style={{ color: 'var(--color-on-surface-variant)' }}>
-                          {t.categoryName} {samplesText ? `· 🩸 Specimen: ${samplesText}` : ''}
-                        </small>
+                  <>
+                    {cbcTests.length > 0 && (
+                      <div className="investigation-confirm-row" style={{ background: '#f0f9ff', borderLeft: '3px solid var(--color-primary, #075c91)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '1.2rem' }}>🩸</span>
+                          <div>
+                            <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--color-primary, #075c91)' }}>
+                              CBC — Complete Blood Count ({cbcTests.length} parameters)
+                            </strong>
+                            <small style={{ color: 'var(--color-on-surface-variant)' }}>
+                              HEMATOLOGY · Complete CBC Equipment Test
+                            </small>
+                          </div>
+                        </div>
+                        <strong style={{ color: 'var(--color-primary)', fontSize: '0.95rem' }}>
+                          {ETB(testSettings.cbcGroupPrice ?? 150)}
+                        </strong>
                       </div>
-                    </div>
-                    <strong style={{ color: 'var(--color-primary)', fontSize: '0.92rem' }}>{ETB(t.price)}</strong>
-                  </div>
+                    )}
+                    {nonCbcTests.map(t => {
+                      const icon = categoryIcons[t.categoryName] || '🧪';
+                      const samplesText = (t.requiredSampleTypes || []).map(s => s.name || s).join(', ');
+
+                      return (
+                        <div key={t._id} className="investigation-confirm-row">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+                            <div>
+                              <strong style={{ display: 'block', fontSize: '0.9rem' }}>{t.name}</strong>
+                              <small style={{ color: 'var(--color-on-surface-variant)' }}>
+                                {t.categoryName} {samplesText ? `· 🩸 Specimen: ${samplesText}` : ''}
+                              </small>
+                            </div>
+                          </div>
+                          <strong style={{ color: 'var(--color-primary)', fontSize: '0.92rem' }}>{ETB(t.price)}</strong>
+                        </div>
+                      );
+                    })}
+                  </>
                 );
-              })}
+              })()}
             </div>
 
             <div className="investigation-confirm-footer">

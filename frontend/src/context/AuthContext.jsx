@@ -33,9 +33,13 @@ export function AuthProvider({ children }) {
           return updated;
         });
       } catch (error) {
-        console.error('Session verification failed. Clearing storage:', error.message);
-        clearSession();
-        setSessionState(null);
+        if (error.status === 401) {
+          console.warn('Session expired. Clearing storage.');
+          clearSession();
+          setSessionState(null);
+        } else {
+          console.warn('Session verification network error (handled silently):', error.message);
+        }
       } finally {
         setLoading(false);
       }

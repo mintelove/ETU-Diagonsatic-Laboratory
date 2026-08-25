@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
@@ -20,15 +20,15 @@ export default function ExtraRequestsPage() {
   const [tab, setTab] = useState('stock'); const [stockStatus, setStockStatus] = useState('Pending'); const [reportStatus, setReportStatus] = useState('Pending'); const [query, setQuery] = useState('');
   const [comments, setComments] = useState({}); const [selected, setSelected] = useState(null); const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   useScrollLock(!!selected);
-  const load = async () => { try { const calls = [api('/extra-requests', { token })]; if (isAdmin) calls.push(api('/report-approvals/pending', { token }), api('/report-approvals/history', { token })); const [stock, pending = { reports: [] }, history = { reports: [] }] = await Promise.all(calls); setRequests(stock.requests); setReports(pending.reports); setReportHistory(history.reports); } catch (e) { setError(e.message); } };
+  const load = async () => { try { const calls = [api('/extra-requests', { token })]; if (isAdmin) calls.push(api('/report-approvals/pending', { token }), api('/report-approvals/history', { token })); const [stock, pending = { reports: [] }, history = { reports: [] }] = await Promise.all(calls); setRequests(stock.requests); setReports(pending.reports); setReportHistory(history.reports); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } };
   useEffect(() => { load(); }, [token, isAdmin]);
   useEffect(() => {
     subscribe('extraRequests:change', load);
     subscribe('reports:change', load);
     return () => { unsubscribe('extraRequests:change', load); unsubscribe('reports:change', load); };
   }, [subscribe, unsubscribe]);
-  const reviewStock = async (id, decision) => { setBusy(true); setError(''); try { const result = await api(`/extra-requests/${id}/review`, { token, method: 'PATCH', body: JSON.stringify({ status: decision, comments: comments[id] || '' }) }); setMessage(result.message); load(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
-  const decideReport = async status => { if (!selected || busy) return; if (status === 'Rejected' && !reason.trim()) { setError('A reason for rejection is required.'); return; } setBusy(true); setError(''); try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
+  const reviewStock = async (id, decision) => { setBusy(true); setError(''); try { const result = await api(`/extra-requests/${id}/review`, { token, method: 'PATCH', body: JSON.stringify({ status: decision, comments: comments[id] || '' }) }); setMessage(result.message); load(); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } finally { setBusy(false); } };
+  const decideReport = async status => { if (!selected || busy) return; if (status === 'Rejected' && !reason.trim()) { setError('A reason for rejection is required.'); return; } setBusy(true); setError(''); try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } finally { setBusy(false); } };
   const visibleStock = requests.filter(r => !stockStatus || r.status === stockStatus);
   const visibleReports = useMemo(() => [...reports, ...reportHistory].filter((r, index, all) => all.findIndex(x => x._id === r._id) === index).filter(r => { const status = r.status === 'Submitted' ? 'Pending' : r.status; const haystack = `${r.patient?.name || ''} ${r.patient?.patientId || ''} ${r.patient?.barcode || ''} ${r.technician?.fullName || ''}`.toLowerCase(); return (!reportStatus || status === reportStatus) && (!query || haystack.includes(query.toLowerCase())); }), [reports, reportHistory, reportStatus, query]);
   const approvedToday = reportHistory.filter(r => r.status === 'Approved' && today(r.approvedDate)); const rejectedToday = reportHistory.filter(r => r.status === 'Rejected' && today(r.rejectedDate));
@@ -48,7 +48,7 @@ export default function ExtraRequestsPage() {
           <ReportPreview report={selected}/>
         </div>
         <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0 }}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>Print Preview</button>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>Print Preview</button>
           <button type="button" className="secondary" onClick={() => setSelected(null)}>Close</button>
         </div>
         {['Submitted', 'Pending'].includes(selected?.status) && (

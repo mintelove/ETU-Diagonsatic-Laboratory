@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {api} from '../api/client.js';
+import {api, isSilentNetworkError} from '../api/client.js';
 import {useAuth} from '../context/AuthContext.jsx';
 import {useRealtime} from '../context/RealtimeContext.jsx';
 import {printLabReport} from '../utils/printLabReport.js';
@@ -16,12 +16,12 @@ const progress=report=>{const total=report.results?.length||0,complete=report.re
 function Card({label,value,tone}){return <article className={`enterprise-card ${tone}`}><small>{label}</small><strong>{value}</strong></article>}
 export default function ReportManagementPage(){
  const {token,user}=useAuth(),go=useNavigate(),{subscribe,unsubscribe}=useRealtime(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[message,setMessage]=useState(''),[error,setError]=useState('');
- const load=async()=>{try{const data=await api('/collection/reports',{token});setReports(data.reports)}catch(e){setError(e.message)}};
+ const load=async()=>{try{const data=await api('/collection/reports',{token});setReports(data.reports)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}};
  useEffect(()=>{load()},[token]);
  useEffect(()=>{subscribe('reports:change',load);return()=>unsubscribe('reports:change',load)},[subscribe,unsubscribe]);
  const counts=useMemo(()=>({Draft:reports.filter(r=>r.status==='Draft').length,Pending:reports.filter(r=>['Submitted','Pending'].includes(r.status)).length,Approved:reports.filter(r=>['Approved','Ready for Printing'].includes(r.status)).length,Rejected:reports.filter(r=>r.status==='Rejected').length,today:reports.filter(r=>new Date(r.createdDate).toDateString()===new Date().toDateString()).length}),[reports]);
  const filtered=useMemo(()=>reports.filter(r=>{const bucket=tab==='Pending'?['Submitted','Pending'].includes(r.status):tab==='Approved'?['Approved','Ready for Printing'].includes(r.status):r.status===tab;if(!bucket)return false;const tests=(r.patient?.laboratoryTests||[]).map(x=>x?.name).filter(Boolean);const samples=(r.patient?.sampleTypes||[]).map(x=>x?.name).filter(Boolean);const text=`${r.patient?.name||''} ${r.patient?.patientId||''} ${r.patient?.barcode||''} ${tests.join(' ')} ${samples.join(' ')}`.toLowerCase();if(q&&!text.includes(q.toLowerCase()))return false;const d=new Date(r.submittedAt||r.createdDate),now=new Date();if(range==='Today')return d.toDateString()===now.toDateString();if(range==='This Week'){const start=new Date(now);start.setDate(now.getDate()-7);return d>=start}return true}),[reports,tab,q,range]);
- const remove=async r=>{if(!window.confirm(`Delete the draft for ${r.patient?.name}?`))return;try{await api(`/collection/reports/${r._id}`,{token,method:'DELETE'});setMessage('Draft deleted.');load()}catch(e){setError(e.message)}};
+ const remove=async r=>{if(!window.confirm(`Delete the draft for ${r.patient?.name}?`))return;try{await api(`/collection/reports/${r._id}`,{token,method:'DELETE'});setMessage('Draft deleted.');load()}catch(e){if(!isSilentNetworkError(e))setError(e.message)}};
  const resume=r=>go('/collection',{state:{resume:r}});
  return <section className="page collector-management"><header className="page-title"><div><p className="eyebrow">Laboratory Information Management</p><h1>Report Management</h1><p className="intro">Track your reports from saved draft through quality approval.</p></div></header>{error&&<div className="alert error">{error}</div>}{message&&<div className="alert success">{message}</div>}
  <div className="enterprise-grid"><Card label="Draft Reports" value={counts.Draft} tone="blue"/><Card label="Pending Approval" value={counts.Pending} tone="purple"/><Card label="Approved Reports" value={counts.Approved} tone="green"/><Card label="Rejected Reports" value={counts.Rejected} tone="orange"/><Card label="Reports Created Today" value={counts.today} tone="teal"/></div>
@@ -39,7 +39,7 @@ export default function ReportManagementPage(){
         <ReportPreview report={selected}/>
       </div>
       <div className="form-actions" style={{padding:'14px 24px',borderTop:'1px solid var(--color-outline-variant, #e2e8f0)',marginTop:0}}>
-        <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>🖨 Print Report</button>
+        <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
         <button type="button" className="secondary" onClick={()=>setSelected(null)}>Close</button>
       </div>
     </div>

@@ -16,6 +16,32 @@ function notifyLoadingChange(isError = false, isWriteOperation = false) {
   });
 }
 
+/**
+ * Checks if an error is a network connection failure, timeout, or abort.
+ * Use to ensure network exceptions are handled silently in the background without UI errors.
+ */
+export function isSilentNetworkError(err) {
+  if (!err) return false;
+  if (err.isNetworkError || err.isTimeout) return true;
+  const msg = String(err.message || '').toLowerCase();
+  const name = String(err.name || '').toLowerCase();
+  return (
+    name === 'aborterror' ||
+    name === 'timeouterror' ||
+    (name === 'typeerror' && (msg.includes('fetch') || msg.includes('network'))) ||
+    msg.includes('failed to fetch') ||
+    msg.includes('network error') ||
+    msg.includes('networkrequest') ||
+    msg.includes('connection failed') ||
+    msg.includes('unable to connect') ||
+    msg.includes('econnrefused') ||
+    msg.includes('err_network') ||
+    msg.includes('server unavailable') ||
+    msg.includes('load failed') ||
+    msg.includes('timeout')
+  );
+}
+
 // A stalled network request must never leave a control permanently busy.
 // Mutating HTTP methods (POST, PUT, PATCH, DELETE) write to backend DB and trigger Option 1 (Processing -> Green Success Check).
 // Read operations (GET) or transient frontend calls trigger Option 2 (Processing -> Hide, NO Green Success Check).
@@ -57,7 +83,7 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
         if (response.status === 401) serverMsg = 'Authentication required. Session may be expired.';
         else if (response.status === 403) serverMsg = 'You do not have permission to perform this action.';
         else if (response.status === 404) serverMsg = 'Requested API endpoint not found.';
-        else if (response.status >= 500) serverMsg = `Server error (${response.status}). Please try again later.`;
+        else if (response.status >= 500) serverMsg = 'A temporary server error occurred. Please try again.';
         else serverMsg = `Request failed with status ${response.status}.`;
       }
       const err = new Error(serverMsg);
@@ -69,17 +95,18 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
     return data;
   } catch (error) {
     isCurrentError = true;
-    if (error?.name === 'TimeoutError') {
-      const err = new Error('The request took too long. Please try again.');
+    if (error?.name === 'TimeoutError' || error?.isTimeout) {
+      const err = new Error('Request timed out');
       err.isTimeout = true;
-      err.isNetworkError = false;
+      err.isNetworkError = true;
+      err.originalError = error;
       throw err;
     }
     if (error?.status !== undefined) {
       error.isNetworkError = false;
       throw error;
     }
-    const netErr = new Error('Unable to connect to the server. Please check your network connection and try again.');
+    const netErr = new Error('Network request failed');
     netErr.isNetworkError = true;
     netErr.originalError = error;
     throw netErr;
@@ -91,4 +118,3 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
     }
   }
 }
-

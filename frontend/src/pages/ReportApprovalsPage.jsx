@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
@@ -18,14 +18,14 @@ export default function ReportApprovalsPage() {
   useScrollLock(!!selected);
   const [branchFilter, setBranchFilter] = useState('All');
   const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-  const load = async () => { try { const query = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : ''; const [pending, prior] = await Promise.all([api(`/report-approvals/pending${query}`, { token }), api(`/report-approvals/history${query}`, { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { setError(e.message); } };
+  const load = async () => { try { const query = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : ''; const [pending, prior] = await Promise.all([api(`/report-approvals/pending${query}`, { token }), api(`/report-approvals/history${query}`, { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } };
   useEffect(() => { load(); }, [token, branchFilter]);
   useEffect(() => { subscribe('reports:change', load); return () => unsubscribe('reports:change', load); }, [subscribe, unsubscribe]);
   const decide = async status => {
     if (!selected || busy) return;
     if (status === 'Rejected' && !reason.trim()) { setError('A reason for rejection is required.'); return; }
     setBusy(true); setError('');
-    try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { setError(e.message); } finally { setBusy(false); }
+    try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } finally { setBusy(false); }
   };
   const list = tab === 'pending' ? reports : history;
   return <section className="page approval-workspace"><header className="page-title"><div><p className="eyebrow">Laboratory quality control</p><h1>Pending Laboratory Reports <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 Branch: {user?.branchName || 'Main'}</span></h1><p className="intro">Review results before releasing approved reports to Reception.</p></div></header>

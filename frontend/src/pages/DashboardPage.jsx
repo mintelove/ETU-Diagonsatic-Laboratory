@@ -11,6 +11,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { getDashboardData, globalSearch } from '../services/dashboardService.js';
+import { isSilentNetworkError } from '../services/api.js';
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -167,25 +168,15 @@ export default function DashboardPage() {
       const result = await getDashboardData(params);
       setData(result);
     } catch (err) {
-      let errorMessage;
-      if (err.isTimeout) {
-        errorMessage = 'The server is taking too long to respond. Please try again.';
-      } else if (err.isNetworkError) {
-        errorMessage = 'Unable to connect to the server. Please check your network connection and try again.';
-      } else if (err.status === 401) {
-        errorMessage = 'Session expired. Please log in again.';
-      } else if (err.status === 403) {
-        errorMessage = 'You do not have permission to access this Dashboard.';
-      } else {
-        errorMessage = err.message || err.data?.message || 'Failed to load dashboard.';
+      if (isSilentNetworkError(err)) {
+        console.warn('Dashboard background update skipped (silent network error):', err);
+        return;
       }
-      console.error('Dashboard API Request Failure:', {
-        status: err.status,
-        message: err.message,
-        data: err.data,
-        isNetworkError: !!err.isNetworkError
-      });
-      setError(errorMessage);
+      if (err.status === 403) {
+        setError('You do not have permission to access this Dashboard.');
+      } else if (err.status && err.status < 500 && err.message) {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
