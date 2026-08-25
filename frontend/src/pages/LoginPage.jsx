@@ -424,7 +424,7 @@ export default function LoginPage() {
               <div className="lims-hero-icon-wrapper-large">
                 <Microscope
                   className="lims-hero-icon-svg-large"
-                  size={64}
+                  size={28}
                   strokeWidth={1.8}
                   style={{ color: 'var(--scene-accent, #00d2ff)' }}
                   aria-hidden="true"

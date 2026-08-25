@@ -263,8 +263,8 @@ textarea:focus {
     background: var(--card-bg);
     color: var(--text-primary);
     border: 1px solid var(--card-border);
-    width: min(100%, 420px);
-    padding: 2.5rem;
+    width: min(100%, 380px);
+    padding: clamp(1rem, 2.5vw, 1.5rem);
     border-radius: 18px;
     box-shadow: var(--shadow-lg)
 }
@@ -415,7 +415,7 @@ main {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    padding: 3rem
+    padding: clamp(0.85rem, 2vw, 1.75rem);
 }
 
 .eyebrow {
