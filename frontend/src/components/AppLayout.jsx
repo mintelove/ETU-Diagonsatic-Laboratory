@@ -135,41 +135,43 @@ export default function AppLayout() {
           <Item to="/about" name={t('about')} kind="about" />
         </nav>
 
-        <div className="sidebar-mobile-tools">
-          <button
-            className="mobile-tool-btn"
-            title={t('language')}
-            onClick={() => updatePreferences({ language: preferences.language === 'en' ? 'am' : 'en' })}
-          >
-            🌐 <span>{preferences.language === 'en' ? 'English' : 'አማርኛ'}</span>
-          </button>
-          <button
-            className="mobile-tool-btn"
-            title={t('theme')}
-            onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
-          >
-            <span>{preferences.theme === 'light' ? t('dark') : t('light')}</span>
-          </button>
-          <button className="mobile-logout-btn" onClick={logout}>
-            <span>{t('signOut')}</span>
-          </button>
-        </div>
-
-        <div className="user-card">
-          <div className="user-card-info">
-            <strong>{user.fullName}</strong>
-            <span>{t(user.role)} • 📍 {user.branchName || 'Main'}</span>
+        <div className="sidebar-footer">
+          <div className="sidebar-mobile-tools">
+            <button
+              className="mobile-tool-btn"
+              title={t('language')}
+              onClick={() => updatePreferences({ language: preferences.language === 'en' ? 'am' : 'en' })}
+            >
+              🌐 <span>{preferences.language === 'en' ? 'English' : 'አማርኛ'}</span>
+            </button>
+            <button
+              className="mobile-tool-btn"
+              title={t('theme')}
+              onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
+            >
+              <span>{preferences.theme === 'light' ? t('dark') : t('light')}</span>
+            </button>
+            <button className="mobile-logout-btn" onClick={logout}>
+              <span>{t('signOut')}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            className="sidebar-logout-btn"
-            onClick={logout}
-            title={t('signOut')}
-            aria-label={t('signOut')}
-          >
-            <span aria-hidden="true">⎋</span>
-            <span>{t('signOut')}</span>
-          </button>
+
+          <div className="user-card">
+            <div className="user-card-info">
+              <strong>{user.fullName}</strong>
+              <span>{t(user.role)} • 📍 {user.branchName || 'Main'}</span>
+            </div>
+            <button
+              type="button"
+              className="sidebar-logout-btn"
+              onClick={logout}
+              title={t('signOut')}
+              aria-label={t('signOut')}
+            >
+              <span aria-hidden="true">⎋</span>
+              <span>{t('signOut')}</span>
+            </button>
+          </div>
         </div>
       </aside>
 
