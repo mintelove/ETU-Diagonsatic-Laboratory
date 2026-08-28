@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import api, { isSilentNetworkError } from '../services/api.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';

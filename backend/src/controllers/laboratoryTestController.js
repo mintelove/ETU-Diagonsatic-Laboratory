@@ -1,5 +1,6 @@
 import LaboratoryTestCategory from '../models/LaboratoryTestCategory.js';import LaboratoryTest from '../models/LaboratoryTest.js';import LaboratorySettings from '../models/LaboratorySettings.js';import SampleType from '../models/SampleType.js';import StockItem from '../models/StockItem.js';import {AppError} from '../utils/appError.js';import {emit} from '../services/sseService.js';
 import { MASTER_LAB_CATEGORIES } from '../config/parameterCatalogSeeder.js';
+import { seedDepartmentCatalogs } from '../scripts/seedDepartmentCatalogs.js';
 
 const referralTests = [
   ['CA-125', 2000], ['CA-19', 2000], ['ANTI MULLERIAN HORMONE', 4124],
@@ -187,8 +188,9 @@ async function seed(force = false) {
     }
 
     await seedReferralTests();
+    await seedDepartmentCatalogs();
 
-    const validNames = [...mainCategories, 'REFERRAL', 'REFERRAL TESTS'];
+    const validNames = [...mainCategories, 'REFERRAL', 'REFERRAL TESTS', 'PATHOLOGY', 'RADIOLOGY'];
     const validCatDocs = await LaboratoryTestCategory.find({ name: { $in: validNames } });
     const validCatIds = validCatDocs.map(c => String(c._id));
 

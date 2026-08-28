@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import api, { isSilentNetworkError } from '../services/api.js';
+import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { formatETB } from '../utils/currencyHelper.js';

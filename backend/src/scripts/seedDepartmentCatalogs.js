@@ -26,9 +26,16 @@ export async function seedDepartmentCatalogs() {
       name: 'PATHOLOGY',
       description: 'Anatomic pathology, cytology and morphological examinations',
       displayOrder: 14,
-      status: 'Active'
+      status: 'Active',
+      hidden: false
     });
     console.log('Created PATHOLOGY category.');
+  } else {
+    pathCat.name = 'PATHOLOGY';
+    pathCat.status = 'Active';
+    pathCat.hidden = false;
+    pathCat.displayOrder = 14;
+    await pathCat.save();
   }
 
   const pathologyTests = [
@@ -43,9 +50,15 @@ export async function seedDepartmentCatalogs() {
       await LaboratoryTest.create({
         ...t,
         category: pathCat._id,
-        status: 'Active'
+        status: 'Active',
+        displayOrder: 1
       });
       console.log(`Created Pathology test: ${t.name} (${t.price} ETB)`);
+    } else {
+      test.status = 'Active';
+      test.category = pathCat._id;
+      if (test.price === undefined || test.price === null) test.price = t.price;
+      await test.save();
     }
   }
 
@@ -56,9 +69,16 @@ export async function seedDepartmentCatalogs() {
       name: 'RADIOLOGY',
       description: 'Diagnostic medical imaging, radiography and ultrasonography',
       displayOrder: 15,
-      status: 'Active'
+      status: 'Active',
+      hidden: false
     });
     console.log('Created RADIOLOGY category.');
+  } else {
+    radCat.name = 'RADIOLOGY';
+    radCat.status = 'Active';
+    radCat.hidden = false;
+    radCat.displayOrder = 15;
+    await radCat.save();
   }
 
   const radiologyTests = [
@@ -77,9 +97,15 @@ export async function seedDepartmentCatalogs() {
       await LaboratoryTest.create({
         ...t,
         category: radCat._id,
-        status: 'Active'
+        status: 'Active',
+        displayOrder: 1
       });
       console.log(`Created Radiology test: ${t.name} (${t.price} ETB)`);
+    } else {
+      test.status = 'Active';
+      test.category = radCat._id;
+      if (test.price === undefined || test.price === null) test.price = t.price;
+      await test.save();
     }
   }
 

@@ -3,9 +3,21 @@ const patientView=p=>({...p.toObject?.()||p,grandTotal:Number(p.grandTotal||0),s
 async function uniqueId(){for(let i=0;i<8;i++){const patientId=makeId();if(!await Patient.exists({patientId}))return patientId}throw new AppError('Could not generate a unique patient ID.',503)}
 
 async function dispatchDepartmentCases(patient, tests, userBranch, customRadiologyExamName, session) {
+  const branch = userBranch || patient.branchName || 'Main';
   for (const test of tests) {
-    const catName = (test.category?.name || test.categoryName || '').toUpperCase();
-    if (catName === 'PATHOLOGY') {
+    const catName = String(test.category?.name || test.categoryName || '').toUpperCase();
+    const testName = String(test.name || '').toUpperCase();
+    const subcat = String(test.subcategory || '').toUpperCase();
+
+    const isPathology = catName.includes('PATHOLOGY') ||
+      testName.includes('BIOPSY') || testName.includes('FNAC') || testName.includes('PERIPHERAL MORPHOLOGY') ||
+      subcat.includes('BIOPSY') || subcat.includes('FNAC') || subcat.includes('PERIPHERAL MORPHOLOGY');
+
+    const isRadiology = catName.includes('RADIOLOGY') ||
+      testName.includes('CT SCAN') || testName.includes('X-RAY') || testName.includes('ULTRASOUND') ||
+      subcat.includes('CT SCAN') || subcat.includes('X-RAY') || subcat.includes('ULTRASOUND');
+
+    if (isPathology) {
       const isBiopsy = /biopsy/i.test(test.subcategory || test.name);
       const isFnac = /fnac/i.test(test.subcategory || test.name);
       const testType = isBiopsy ? 'Biopsy' : (isFnac ? 'FNAC' : 'Peripheral Morphology');
@@ -23,11 +35,11 @@ async function dispatchDepartmentCases(patient, tests, userBranch, customRadiolo
           price: test.price,
           reportingDeadline,
           deadlineDays,
-          branchName: userBranch,
+          branchName: branch,
           status: 'Queued'
         }], { session });
 
-        const pathologists = await User.find({ role: 'Pathologist', branchName: userBranch, status: 'Active' }).select('_id');
+        const pathologists = await User.find({ role: 'Pathologist', branchName: branch, status: 'Active' }).select('_id');
         if (pathologists.length > 0) {
           await Notification.insertMany(pathologists.map(u => ({
             recipient: u._id,
@@ -39,19 +51,18 @@ async function dispatchDepartmentCases(patient, tests, userBranch, customRadiolo
         }
         emit('pathology:change', { action: 'queued' });
       }
-    } else if (catName === 'RADIOLOGY') {
+    } else if (isRadiology) {
       let examinationType = 'Ultrasound';
       let ultrasoundSubtype = '';
-      const tName = test.name.toUpperCase();
-      if (tName.includes('CT SCAN')) examinationType = 'CT Scan';
-      else if (tName.includes('X-RAY')) examinationType = 'X-Ray';
+      if (testName.includes('CT SCAN') || subcat.includes('CT SCAN')) examinationType = 'CT Scan';
+      else if (testName.includes('X-RAY') || subcat.includes('X-RAY')) examinationType = 'X-Ray';
       else {
         examinationType = 'Ultrasound';
-        if (tName.includes('ABDOMINAL')) ultrasoundSubtype = 'Abdominal';
-        else if (tName.includes('MSS')) ultrasoundSubtype = 'MSS';
-        else if (tName.includes('DOPPLER')) ultrasoundSubtype = 'Doppler';
-        else if (tName.includes('ECHO')) ultrasoundSubtype = 'Echo';
-        else if (tName.includes('OTHER')) ultrasoundSubtype = 'Other';
+        if (testName.includes('ABDOMINAL') || subcat.includes('ABDOMINAL')) ultrasoundSubtype = 'Abdominal';
+        else if (testName.includes('MSS') || subcat.includes('MSS')) ultrasoundSubtype = 'MSS';
+        else if (testName.includes('DOPPLER') || subcat.includes('DOPPLER')) ultrasoundSubtype = 'Doppler';
+        else if (testName.includes('ECHO') || subcat.includes('ECHO')) ultrasoundSubtype = 'Echo';
+        else if (testName.includes('OTHER') || subcat.includes('OTHER')) ultrasoundSubtype = 'Other';
       }
       const caseNumber = `RAD-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
       
@@ -65,13 +76,13 @@ async function dispatchDepartmentCases(patient, tests, userBranch, customRadiolo
           ultrasoundSubtype,
           customExaminationName: customRadiologyExamName || '',
           price: test.price,
-          branchName: userBranch,
+          branchName: branch,
           status: 'Queued'
         }], { session });
 
-        const radiologists = await User.find({ role: 'Radiologist', branchName: userBranch, status: 'Active' }).select('_id');
+        const radiologists = await User.find({ role: 'Radiologist', branchName: branch, status: 'Active' }).select('_id');
         if (radiologists.length > 0) {
-          const examLabel = customRadiologyExamName || ultrasoundSubtype ? `Ultrasound (${customRadiologyExamName || ultrasoundSubtype})` : examinationType;
+          const examLabel = customRadiologyExamName || (ultrasoundSubtype ? `Ultrasound (${customRadiologyExamName || ultrasoundSubtype})` : examinationType);
           await Notification.insertMany(radiologists.map(u => ({
             recipient: u._id,
             type: 'Radiology Alert',
