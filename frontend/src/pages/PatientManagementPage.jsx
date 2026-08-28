@@ -7,8 +7,7 @@ import { useRealtime } from '../context/RealtimeContext.jsx';
 import '../styles/pages/patientManagement.css';
 
 import { useScrollLock } from '../utils/useScrollLock.js';
-
-const money = value => `${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
+import { formatETB as money } from '../utils/currencyHelper.js';
 const palette = ['#075c91','#16a4d8','#54c4a9','#f2b13c','#7b78e7','#ef7f75'];
 const emptyHospital = { name:'',code:'',phone:'',email:'',address:'',city:'',contactPerson:'',description:'',active:true };
 function Toast({ notice }) { return notice ? <div className={`pm-toast ${notice.error?'error':''}`}>{notice.text}</div> : null; }

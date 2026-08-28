@@ -1,1 +1,11 @@
-import {Router}from'express';import {requireAuth,allowRoles}from'../middleware/auth.js';import {ROLES}from'../constants/roles.js';import {dashboard,searchDashboard}from'../controllers/dashboardController.js';const router=Router();router.use(requireAuth,allowRoles(ROLES.ADMIN));router.get('/',dashboard);router.get('/search',searchDashboard);export default router;
+import { Router } from 'express';
+import { requireAuth, allowRoles } from '../middleware/auth.js';
+import { ROLES } from '../constants/roles.js';
+import { dashboard, searchDashboard } from '../controllers/dashboardController.js';
+
+const router = Router();
+router.use(requireAuth, allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN));
+router.get('/', dashboard);
+router.get('/search', searchDashboard);
+
+export default router;

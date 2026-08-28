@@ -228,14 +228,14 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
   };
 }
 
+import { formatETB } from './currencyHelper.js';
+
 /**
  * Generates standalone clean HTML for 80mm thermal receipt printing.
  * Includes @page { size: 80mm auto; margin: 0; }, zero browser headers/footers,
  * monospace thermal typography, right-aligned prices, and continuous flow.
  */
 export function generateThermalReceiptHtml(receipt) {
-  const KES_TO_ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
-
   let testsHtml = '';
   if (!receipt.hasTests) {
     testsHtml = '<div style="font-size:9.5px; font-style:italic; color:#444; padding:4px 0;">Counseling Only Service</div>';
@@ -252,7 +252,7 @@ export function generateThermalReceiptHtml(receipt) {
             <div class="pos80-cbc-block">
               <div class="pos80-item-row pos80-cbc-main">
                 <span class="pos80-item-name">${item.name}</span>
-                <span class="pos80-item-price">${KES_TO_ETB(item.price)}</span>
+                <span class="pos80-item-price">${formatETB(item.price)}</span>
               </div>
               <div class="pos80-cbc-subtests">
                 ${item.children.map(child => `
@@ -268,7 +268,7 @@ export function generateThermalReceiptHtml(receipt) {
           testsHtml += `
             <div class="pos80-item-row">
               <span class="pos80-item-name">${item.name}</span>
-              <span class="pos80-item-price">${KES_TO_ETB(item.price)}</span>
+              <span class="pos80-item-price">${formatETB(item.price)}</span>
             </div>
           `;
         }
@@ -280,15 +280,15 @@ export function generateThermalReceiptHtml(receipt) {
 
   let discountHtml = '';
   if (receipt.isReprint && receipt.discountPercent > 0) {
-    discountHtml = `<div><strong>Discount:</strong> ${receipt.discountPercent}% (${KES_TO_ETB(receipt.discountAmount)})</div>`;
+    discountHtml = `<div><strong>Discount:</strong> ${receipt.discountPercent}% (${formatETB(receipt.discountAmount)})</div>`;
   }
 
   let paymentDetailsHtml = '';
   if (receipt.amountReceived !== undefined) {
-    paymentDetailsHtml += `<div><strong>Amount Received:</strong> ${KES_TO_ETB(receipt.amountReceived)}</div>`;
+    paymentDetailsHtml += `<div><strong>Amount Received:</strong> ${formatETB(receipt.amountReceived)}</div>`;
   }
   if (receipt.changeBalance !== undefined) {
-    paymentDetailsHtml += `<div><strong>Change:</strong> ${KES_TO_ETB(receipt.changeBalance)}</div>`;
+    paymentDetailsHtml += `<div><strong>Change:</strong> ${formatETB(receipt.changeBalance)}</div>`;
   }
 
   return `<!DOCTYPE html>
@@ -493,7 +493,7 @@ export function generateThermalReceiptHtml(receipt) {
 
     <div class="pos80-total-row">
       <span>GRAND TOTAL</span>
-      <span>${KES_TO_ETB(receipt.grandTotal)}</span>
+      <span>${formatETB(receipt.grandTotal)}</span>
     </div>
 
     ${receipt.isReprint ? `

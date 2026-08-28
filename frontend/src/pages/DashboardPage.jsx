@@ -44,9 +44,11 @@ function useAnimatedValue(target, duration = 800) {
 }
 
 /* ── Stat Card Component ─────────────────────────────── */
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, color, isCurrency = false }) {
   const animated = useAnimatedValue(typeof value === 'number' ? value : 0);
-  const display = typeof value === 'number' ? animated.toLocaleString() : (value ?? '—');
+  const display = typeof value === 'number'
+    ? (isCurrency ? `${animated.toLocaleString()} ETB` : animated.toLocaleString())
+    : (value ?? '—');
   return (
     <article className={`exec-card ${color}`}>
       <div className="card-icon">{icon}</div>
@@ -57,7 +59,7 @@ function StatCard({ icon, label, value, color }) {
 }
 
 /* ── Custom Tooltip ──────────────────────────────────── */
-function CustomTooltip({ active, payload, label, prefix = '' }) {
+function CustomTooltip({ active, payload, label, prefix = '', suffix = '' }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
@@ -66,11 +68,16 @@ function CustomTooltip({ active, payload, label, prefix = '' }) {
       fontSize: 13, fontFamily: 'Inter, sans-serif',
     }}>
       <p style={{ fontWeight: 700, marginBottom: 4, color: '#171c20' }}>{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color, margin: '2px 0' }}>
-          {p.name}: <strong>{prefix}{typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</strong>
-        </p>
-      ))}
+      {payload.map((p, i) => {
+        const isRev = p.name === 'Revenue' || p.dataKey === 'revenue';
+        const valStr = typeof p.value === 'number' ? p.value.toLocaleString() : p.value;
+        const finalSuffix = suffix || (isRev ? ' ETB' : '');
+        return (
+          <p key={i} style={{ color: p.color, margin: '2px 0' }}>
+            {p.name}: <strong>{prefix}{valStr}{finalSuffix}</strong>
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -259,6 +266,7 @@ export default function DashboardPage() {
   }, []);
 
   /* ── Derived data ──────────────────────────────────── */
+  const isSubAdmin = data?.isSubAdmin || false;
   const s = data?.summary || {};
   const rev = data?.revenue || {};
   const charts = data?.charts || {};
@@ -333,49 +341,54 @@ export default function DashboardPage() {
                 maxHeight: 300, overflowY: 'auto', border: '1px solid var(--color-outline-variant)',
               }}>
                 {searchResults.map((r, i) => (
-                  <Link key={i} to={r.path} style={{
-                    display: 'block', padding: '0.6rem 0.85rem', textDecoration: 'none',
-                    borderBottom: '1px solid rgba(0,0,0,0.04)', color: 'inherit',
-                  }}>
-                    <strong style={{ fontSize: '0.8rem' }}>{r.label}</strong>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--color-on-surface-variant)', display: 'block' }}>
-                      {r.type} · {r.detail}
-                    </span>
-                  </Link>
+                  <div
+                    key={i}
+                    className="dash-search-result-item"
+                    onClick={() => {
+                      setSearchResults([]);
+                      setSearch('');
+                      navigate(r.link);
+                    }}
+                  >
+                    <span className="result-type">{r.type}</span>
+                    <span className="result-title">{r.title}</span>
+                    {r.subtitle && <span className="result-sub">{r.subtitle}</span>}
+                  </div>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Action Buttons */}
+          <button className="dash-btn" onClick={() => loadDashboard()} title="Refresh data">
+            🔄 Refresh
+          </button>
+          {!isSubAdmin && (
+            <>
+              <button className="dash-btn" onClick={() => downloadCSV('dashboard_summary.csv', tables.recentPatients)} title="Export CSV summary">
+                📊 CSV
+              </button>
+              <button className="dash-btn" onClick={exportPDF} title="Print / PDF report">
+                🖨️ PDF
+              </button>
+            </>
+          )}
         </div>
       </header>
 
-      {/* ═══ ERROR BANNER ═════════════════════════════ */}
+      {/* ── Alerts ───────────────────────────────────────── */}
       {error && (
-        <div style={{
-          padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
-          background: 'var(--color-error-container)', color: 'var(--color-error)',
-          fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
-        }}>
-          <span>⚠ {error}</span>
-          <button
-            onClick={() => { setLoading(true); loadDashboard(); }}
-            style={{
-              padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-full)',
-              background: 'var(--color-error)', color: '#fff', border: 'none',
-              fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-            }}
-          >
-            ↻ Retry
-          </button>
+        <div className="page-alert error">
+          <span>⚠️ {error}</span>
+          <button className="dismiss-btn" onClick={() => setError('')}>✕</button>
         </div>
       )}
 
-      {/* ═══ SYSTEM STATUS BAR ════════════════════════ */}
+      {/* ── System Status & Live Clock Bar ────────────────── */}
       <div className="system-status-bar">
         <div className="system-status-item">
-          <span className={`status-indicator ${data?.system?.api === 'Operational' ? 'green' : 'red'}`} />
-          API: {data?.system?.api || 'Unknown'}
+          <span className="status-indicator green" />
+          System: Operational
         </div>
         <div className="system-status-item">
           <span className={`status-indicator ${data?.system?.database === 'Connected' ? 'green' : 'red'}`} />
@@ -387,78 +400,102 @@ export default function DashboardPage() {
         </div>
         <div className="system-status-item" style={{ marginLeft: 'auto' }}>
           <span className="status-indicator green" />
-          {user?.role}
+          {user?.role} · <strong>📍 {user?.branchName || 'Main'}</strong>
         </div>
       </div>
 
-      {/* ═══ DATE & BRANCH FILTER BAR ══════════════════════════ */}
-      <div className="dash-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        {user?.role === 'Admin' && (
-          <div style={{ display: 'flex', gap: '6px', marginRight: '12px' }}>
-            {['All', 'Main', 'Otona'].map((b) => (
-              <button
-                key={b}
-                className={`filter-chip ${branchFilter === b ? 'active' : ''}`}
-                onClick={() => setBranchFilter(b)}
-              >
-                {b === 'All' ? '📍 All Branches' : `📍 ${b}`}
-              </button>
-            ))}
+      {/* ═══ DATE & BRANCH FILTER BAR (Admin Only) ════════════════ */}
+      {!isSubAdmin && (
+        <div className="dash-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {user?.role === 'Admin' && (
+            <div style={{ display: 'flex', gap: '6px', marginRight: '12px' }}>
+              {['All', 'Main', 'Otona'].map((b) => (
+                <button
+                  key={b}
+                  className={`filter-chip ${branchFilter === b ? 'active' : ''}`}
+                  onClick={() => setBranchFilter(b)}
+                >
+                  {b === 'All' ? '📍 All Branches' : `📍 ${b}`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {['', 'today', 'yesterday', 'week', 'lastweek', 'month', 'lastmonth'].map(p => (
+            <button
+              key={p}
+              className={`filter-chip ${filterPreset === p ? 'active' : ''}`}
+              onClick={() => p === '' ? clearFilters() : applyPreset(p)}
+            >
+              {p === '' ? 'All Time' : p === 'today' ? 'Today' : p === 'yesterday' ? 'Yesterday'
+                : p === 'week' ? 'This Week' : p === 'lastweek' ? 'Last Week'
+                : p === 'month' ? 'This Month' : 'Last Month'}
+            </button>
+          ))}
+          
+          <div className="single-date-picker-wrap" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#405965)' }}>📅 Single Date:</label>
+            <input
+              type="date"
+              value={singleDate}
+              onChange={e => applySingleDate(e.target.value)}
+              className={`date-input ${filterPreset === 'single' ? 'active' : ''}`}
+              style={{
+                padding: '0.35rem 0.6rem',
+                borderRadius: '8px',
+                border: filterPreset === 'single' ? '2px solid #075c91' : '1px solid var(--color-border,#d7e5eb)',
+                fontSize: '13px',
+                background: filterPreset === 'single' ? '#f0f7fb' : '#fff',
+                color: '#1a2e38',
+                fontWeight: filterPreset === 'single' ? 600 : 400
+              }}
+            />
           </div>
-        )}
 
-        {['', 'today', 'yesterday', 'week', 'lastweek', 'month', 'lastmonth'].map(p => (
-          <button
-            key={p}
-            className={`filter-chip ${filterPreset === p ? 'active' : ''}`}
-            onClick={() => p === '' ? clearFilters() : applyPreset(p)}
-          >
-            {p === '' ? 'All Time' : p === 'today' ? 'Today' : p === 'yesterday' ? 'Yesterday'
-              : p === 'week' ? 'This Week' : p === 'lastweek' ? 'Last Week'
-              : p === 'month' ? 'This Month' : 'Last Month'}
-          </button>
-        ))}
-        
-        <div className="single-date-picker-wrap" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#405965)' }}>📅 Single Date:</label>
-          <input
-            type="date"
-            value={singleDate}
-            onChange={e => applySingleDate(e.target.value)}
-            className={`date-input ${filterPreset === 'single' ? 'active' : ''}`}
-            style={{
-              padding: '0.35rem 0.6rem',
-              borderRadius: '8px',
-              border: filterPreset === 'single' ? '2px solid #075c91' : '1px solid var(--color-border,#d7e5eb)',
-              fontSize: '13px',
-              background: filterPreset === 'single' ? '#f0f7fb' : '#fff',
-              color: '#1a2e38',
-              fontWeight: filterPreset === 'single' ? 600 : 400
-            }}
-          />
+          <div className="date-inputs">
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span style={{ fontSize: '0.7rem', color: 'var(--color-on-surface-variant)' }}>to</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+            <button className="filter-chip active" onClick={applyCustomRange} style={{ padding: '0.4rem 0.7rem' }}>Apply Range</button>
+          </div>
         </div>
+      )}
 
-        <div className="date-inputs">
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-on-surface-variant)' }}>to</span>
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
-          <button className="filter-chip active" onClick={applyCustomRange} style={{ padding: '0.4rem 0.7rem' }}>Apply Range</button>
+      {/* Sub Admin 4-Day Window Banner */}
+      {isSubAdmin && (
+        <div style={{ background: 'linear-gradient(135deg, rgba(7, 92, 145, 0.08), rgba(2, 132, 199, 0.05))', border: '1px solid rgba(7, 92, 145, 0.25)', borderRadius: '12px', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🔒</span>
+            <div>
+              <strong style={{ color: 'var(--color-primary, #075c91)', fontSize: '0.95rem' }}>Sub Admin Security-Scoped Window</strong>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary, #475569)' }}>Analytics and clinical records are strictly restricted to the recent 4-day window for <strong>📍 {user?.branchName || 'Main'} Branch</strong>.</p>
+            </div>
+          </div>
+          <span style={{ background: 'rgba(7, 92, 145, 0.15)', color: 'var(--color-primary, #075c91)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700 }}>
+            Allowed: Current Date + 3 Days
+          </span>
         </div>
-      </div>
+      )}
 
       {/* ═══ ROW 1 — EXECUTIVE SUMMARY CARDS ═════════ */}
       <div className="exec-cards-grid">
-        <StatCard icon="💰" label="Daily Income"           value={rev.dailyIncome}   color="blue" />
-        <StatCard icon="📈" label="Weekly Income"          value={rev.weeklyIncome}  color="teal" />
-        <StatCard icon="📅" label="Monthly Income"         value={rev.monthlyIncome} color="green" />
-        <StatCard icon="💵" label="Total Revenue"          value={rev.totalRevenue}  color="orange" />
+        <StatCard icon="💰" label="Daily Income"           value={rev.dailyIncome}   color="blue" isCurrency />
+        {isSubAdmin ? (
+          <StatCard icon="📊" label="4-Day Revenue"        value={rev.fourDayIncome !== undefined ? rev.fourDayIncome : rev.dailyIncome} color="teal" isCurrency />
+        ) : (
+          <>
+            <StatCard icon="📈" label="Weekly Income"          value={rev.weeklyIncome}  color="teal" isCurrency />
+            <StatCard icon="📅" label="Monthly Income"         value={rev.monthlyIncome} color="green" isCurrency />
+            <StatCard icon="💵" label="Total Revenue"          value={rev.totalRevenue}  color="orange" isCurrency />
+          </>
+        )}
         <StatCard icon="👨‍⚕️" label="Today's Patients"      value={s.todayPatients}   color="purple" />
         <StatCard icon="🧪" label="Samples Today"          value={s.samplesCollectedToday} color="cyan" />
         <StatCard icon="📄" label="Pending Reports"        value={s.pendingReports}  color="amber" />
         <StatCard icon="✅" label="Approved Reports"       value={s.approvedReports} color="green" />
         <StatCard icon="❌" label="Rejected Reports"       value={s.rejectedReports} color="red" />
         <StatCard icon="📦" label="Critical Stock"         value={s.criticalStockItems} color="pink" />
-        <StatCard icon="👥" label="Active Users"           value={s.totalUsers}      color="indigo" />
+        {!isSubAdmin && <StatCard icon="👥" label="Active Users" value={s.totalUsers} color="indigo" />}
         <StatCard icon="🏥" label="Referral Patients"      value={s.referralPatients} color="deep" />
       </div>
 
@@ -542,7 +579,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip content={<CustomTooltip prefix="ETB " />} />
+                <Tooltip content={<CustomTooltip suffix=" ETB" />} />
                 <Bar dataKey="revenue" name="Revenue" fill="#e65100" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

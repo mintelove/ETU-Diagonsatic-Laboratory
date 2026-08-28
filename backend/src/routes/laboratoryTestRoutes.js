@@ -1,2 +1,14 @@
 import {Router} from 'express';import {requireAuth,allowRoles} from '../middleware/auth.js';import {ROLES} from '../constants/roles.js';import * as c from '../controllers/laboratoryTestController.js';
-const router=Router();router.use(requireAuth);router.get('/catalog',allowRoles(ROLES.ADMIN,ROLES.RECEPTION,ROLES.SAMPLE_COLLECTOR),c.publicCatalog);router.get('/admin',allowRoles(ROLES.ADMIN),c.adminCatalog);router.post('/categories',allowRoles(ROLES.ADMIN),c.createCategory);router.put('/categories/:id',allowRoles(ROLES.ADMIN),c.updateCategory);router.delete('/categories/:id',allowRoles(ROLES.ADMIN),c.deleteCategory);router.post('/tests',allowRoles(ROLES.ADMIN),c.createTest);router.put('/tests/:id',allowRoles(ROLES.ADMIN),c.updateTest);router.delete('/tests/:id',allowRoles(ROLES.ADMIN),c.deleteTest);router.get('/settings',allowRoles(ROLES.ADMIN,ROLES.RECEPTION,ROLES.SAMPLE_COLLECTOR),c.getSettings);router.put('/settings',allowRoles(ROLES.ADMIN),c.updateSettings);export default router;
+const router = Router();
+router.use(requireAuth);
+router.get('/catalog', allowRoles(ROLES.ADMIN, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR, ROLES.SUB_ADMIN), c.publicCatalog);
+router.get('/admin', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), c.adminCatalog);
+router.post('/categories', allowRoles(ROLES.ADMIN), c.createCategory);
+router.put('/categories/:id', allowRoles(ROLES.ADMIN), c.updateCategory);
+router.delete('/categories/:id', allowRoles(ROLES.ADMIN), c.deleteCategory);
+router.post('/tests', allowRoles(ROLES.ADMIN), c.createTest);
+router.put('/tests/:id', allowRoles(ROLES.ADMIN), c.updateTest);
+router.delete('/tests/:id', allowRoles(ROLES.ADMIN), c.deleteTest);
+router.get('/settings', allowRoles(ROLES.ADMIN, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR, ROLES.SUB_ADMIN), c.getSettings);
+router.put('/settings', allowRoles(ROLES.ADMIN), c.updateSettings);
+export default router;

@@ -51,9 +51,14 @@ export const dictionary = {
 
     // User Roles
     Admin: 'Admin',
+    'Sub Admin': 'Sub Admin',
     Reception: 'Receptionist',
     'Sample Collector': 'Sample Collector',
     Approver: 'Approver',
+    Pathologist: 'Pathologist',
+    Radiologist: 'Radiologist',
+    pathology: 'Pathology',
+    radiology: 'Radiology',
 
     // Dashboard & Stats
     totalPatients: 'Total Patients',
@@ -201,9 +206,14 @@ export const dictionary = {
 
     // User Roles
     Admin: 'አስተዳዳሪ',
+    'Sub Admin': 'ምክትል አስተዳዳሪ',
     Reception: 'ሪሴፕሺኒስት',
     'Sample Collector': 'ናሙና ሰብሳቢ',
     Approver: 'ውጤት አጽዳቂ',
+    Pathologist: 'ፓቶሎጂስት (Pathologist)',
+    Radiologist: 'ራዲዮሎጂስት (Radiologist)',
+    pathology: 'ፓቶሎጂ (Pathology)',
+    radiology: 'ራዲዮሎጂ (Radiology)',
 
     // Dashboard & Stats
     totalPatients: 'ጠቅላላ ታካሚዎች',
@@ -274,7 +284,7 @@ export const dictionary = {
     testCode: 'የምርመራ ኮድ',
     testName: 'የምርመራ ስም',
     categoryName: 'የምድብ ስም',
-    price: 'ዋጋ (ብር)',
+    price: 'ዋጋ (ETB)',
     referenceRanges: 'መደበኛ መጠኖች',
     requiredEquipment: 'የሚያስፈልገው መሣሪያ',
     addTestType: 'አዲስ የምርመራ ዓይነት አክል',

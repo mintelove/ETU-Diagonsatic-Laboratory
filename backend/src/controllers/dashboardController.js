@@ -75,35 +75,69 @@ function parseDateRange(dateFrom, dateTo) {
  */
 export async function dashboard(req, res, next) {
   try {
+    const isSubAdmin = req.user.role === 'Sub Admin' || req.user.role === 'sub_admin';
     const { todayStart, weekStart, monthStart, thirtyDaysAgo } = dateBounds();
 
-    const branch = req.user.role !== 'Admin' ? (req.user.branchName || 'Main') : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : (req.query.branch && req.query.branch !== 'All' ? req.query.branch : null));
+    const branch = req.user.role !== 'Admin'
+      ? (req.user.branchName || 'Main')
+      : (req.query.branchName && req.query.branchName !== 'All'
+          ? req.query.branchName
+          : (req.query.branch && req.query.branch !== 'All' ? req.query.branch : null));
     const branchMatch = branch ? { branchName: branch } : {};
 
-    const activeDateMatch = parseDateRange(req.query.dateFrom, req.query.dateTo);
-    const hasCustomDate = !!activeDateMatch;
-    const patientDateMatch = hasCustomDate ? { registrationDate: activeDateMatch, ...branchMatch } : branchMatch;
-    const reportDateMatch = hasCustomDate ? { createdDate: activeDateMatch, ...branchMatch } : branchMatch;
+    let patientDateMatch;
+    let reportDateMatch;
+    let revenueTrendMatch;
+    let customDateMatch = null;
+    let fourDaysAgo = null;
 
-    // ─── Revenue aggregations (parallel) ──────────────
-    const [dailyRev, weeklyRev, monthlyRev, totalRev, customRev] = await Promise.all([
-      revenueAgg({ registrationDate: activeDateMatch || { $gte: todayStart } }, branchMatch),
-      revenueAgg({ registrationDate: { $gte: weekStart } }, branchMatch),
-      revenueAgg({ registrationDate: { $gte: monthStart } }, branchMatch),
-      revenueAgg({}, branchMatch),
-      hasCustomDate ? revenueAgg({ registrationDate: activeDateMatch }, branchMatch) : Promise.resolve([]),
-    ]);
+    if (isSubAdmin) {
+      // Sub Admin is strictly restricted to current date + past 3 days (total 4 days)
+      const now = new Date();
+      fourDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3, 0, 0, 0, 0);
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      const subAdminWindow = { $gte: fourDaysAgo, $lte: todayEnd };
+
+      patientDateMatch = { registrationDate: subAdminWindow, ...branchMatch };
+      reportDateMatch = { createdDate: subAdminWindow, ...branchMatch };
+      revenueTrendMatch = { paymentStatus: 'Paid', registrationDate: subAdminWindow, ...branchMatch };
+    } else {
+      customDateMatch = parseDateRange(req.query.dateFrom, req.query.dateTo);
+      const hasCustomDate = !!customDateMatch;
+      patientDateMatch = hasCustomDate ? { registrationDate: customDateMatch, ...branchMatch } : branchMatch;
+      reportDateMatch = hasCustomDate ? { createdDate: customDateMatch, ...branchMatch } : branchMatch;
+      revenueTrendMatch = hasCustomDate
+        ? { paymentStatus: 'Paid', registrationDate: customDateMatch, ...branchMatch }
+        : { paymentStatus: 'Paid', registrationDate: { $gte: thirtyDaysAgo }, ...branchMatch };
+    }
+
+    // ─── Revenue aggregations ────────────────────────
+    let dailyRev, weeklyRev, monthlyRev, totalRev, customRev, fourDayRev;
+    if (isSubAdmin) {
+      [dailyRev, fourDayRev] = await Promise.all([
+        revenueAgg({ registrationDate: { $gte: todayStart } }, branchMatch),
+        revenueAgg({ registrationDate: { $gte: fourDaysAgo } }, branchMatch),
+      ]);
+    } else {
+      [dailyRev, weeklyRev, monthlyRev, totalRev, customRev] = await Promise.all([
+        revenueAgg({ registrationDate: customDateMatch || { $gte: todayStart } }, branchMatch),
+        revenueAgg({ registrationDate: { $gte: weekStart } }, branchMatch),
+        revenueAgg({ registrationDate: { $gte: monthStart } }, branchMatch),
+        revenueAgg({}, branchMatch),
+        customDateMatch ? revenueAgg({ registrationDate: customDateMatch }, branchMatch) : Promise.resolve([]),
+      ]);
+    }
 
     // ─── Patient counts ───────────────────────────────
     const [todayPatients, referralPatients, totalPatients] = await Promise.all([
-      Patient.countDocuments({ registrationDate: activeDateMatch || { $gte: todayStart } }),
+      Patient.countDocuments({ registrationDate: isSubAdmin ? { $gte: todayStart } : (customDateMatch || { $gte: todayStart }), ...branchMatch }),
       Patient.countDocuments({ registrationType: 'Referral', ...patientDateMatch }),
       Patient.countDocuments(patientDateMatch),
     ]);
 
     // ─── Sample collection count ──────────────────────
     const samplesCollectedToday = await Patient.aggregate([
-      { $match: { paymentStatus: 'Paid', registrationDate: activeDateMatch || { $gte: todayStart } } },
+      { $match: { paymentStatus: 'Paid', registrationDate: isSubAdmin ? { $gte: todayStart } : (customDateMatch || { $gte: todayStart }), ...branchMatch } },
       { $project: { count: { $size: '$sampleTypes' } } },
       { $group: { _id: null, total: { $sum: '$count' } } },
     ]);
@@ -134,7 +168,7 @@ export async function dashboard(req, res, next) {
 
     const criticalItems = items
       .filter(i => ['Critical', 'Critical Emergency', 'Out of Stock'].includes(stockLevel(i).key))
-      .map(i => serialize(i));
+      .map(i => serialize(i, req.user));
 
     // ─── Top collected sample types ───────────────────
     const topSamples = await Patient.aggregate([
@@ -161,7 +195,6 @@ export async function dashboard(req, res, next) {
     ]);
 
     // ─── Revenue trend ────────────────────────────────
-    const revenueTrendMatch = hasCustomDate ? { paymentStatus: 'Paid', registrationDate: activeDateMatch } : { paymentStatus: 'Paid', registrationDate: { $gte: thirtyDaysAgo } };
     const revenueTrend = await Patient.aggregate([
       { $match: revenueTrendMatch },
       {
@@ -251,23 +284,31 @@ export async function dashboard(req, res, next) {
 
     res.json({
       generatedAt: new Date(),
+      isSubAdmin,
+      maxAllowedDays: isSubAdmin ? 4 : null,
       system: {
         api: 'Operational',
         database: mongoose.connection.readyState === 1 ? 'Connected' : 'Unavailable',
       },
-      revenue: {
-        dailyIncome: hasCustomDate ? (customRev[0]?.total || 0) : (dailyRev[0]?.total || 0),
-        weeklyIncome: weeklyRev[0]?.total || 0,
-        monthlyIncome: monthlyRev[0]?.total || 0,
-        totalRevenue: totalRev[0]?.total || 0,
-        customIncome: customRev[0]?.total || 0,
-        customPatients: customRev[0]?.count || 0,
-      },
+      revenue: isSubAdmin
+        ? {
+            dailyIncome: dailyRev[0]?.total || 0,
+            fourDayIncome: fourDayRev[0]?.total || 0,
+            // Weekly, Monthly, and Total revenue are strictly omitted for Sub Admin
+          }
+        : {
+            dailyIncome: customDateMatch ? (customRev[0]?.total || 0) : (dailyRev[0]?.total || 0),
+            weeklyIncome: weeklyRev[0]?.total || 0,
+            monthlyIncome: monthlyRev[0]?.total || 0,
+            totalRevenue: totalRev[0]?.total || 0,
+            customIncome: customRev[0]?.total || 0,
+            customPatients: customRev[0]?.count || 0,
+          },
       summary: {
         totalCategories: categories,
         totalUsers: activeUsers,
         totalItems: items.length,
-        todayPatients: hasCustomDate ? (customRev[0]?.count || 0) : todayPatients,
+        todayPatients,
         totalPatients,
         referralPatients,
         samplesCollectedToday: samplesCollectedToday[0]?.total || 0,

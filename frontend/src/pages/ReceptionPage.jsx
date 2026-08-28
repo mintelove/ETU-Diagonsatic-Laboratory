@@ -13,8 +13,8 @@ import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 import { useScrollLock } from '../utils/useScrollLock.js';
 import { preparePOS80ReceiptData, isCbcParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
+import { formatETB } from '../utils/currencyHelper.js';
 
-const KES_TO_ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
 const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
 const CATEGORY_THEMES = {
   'HEMATOLOGY':                               { icon: '🩸', gradient: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', accent: '#dc2626', light: 'rgba(220,38,38,0.08)' },
@@ -42,7 +42,7 @@ function getCatTheme(catName) {
   return CATEGORY_THEMES._DEFAULT;
 }
 
-const ReceptionClock = memo(function ReceptionClock() { const [now,setNow]=useState(()=>new Date()); useEffect(()=>{const id=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(id)},[]); return <p className="intro">{now.toLocaleDateString('en-KE',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · {now.toLocaleTimeString('en-KE')}</p>; });
+const ReceptionClock = memo(function ReceptionClock() { const [now,setNow]=useState(()=>new Date()); useEffect(()=>{const id=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(id)},[]); return <p className="intro">{now.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · {now.toLocaleTimeString('en-US')}</p>; });
 
 // Toast Notification Local Component
 function Toast({ message, type, onClose }) {
@@ -341,7 +341,7 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
                     <div key="cbc-parent-group" style={{ marginBottom: '4px' }}>
                       <div className="item-row cbc-main-row">
                         <span className="item-name">{item.name}</span>
-                        <span className="item-price">{KES_TO_ETB(item.price)}</span>
+                        <span className="item-price">{formatETB(item.price)}</span>
                       </div>
                       <div style={{ paddingLeft: '8px', marginTop: '2px', marginBottom: '3px' }}>
                         {item.children.map((child) => (
@@ -358,7 +358,7 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
                 return (
                   <div key={item._id || item.name} className="item-row">
                     <span className="item-name">{item.name}</span>
-                    <span className="item-price">{KES_TO_ETB(item.price)}</span>
+                    <span className="item-price">{formatETB(item.price)}</span>
                   </div>
                 );
               })}
@@ -370,14 +370,14 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
 
         <div className="total-row">
           <span>GRAND TOTAL</span>
-          <span>{KES_TO_ETB(total !== undefined ? total : receipt.grandTotal)}</span>
+          <span>{formatETB(total !== undefined ? total : receipt.grandTotal)}</span>
         </div>
         {receipt.isReprint && (
           <div style={{ fontSize: '9.5px', lineHeight: '1.35', marginTop: '4px' }}>
             <div><strong>Patient Category:</strong> {receipt.registrationType}</div>
             <div><strong>Service Type:</strong> {receipt.patientCategory}</div>
             {receipt.discountPercent > 0 && (
-              <div><strong>Discount:</strong> {receipt.discountPercent}% ({KES_TO_ETB(receipt.discountAmount)})</div>
+              <div><strong>Discount:</strong> {receipt.discountPercent}% ({formatETB(receipt.discountAmount)})</div>
             )}
           </div>
         )}
@@ -387,8 +387,8 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
           <div><strong>Payment Method:</strong> {receipt.paymentMethod}</div>
           {receipt.amountReceived !== undefined && (
             <>
-              <div><strong>Amount Received:</strong> {KES_TO_ETB(receipt.amountReceived)}</div>
-              <div><strong>Change:</strong> {KES_TO_ETB(receipt.changeBalance)}</div>
+              <div><strong>Amount Received:</strong> {formatETB(receipt.amountReceived)}</div>
+              <div><strong>Change:</strong> {formatETB(receipt.changeBalance)}</div>
             </>
           )}
           <div><strong>Cashier:</strong> {receipt.cashier}</div>
@@ -451,6 +451,8 @@ export default function ReceptionPage() {
   const [manualStockPatient, setManualStockPatient] = useState(null);
   const [pendingManualStockPatient, setPendingManualStockPatient] = useState(null);
   const [stockItems, setStockItems] = useState([]);
+  const [customRadiologyExamName, setCustomRadiologyExamName] = useState('');
+  const [showReportFooter, setShowReportFooter] = useState(true);
 
   useScrollLock(!!selectedCounselling || !!history || !!receiptData || !!manualStockPatient || !!pendingManualStockPatient);
 
@@ -762,6 +764,7 @@ export default function ReceptionPage() {
         serviceType: counsellingOnly ? 'Counseling Only' : 'Laboratory Test',
         counsellingReason: counsellingOnly ? counsellingReason : '',
         counsellingNotes: counsellingOnly ? counsellingNotes : '',
+        customRadiologyExamName: customRadiologyExamName.trim(),
         systolicBP: systolicBP ? Number(systolicBP) : null,
         diastolicBP: diastolicBP ? Number(diastolicBP) : null,
       };
@@ -840,6 +843,7 @@ export default function ReceptionPage() {
     setPatientAddress('');
     setSystolicBP('');
     setDiastolicBP('');
+    setCustomRadiologyExamName('');
     setSelectedWaitingPaymentPatient(null);
   };
 
@@ -914,7 +918,7 @@ export default function ReceptionPage() {
       await api(`/reception/reports/${id}/print`, { token, method: 'PATCH' });
       const report = reports.find(item => item._id === id);
       if (!report) throw new Error('The requested document could not be loaded.');
-      printLabReport(report, user);
+      printLabReport(report, token, user, showReportFooter);
       setToast({ message: 'A4 report preview opened with the latest report data.', type: 'success' });
       loadData();
     } catch (e) {
@@ -980,11 +984,11 @@ export default function ReceptionPage() {
             </article>
             <article className="stat-card green">
               <small>Today's Income</small>
-              <strong>{KES_TO_ETB(dash?.summary.todayIncome)}</strong>
+              <strong>{formatETB(dash?.summary.todayIncome)}</strong>
             </article>
             <article className="stat-card teal">
               <small>Weekly Income</small>
-              <strong>{KES_TO_ETB(dash?.summary.weeklyIncome)}</strong>
+              <strong>{formatETB(dash?.summary.weeklyIncome)}</strong>
             </article>
             <article className="stat-card orange">
               <small>Pending Collections</small>
@@ -1024,7 +1028,7 @@ export default function ReceptionPage() {
                       <td><code>{tx.receiptNumber}</code></td>
                       <td><strong>{tx.name}</strong></td>
                       <td>{tx.sampleTypes?.map(s => s.name).join(', ') || 'Counselling'}</td>
-                      <td><strong>{KES_TO_ETB(tx.grandTotal)}</strong></td>
+                      <td><strong>{formatETB(tx.grandTotal)}</strong></td>
                       <td>{tx.paymentMethod}</td>
                       <td>{formatDate(tx.registrationDate)}</td>
                       <td>
@@ -1331,7 +1335,7 @@ export default function ReceptionPage() {
                                       <strong>{selectedCount} selected</strong>
                                     ) : (
                                       <>
-                                        <strong>{selectedCount}</strong> selected · {KES_TO_ETB(calcCategoryTotal(category.tests || []))}
+                                        <strong>{selectedCount}</strong> selected · {formatETB(calcCategoryTotal(category.tests || []))}
                                       </>
                                     )}
                                   </span>
@@ -1357,7 +1361,7 @@ export default function ReceptionPage() {
                                             <strong>{test.name}</strong>
                                             {test.description && <small>{test.description}</small>}
                                           </div>
-                                          <div className="lab-v2-test-price">{KES_TO_ETB(test.price)}</div>
+                                          <div className="lab-v2-test-price">{formatETB(test.price)}</div>
                                         </label>
                                       );
                                     })}
@@ -1425,7 +1429,7 @@ export default function ReceptionPage() {
                                           </div>
                                         </div>
                                         <div className="lab-v2-test-price" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-primary, #075c91)' }}>
-                                          {KES_TO_ETB(testSettings.cbcGroupPrice ?? 150)}
+                                          {formatETB(testSettings.cbcGroupPrice ?? 150)}
                                         </div>
                                       </div>
                                     )}
@@ -1442,7 +1446,7 @@ export default function ReceptionPage() {
                                               <strong>{test.name}</strong>
                                               {test.description && <small>{test.description}</small>}
                                             </div>
-                                            <div className="lab-v2-test-price">{isCbcSub ? <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Included in CBC</span> : KES_TO_ETB(test.price)}</div>
+                                            <div className="lab-v2-test-price">{isCbcSub ? <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Included in CBC</span> : formatETB(test.price)}</div>
                                           </label>
                                         );
                                       })}
@@ -1470,6 +1474,24 @@ export default function ReceptionPage() {
                     <span style={{ fontSize: '2rem' }}>🔬</span>
                     <p>No categories match your current filters.</p>
                     <button type="button" className="secondary-button" onClick={() => { setTestSearch(''); setTestFilter('All'); }}>Clear Filters</button>
+                  </div>
+                )}
+
+                {/* Custom Radiology Exam Name if Ultrasound - Other selected */}
+                {selectedSamples.some(s => s.name?.includes('Other') && (s.categoryName === 'RADIOLOGY' || s.category?.name === 'RADIOLOGY')) && (
+                  <div style={{ marginTop: '14px', marginBottom: '14px', padding: '12px 16px', background: '#fef3c7', borderRadius: '10px', border: '1px solid #fde68a' }}>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>
+                      Ultrasound Specific Examination Name * <span style={{ fontSize: '11px', fontWeight: 600, background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '6px', marginLeft: '6px' }}>Fixed Price: 800 ETB</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      className="global-input"
+                      value={customRadiologyExamName}
+                      onChange={e => setCustomRadiologyExamName(e.target.value)}
+                      placeholder="e.g. Thyroid Ultrasound, Pelvic Ultrasound, Scrotal Ultrasound"
+                      style={{ width: '100%', background: '#fff' }}
+                    />
                   </div>
                 )}
 
@@ -1513,7 +1535,7 @@ export default function ReceptionPage() {
                   <select value={serviceDiscountType} onChange={e => { const next = e.target.value; setServiceDiscountType(next); setCounsellingOnly(next === 'Counseling Only'); setAmountReceived(''); }}>
                     <option>Regular Patient</option><option>Staff Member</option><option>Collaborator</option><option>Counseling Only</option>
                   </select>
-                  <small>{serviceDiscountType === 'Counseling Only' ? `Counseling fee: ${KES_TO_ETB(billTotal)}` : discountPercent ? `${discountPercent}% discount applied: ${KES_TO_ETB(discountAmount)}` : 'Standard laboratory service pricing.'}</small>
+                  <small>{serviceDiscountType === 'Counseling Only' ? `Counseling fee: ${formatETB(billTotal)}` : discountPercent ? `${discountPercent}% discount applied: ${formatETB(discountAmount)}` : 'Standard laboratory service pricing.'}</small>
                 </div>
                 <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                   <div className="form-group">
@@ -1539,11 +1561,11 @@ export default function ReceptionPage() {
                 <div style={{ background: 'var(--color-surface-container)', padding: 'var(--space-3)', borderRadius: '8px', marginTop: 'var(--space-4)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '4px' }}>
                     <span>Amount Due:</span>
-                    <strong>{KES_TO_ETB(billTotal)}</strong>
+                    <strong>{formatETB(billTotal)}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
                     <span>Change Balance:</span>
-                    <strong>{KES_TO_ETB(balanceDue)}</strong>
+                    <strong>{formatETB(balanceDue)}</strong>
                   </div>
                 </div>
 
@@ -1612,14 +1634,14 @@ export default function ReceptionPage() {
                               🩸 CBC — Complete Blood Count ({cbcTests.length} parameters)
                             </span>
                             <strong style={{ color: 'var(--color-primary, #075c91)' }}>
-                              {KES_TO_ETB(testSettings.cbcGroupPrice ?? 150)}
+                              {formatETB(testSettings.cbcGroupPrice ?? 150)}
                             </strong>
                           </div>
                         )}
                         {nonCbcTests.map(s => (
                           <div key={s._id} className="lab-v2-bill-item">
                             <span className="lab-v2-bill-item-name">{s.name}</span>
-                            <strong>{KES_TO_ETB(s.price)}</strong>
+                            <strong>{formatETB(s.price)}</strong>
                           </div>
                         ))}
                       </div>
@@ -1630,14 +1652,14 @@ export default function ReceptionPage() {
 
               <div className="lab-v2-bill-breakdown">
                 <div className="lab-v2-bill-row"><span>Selected Tests</span><strong>{selectedSampleIds.length}</strong></div>
-                <div className="lab-v2-bill-row"><span>Subtotal</span><strong>{KES_TO_ETB(billSubtotal)}</strong></div>
-                {discountAmount > 0 && <div className="lab-v2-bill-row discount"><span>Discount ({discountPercent}%)</span><strong>− {KES_TO_ETB(discountAmount)}</strong></div>}
-                {counsellingOnly && testSettings.counselingStatus === 'Paid' && <div className="lab-v2-bill-row"><span>Counseling Fee</span><strong>{KES_TO_ETB(testSettings.counselingPrice)}</strong></div>}
+                <div className="lab-v2-bill-row"><span>Subtotal</span><strong>{formatETB(billSubtotal)}</strong></div>
+                {discountAmount > 0 && <div className="lab-v2-bill-row discount"><span>Discount ({discountPercent}%)</span><strong>− {formatETB(discountAmount)}</strong></div>}
+                {counsellingOnly && testSettings.counselingStatus === 'Paid' && <div className="lab-v2-bill-row"><span>Counseling Fee</span><strong>{formatETB(testSettings.counselingPrice)}</strong></div>}
               </div>
 
               <div className="lab-v2-bill-total">
                 <span>Grand Total</span>
-                <strong>{KES_TO_ETB(billTotal)}</strong>
+                <strong>{formatETB(billTotal)}</strong>
               </div>
             </div>
           </div>
@@ -1802,7 +1824,7 @@ export default function ReceptionPage() {
                       <td>{p.phone}</td>
                       <td>{(p.systolicBP || p.diastolicBP) ? <strong style={{ color: 'var(--color-primary)' }}>🫀 {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</strong> : <span style={{ color: 'var(--color-on-surface-variant)' }}>—</span>}</td>
                       <td>{(p.laboratoryTests || []).map(t => t.name).join(', ') || '—'}</td>
-                      <td><strong>{KES_TO_ETB(p.grandTotal)}</strong></td>
+                      <td><strong>{formatETB(p.grandTotal)}</strong></td>
                       <td><span className="pm-badge">📍 {p.branchName || 'Main'}</span></td>
                       <td>{p.registeredBy?.fullName || '—'}</td>
                       <td>
@@ -1909,11 +1931,21 @@ export default function ReceptionPage() {
       {/* ═══ VIEW 4: APPROVED REPORTS ═══ */}
       {view === 'reports' && (
         <section className="table-card">
-          <div className="table-title">
+          <div className="table-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <h2>Approved Diagnostics Reports</h2>
-            <div className="export-buttons">
-              <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
-              <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showReportFooter}
+                  onChange={e => setShowReportFooter(e.target.checked)}
+                />
+                Show Logo & Footer
+              </label>
+              <div className="export-buttons">
+                <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
+                <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
+              </div>
             </div>
           </div>
           {reports.length ? (
@@ -1922,25 +1954,59 @@ export default function ReceptionPage() {
                 <thead>
                   <tr>
                     <th>Patient</th>
-                    <th>Test Results</th>
+                    <th>Department & Examination</th>
+                    <th>Report Summary</th>
                     <th>Approved By</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {reports.map(r => (
-                    <tr key={r._id}>
-                      <td>{r.patient?.name}<span>{r.patient?.patientId}</span></td>
-                      <td>{r.patient?.barcode || r.patient?.patientId}</td>
-                      <td>{r.results?.map(x => `${x.sampleName}: ${x.result}`).join('; ')}</td>
-                      <td>{r.approvedBy?.fullName || '—'}<span>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span></td>
-                      <td>{r.status}</td>
-                      <td>
-                        <button className="secondary-button" onClick={() => download(`/final-reports/${r._id}.pdf`, token)}>Export PDF</button>{' '}<button className="primary-button" disabled={busy} onClick={() => handlePrintA4Report(r._id)}>{busy ? 'Printing…' : 'Print A4 Report'}</button>
-                      </td>
-                    </tr>
-                  ))}
+                  {reports.map(r => {
+                    const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
+                    const isPath = dept === 'Pathology';
+                    const isRad = dept === 'Radiology';
+                    const examLabel = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || (r.results?.map(x => x.sampleName).slice(0, 2).join(', ')) || 'Laboratory Tests';
+
+                    return (
+                      <tr key={r._id}>
+                        <td><strong>{r.patient?.name}</strong><span>{r.patient?.patientId}</span></td>
+                        <td>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isPath ? '#fef3c7' : isRad ? '#e0f2fe' : '#e0e7ff', color: isPath ? '#92400e' : isRad ? '#0369a1' : '#3730a3' }}>
+                            {dept}
+                          </span>
+                          <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: '#1e293b' }}>
+                            {examLabel}
+                          </div>
+                        </td>
+                        <td>
+                          {r.results?.length ? (
+                            r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
+                          ) : r.reportContent ? (
+                            <span style={{ color: '#0369a1', fontStyle: 'italic' }}>Detailed Specialist Report</span>
+                          ) : r.structuredReport?.diagnosis ? (
+                            <span>{r.structuredReport.diagnosis}</span>
+                          ) : r.structuredReport?.impression ? (
+                            <span>{r.structuredReport.impression}</span>
+                          ) : 'Complete Clinical Report'}
+                        </td>
+                        <td>
+                          <strong>{r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—'))}</strong>
+                          <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
+                        </td>
+                        <td>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
+                            {r.status || 'Ready for Printing'}
+                          </span>
+                        </td>
+                        <td>
+                          <button className="primary-button" disabled={busy} onClick={() => handlePrintA4Report(r._id)}>
+                            {busy ? 'Printing…' : '🖨️ Print A4 Report'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

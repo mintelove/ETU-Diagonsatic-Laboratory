@@ -94,7 +94,9 @@ export const getCategoryDefaultAnalyzer = (catName = '') => {
 };
 
 export default function LaboratoryTestsPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isSubAdmin = user?.role === 'Sub Admin' || (user?.role && user.role.toLowerCase().includes('sub admin'));
+  const isAdmin = user?.role === 'Admin';
   const [data, setData] = useState({ categories: [], tests: [], samples: [], settings: {} });
   const [form, setForm] = useState(blank);
   const [newCategory, setNewCategory] = useState('');
@@ -368,6 +370,18 @@ export default function LaboratoryTestsPage() {
 
       {message && <div className="alert success" role="status">{message}</div>}
 
+      {isSubAdmin && (
+        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '12px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', color: '#0369a1' }}>
+          <span style={{ fontSize: '1.2rem' }}>🔒</span>
+          <div>
+            <strong style={{ fontSize: '0.95rem' }}>Sub Admin Read-Only Mode</strong>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#0c4a6e' }}>
+              You can inspect laboratory test catalogs, pricing, and reference ranges. Adding, modifying, or deleting test types and reference ranges requires Main Administrator access.
+            </p>
+          </div>
+        </div>
+      )}
+
       <section className="lab-catalogue-stats" aria-label="Laboratory test catalogue statistics">
         <article><span>Total categories</span><strong>{data.categories.length}</strong><i>▦</i></article>
         <article><span>Total laboratory tests</span><strong>{data.tests.length}</strong><i>🧪</i></article>
@@ -411,7 +425,7 @@ export default function LaboratoryTestsPage() {
               );
             })}
           </div>
-          {selected && (
+          {selected && !isSubAdmin && (
             <form
               className="lab-new-category"
               onSubmit={async event => {
@@ -452,15 +466,17 @@ export default function LaboratoryTestsPage() {
                     {categoryTests.length} test types · {categoryParams.length} clinical parameters · Instrument: {getCategoryDefaultAnalyzer(selected.name)}
                   </span>
                 </div>
-                <div className="lab-hero-actions">
-                  {editingCategory ? (
-                    <button className="lab-icon-button" onClick={() => updateCategory({ name: categoryName })}>Save</button>
-                  ) : (
-                    <button className="lab-icon-button" onClick={() => { setCategoryName(selected.name); setEditingCategory(true); }}>Edit category</button>
-                  )}
-                  <button className="lab-icon-button" onClick={() => updateCategory({ hidden: !selected.hidden })}>{selected.hidden ? 'Show' : 'Hide'}</button>
-                  <button className="lab-icon-button danger" onClick={removeCategory}>Delete</button>
-                </div>
+                {!isSubAdmin && (
+                  <div className="lab-hero-actions">
+                    {editingCategory ? (
+                      <button className="lab-icon-button" onClick={() => updateCategory({ name: categoryName })}>Save</button>
+                    ) : (
+                      <button className="lab-icon-button" onClick={() => { setCategoryName(selected.name); setEditingCategory(true); }}>Edit category</button>
+                    )}
+                    <button className="lab-icon-button" onClick={() => updateCategory({ hidden: !selected.hidden })}>{selected.hidden ? 'Show' : 'Hide'}</button>
+                    <button className="lab-icon-button danger" onClick={removeCategory}>Delete</button>
+                  </div>
+                )}
               </section>
 
               {/* View Mode Switcher: Tests/Pricing vs Reference Ranges */}
@@ -506,9 +522,11 @@ export default function LaboratoryTestsPage() {
                           <option value="status">Status</option>
                         </select>
                       </label>
-                      <button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
-                        ＋ Add test
-                      </button>
+                      {!isSubAdmin && (
+                        <button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+                          ＋ Add test
+                        </button>
+                      )}
                     </div>
                   </section>
 
@@ -533,7 +551,16 @@ export default function LaboratoryTestsPage() {
                               </div>
                               <span className="lab-specimen">{test.requiredSampleTypes?.map(sample => sample.name).join(', ') || 'Not mapped'}</span>
                               <label className={`lab-status-select ${test.status === 'Active' ? 'active' : ''}`}><span className="sr-only">Status for {test.name}</span><select value={test.status} disabled readOnly><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label>
-                              <div className="lab-row-actions"><button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button><button className="danger" onClick={() => removeTest(test)}>Delete</button></div>
+                              <div className="lab-row-actions">
+                                {!isSubAdmin ? (
+                                  <>
+                                    <button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button>
+                                    <button className="danger" onClick={() => removeTest(test)}>Delete</button>
+                                  </>
+                                ) : (
+                                  <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>Read-only</span>
+                                )}
+                              </div>
                             </article>
                           );
                         });
@@ -562,20 +589,24 @@ export default function LaboratoryTestsPage() {
                                   <input
                                     type="number"
                                     min="0"
-                                    style={{ width: '85px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #0284c7', fontSize: '0.88rem', fontWeight: 700, background: '#ffffff', textAlign: 'right' }}
+                                    disabled={isSubAdmin}
+                                    readOnly={isSubAdmin}
+                                    style={{ width: '85px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #0284c7', fontSize: '0.88rem', fontWeight: 700, background: isSubAdmin ? '#f1f5f9' : '#ffffff', textAlign: 'right' }}
                                     value={data.settings?.cbcGroupPrice ?? 150}
                                     onChange={e => setData({ ...data, settings: { ...data.settings, cbcGroupPrice: Math.max(0, Number(e.target.value) || 0) } })}
                                     aria-label="Complete CBC Price"
                                   />
                                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0369a1' }}>ETB</span>
-                                  <button
-                                    type="button"
-                                    className="primary"
-                                    style={{ padding: '4px 12px', fontSize: '0.8rem', height: '28px', minHeight: 'unset' }}
-                                    onClick={saveSettings}
-                                  >
-                                    Save Price
-                                  </button>
+                                  {!isSubAdmin && (
+                                    <button
+                                      type="button"
+                                      className="primary"
+                                      style={{ padding: '4px 12px', fontSize: '0.8rem', height: '28px', minHeight: 'unset' }}
+                                      onClick={saveSettings}
+                                    >
+                                      Save Price
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -596,7 +627,16 @@ export default function LaboratoryTestsPage() {
                                     </div>
                                     <span className="lab-specimen">{test.requiredSampleTypes?.map(sample => sample.name).join(', ') || 'Not mapped'}</span>
                                     <label className={`lab-status-select ${test.status === 'Active' ? 'active' : ''}`}><span className="sr-only">Status for {test.name}</span><select value={test.status} disabled readOnly><option value="Active">Active</option><option value="Inactive">Inactive</option></select></label>
-                                    <div className="lab-row-actions"><button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button><button className="danger" onClick={() => removeTest(test)}>Delete</button></div>
+                                    <div className="lab-row-actions">
+                                      {!isSubAdmin ? (
+                                        <>
+                                          <button onClick={() => handleEdit(test)} aria-label={`Edit ${test.name}`}>Edit</button>
+                                          <button className="danger" onClick={() => removeTest(test)}>Delete</button>
+                                        </>
+                                      ) : (
+                                        <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>Read-only</span>
+                                      )}
+                                    </div>
                                   </article>
                                 );
                               })}
@@ -605,34 +645,36 @@ export default function LaboratoryTestsPage() {
                         );
                       });
                     })()}
-                    {!matches.length && <div className="lab-empty"><span>🧪</span><h3>No Laboratory Tests Available</h3><p>There are no tests matching this view.</p><button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth' })}>Add First Test</button></div>}
+                    {!matches.length && <div className="lab-empty"><span>🧪</span><h3>No Laboratory Tests Available</h3><p>There are no tests matching this view.</p>{!isSubAdmin && <button className="primary" onClick={() => document.getElementById('new-lab-test')?.scrollIntoView({ behavior: 'smooth' })}>Add First Test</button>}</div>}
                   </div>
 
-                  <section id="new-lab-test" className="lab-management-forms">
-                    <form className="lab-form-card" onSubmit={saveTest}>
-                      <div><p className="eyebrow">Catalogue entry</p><h2>Add laboratory test</h2></div>
-                      <div className="form-grid">
-                        <label>Test name<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label>
-                        <label>Category<select value={form.category || selected._id} onChange={event => setForm({ ...form, category: event.target.value })}>{data.categories.map(category => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label>
-                        <label>Price (ETB)<input type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: +event.target.value })} /></label>
-                        <label>Required specimen<select multiple value={form.requiredSampleTypes} onChange={event => setForm({ ...form, requiredSampleTypes: [...event.target.selectedOptions].map(option => option.value) })}>{data.samples.map(sample => <option key={sample._id} value={sample._id}>{sample.name}</option>)}</select></label>
-                        <label className="wide">Description<textarea value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label>
-                      </div>
-                      <button className="primary">Add Test</button>
-                    </form>
+                  {!isSubAdmin && (
+                    <section id="new-lab-test" className="lab-management-forms">
+                      <form className="lab-form-card" onSubmit={saveTest}>
+                        <div><p className="eyebrow">Catalogue entry</p><h2>Add laboratory test</h2></div>
+                        <div className="form-grid">
+                          <label>Test name<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label>
+                          <label>Category<select value={form.category || selected._id} onChange={event => setForm({ ...form, category: event.target.value })}>{data.categories.map(category => <option key={category._id} value={category._id}>{category.name}</option>)}</select></label>
+                          <label>Price (ETB)<input type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: +event.target.value })} /></label>
+                          <label>Required specimen<select multiple value={form.requiredSampleTypes} onChange={event => setForm({ ...form, requiredSampleTypes: [...event.target.selectedOptions].map(option => option.value) })}>{data.samples.map(sample => <option key={sample._id} value={sample._id}>{sample.name}</option>)}</select></label>
+                          <label className="wide">Description<textarea value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label>
+                        </div>
+                        <button className="primary">Add Test</button>
+                      </form>
 
-                    <form className="lab-form-card lab-settings-card" onSubmit={saveSettings}>
-                      <div><p className="eyebrow">Billing settings</p><h2>Discount & counseling</h2></div>
-                      <div className="form-grid">
-                        <label>Staff discount %<input type="number" min="0" max="100" value={data.settings.staffDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, staffDiscount: +event.target.value } })} /></label>
-                        <label>Collaborator discount %<input type="number" min="0" max="100" value={data.settings.collaboratorDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, collaboratorDiscount: +event.target.value } })} /></label>
-                        <label>Counseling fee<select value={data.settings.counselingStatus || 'Free'} onChange={event => setData({ ...data, settings: { ...data.settings, counselingStatus: event.target.value } })}><option>Free</option><option>Paid</option></select></label>
-                        <label>Counseling price (ETB)<input type="number" min="0" value={data.settings.counselingPrice ?? 0} onChange={event => setData({ ...data, settings: { ...data.settings, counselingPrice: +event.target.value } })} /></label>
-                        <label>Complete CBC Fixed Price (ETB)<input type="number" min="0" value={data.settings.cbcGroupPrice ?? 150} onChange={event => setData({ ...data, settings: { ...data.settings, cbcGroupPrice: Math.max(0, Number(event.target.value) || 0) } })} /></label>
-                      </div>
-                      <button className="primary">Save Settings</button>
-                    </form>
-                  </section>
+                      <form className="lab-form-card lab-settings-card" onSubmit={saveSettings}>
+                        <div><p className="eyebrow">Billing settings</p><h2>Discount & counseling</h2></div>
+                        <div className="form-grid">
+                          <label>Staff discount %<input type="number" min="0" max="100" value={data.settings.staffDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, staffDiscount: +event.target.value } })} /></label>
+                          <label>Collaborator discount %<input type="number" min="0" max="100" value={data.settings.collaboratorDiscount ?? 20} onChange={event => setData({ ...data, settings: { ...data.settings, collaboratorDiscount: +event.target.value } })} /></label>
+                          <label>Counseling fee<select value={data.settings.counselingStatus || 'Free'} onChange={event => setData({ ...data, settings: { ...data.settings, counselingStatus: event.target.value } })}><option>Free</option><option>Paid</option></select></label>
+                          <label>Counseling price (ETB)<input type="number" min="0" value={data.settings.counselingPrice ?? 0} onChange={event => setData({ ...data, settings: { ...data.settings, counselingPrice: +event.target.value } })} /></label>
+                          <label>Complete CBC Fixed Price (ETB)<input type="number" min="0" value={data.settings.cbcGroupPrice ?? 150} onChange={event => setData({ ...data, settings: { ...data.settings, cbcGroupPrice: Math.max(0, Number(event.target.value) || 0) } })} /></label>
+                        </div>
+                        <button className="primary">Save Settings</button>
+                      </form>
+                    </section>
+                  )}
                 </>
               )}
 
@@ -648,33 +690,35 @@ export default function LaboratoryTestsPage() {
                         CLSI EP28 & WHO clinical reference intervals. Analytical instrument measuring ranges remain distinct from clinical patient reference intervals.
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      className="primary"
-                      style={{ fontSize: '0.8rem', padding: '6px 14px', height: '32px', minHeight: 'unset' }}
-                      onClick={() => {
-                        setParamForm({
-                          parameterName: '',
-                          category: selected.name.toUpperCase(),
-                          subcategory: '',
-                          unit: '',
-                          referenceValue: '',
-                          normalMin: '',
-                          normalMax: '',
-                          criticalLow: '',
-                          criticalHigh: '',
-                          methodOrAnalyzer: getCategoryDefaultAnalyzer(selected.name),
-                          specimenType: 'Serum',
-                          resultType: 'Numeric',
-                          referenceSource: 'Manufacturer Reagent Insert',
-                          verificationStatus: 'Requires Laboratory Verification'
-                        });
-                        setParamTabOpen(true);
-                        document.getElementById('master-param-catalog')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      ＋ Add Parameter to {selected.name}
-                    </button>
+                    {!isSubAdmin && (
+                      <button
+                        type="button"
+                        className="primary"
+                        style={{ fontSize: '0.8rem', padding: '6px 14px', height: '32px', minHeight: 'unset' }}
+                        onClick={() => {
+                          setParamForm({
+                            parameterName: '',
+                            category: selected.name.toUpperCase(),
+                            subcategory: '',
+                            unit: '',
+                            referenceValue: '',
+                            normalMin: '',
+                            normalMax: '',
+                            criticalLow: '',
+                            criticalHigh: '',
+                            methodOrAnalyzer: getCategoryDefaultAnalyzer(selected.name),
+                            specimenType: 'Serum',
+                            resultType: 'Numeric',
+                            referenceSource: 'Manufacturer Reagent Insert',
+                            verificationStatus: 'Requires Laboratory Verification'
+                          });
+                          setParamTabOpen(true);
+                          document.getElementById('master-param-catalog')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        ＋ Add Parameter to {selected.name}
+                      </button>
+                    )}
                   </div>
 
                   {categoryParams.length === 0 ? (
@@ -727,7 +771,7 @@ export default function LaboratoryTestsPage() {
                               </div>
 
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                {isDirty && (
+                                {!isSubAdmin && isDirty && (
                                   <button
                                     type="button"
                                     className="primary"
@@ -737,14 +781,16 @@ export default function LaboratoryTestsPage() {
                                     Save Changes
                                   </button>
                                 )}
-                                <button
-                                  type="button"
-                                  className="secondary"
-                                  style={{ fontSize: '0.8rem', padding: '4px 12px', height: '30px', minHeight: 'unset' }}
-                                  onClick={() => setEditingParam({ ...param })}
-                                >
-                                  ⚙ Details & Demographics
-                                </button>
+                                {!isSubAdmin && (
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    style={{ fontSize: '0.8rem', padding: '4px 12px', height: '30px', minHeight: 'unset' }}
+                                    onClick={() => setEditingParam({ ...param })}
+                                  >
+                                    ⚙ Details & Demographics
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -754,9 +800,11 @@ export default function LaboratoryTestsPage() {
                                 Unit
                                 <input
                                   type="text"
+                                  disabled={isSubAdmin}
+                                  readOnly={isSubAdmin}
                                   value={currentUnit}
                                   placeholder="e.g. g/dL, mg/dL"
-                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px', background: isSubAdmin ? '#f1f5f9' : '#fff' }}
                                   onChange={e => setLocalParamEdits(prev => ({
                                     ...prev,
                                     [param._id]: { ...prev[param._id], unit: e.target.value }
@@ -769,9 +817,11 @@ export default function LaboratoryTestsPage() {
                                 <input
                                   type="number"
                                   step="any"
+                                  disabled={isSubAdmin}
+                                  readOnly={isSubAdmin}
                                   value={currentMin}
                                   placeholder="e.g. 12.0"
-                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px', background: isSubAdmin ? '#f1f5f9' : '#fff' }}
                                   onChange={e => setLocalParamEdits(prev => ({
                                     ...prev,
                                     [param._id]: { ...prev[param._id], normalMin: e.target.value }
@@ -784,9 +834,11 @@ export default function LaboratoryTestsPage() {
                                 <input
                                   type="number"
                                   step="any"
+                                  disabled={isSubAdmin}
+                                  readOnly={isSubAdmin}
                                   value={currentMax}
                                   placeholder="e.g. 17.0"
-                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px', background: isSubAdmin ? '#f1f5f9' : '#fff' }}
                                   onChange={e => setLocalParamEdits(prev => ({
                                     ...prev,
                                     [param._id]: { ...prev[param._id], normalMax: e.target.value }
@@ -799,9 +851,11 @@ export default function LaboratoryTestsPage() {
                                 <input
                                   type="number"
                                   step="any"
+                                  disabled={isSubAdmin}
+                                  readOnly={isSubAdmin}
                                   value={currentCritLow}
                                   placeholder="e.g. 7.0 (opt)"
-                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #fca5a5', marginTop: '4px', background: '#fef2f2' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #fca5a5', marginTop: '4px', background: isSubAdmin ? '#fef2f2' : '#fef2f2' }}
                                   onChange={e => setLocalParamEdits(prev => ({
                                     ...prev,
                                     [param._id]: { ...prev[param._id], criticalLow: e.target.value }
@@ -814,9 +868,11 @@ export default function LaboratoryTestsPage() {
                                 <input
                                   type="number"
                                   step="any"
+                                  disabled={isSubAdmin}
+                                  readOnly={isSubAdmin}
                                   value={currentCritHigh}
                                   placeholder="e.g. 20.0 (opt)"
-                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #fca5a5', marginTop: '4px', background: '#fef2f2' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #fca5a5', marginTop: '4px', background: isSubAdmin ? '#fef2f2' : '#fef2f2' }}
                                   onChange={e => setLocalParamEdits(prev => ({
                                     ...prev,
                                     [param._id]: { ...prev[param._id], criticalHigh: e.target.value }
@@ -828,9 +884,11 @@ export default function LaboratoryTestsPage() {
                                 Reference Display Text / Clinical Range
                                 <input
                                   type="text"
+                                  disabled={isSubAdmin}
+                                  readOnly={isSubAdmin}
                                   value={currentRefVal}
                                   placeholder="e.g. 12.0–17.0 or Male: 14.4–16.6 | Female: 12.0–15.0"
-                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '4px', background: isSubAdmin ? '#f1f5f9' : '#fff' }}
                                   onChange={e => setLocalParamEdits(prev => ({
                                     ...prev,
                                     [param._id]: { ...prev[param._id], referenceValue: e.target.value }
@@ -876,80 +934,82 @@ export default function LaboratoryTestsPage() {
                       Configure SI units, clinical reference ranges, instruments, and threshold boundaries across all 13 laboratory categories.
                     </p>
 
-                    {/* Add New Parameter Form */}
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        try {
-                          await api('/report-entry/parameters', { token, method: 'POST', body: JSON.stringify(paramForm) });
-                          setMessage('New parameter added to master catalog.');
-                          setParamForm({
-                            parameterName: '',
-                            category: selected?.name?.toUpperCase() || 'HEMATOLOGY',
-                            subcategory: '',
-                            unit: '',
-                            referenceValue: '',
-                            normalMin: '',
-                            normalMax: '',
-                            criticalLow: '',
-                            criticalHigh: '',
-                            methodOrAnalyzer: getCategoryDefaultAnalyzer(selected?.name || 'HEMATOLOGY'),
-                            specimenType: 'Serum',
-                            resultType: 'Numeric',
-                            referenceSource: 'Manufacturer Reagent Insert',
-                            verificationStatus: 'Requires Laboratory Verification'
-                          });
-                          loadParams();
-                        } catch (err) {
-                          if (!isSilentNetworkError(err)) setMessage(err.message);
-                        }
-                      }}
-                      style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}
-                    >
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#075c91' }}>＋ Add New Parameter to Master Catalog</h4>
-                      <div className="form-grid" style={{ gap: '10px' }}>
-                        <label>Parameter Name<input required value={paramForm.parameterName} onChange={e => setParamForm({ ...paramForm, parameterName: e.target.value })} placeholder="e.g. Total Cholesterol, HGB" /></label>
-                        <label>Category
-                          <select value={paramForm.category} onChange={e => setParamForm({ ...paramForm, category: e.target.value, methodOrAnalyzer: getCategoryDefaultAnalyzer(e.target.value) })}>
-                            {data.categories.map(c => <option key={c._id} value={c.name.toUpperCase()}>{c.name}</option>)}
-                          </select>
-                        </label>
-                        <label>Subcategory<input value={paramForm.subcategory} onChange={e => setParamForm({ ...paramForm, subcategory: e.target.value })} placeholder="e.g. Lipid Profile, CBC, Chemical Analysis" /></label>
-                        <label>Instrument / Analyzer
-                          <select value={paramForm.methodOrAnalyzer} onChange={e => setParamForm({ ...paramForm, methodOrAnalyzer: e.target.value })}>
-                            {DEFAULT_ANALYZERS.map(a => <option key={a} value={a}>{a}</option>)}
-                          </select>
-                        </label>
-                        <label>Specimen Type
-                          <select value={paramForm.specimenType} onChange={e => setParamForm({ ...paramForm, specimenType: e.target.value })}>
-                            {SPECIMEN_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </label>
-                        <label>Result Type
-                          <select value={paramForm.resultType} onChange={e => setParamForm({ ...paramForm, resultType: e.target.value })}>
-                            {RESULT_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        </label>
-                        <label>SI Unit<input value={paramForm.unit} onChange={e => setParamForm({ ...paramForm, unit: e.target.value })} placeholder="e.g. g/dL, mg/dL, mmol/L, %" /></label>
-                        <label>Reference Range<input value={paramForm.referenceValue} onChange={e => setParamForm({ ...paramForm, referenceValue: e.target.value })} placeholder="e.g. 12.0–17.0" /></label>
-                        <label>Normal Min (Low)<input type="number" step="any" value={paramForm.normalMin} onChange={e => setParamForm({ ...paramForm, normalMin: e.target.value })} placeholder="e.g. 12.0" /></label>
-                        <label>Normal Max (High)<input type="number" step="any" value={paramForm.normalMax} onChange={e => setParamForm({ ...paramForm, normalMax: e.target.value })} placeholder="e.g. 17.0" /></label>
-                        <label>Critical Low (Panic)<input type="number" step="any" value={paramForm.criticalLow} onChange={e => setParamForm({ ...paramForm, criticalLow: e.target.value })} placeholder="e.g. 7.0 (optional)" /></label>
-                        <label>Critical High (Panic)<input type="number" step="any" value={paramForm.criticalHigh} onChange={e => setParamForm({ ...paramForm, criticalHigh: e.target.value })} placeholder="e.g. 20.0 (optional)" /></label>
-                        <label>Reference Source
-                          <select value={paramForm.referenceSource} onChange={e => setParamForm({ ...paramForm, referenceSource: e.target.value })}>
-                            {REFERENCE_SOURCES.map(rs => <option key={rs} value={rs}>{rs}</option>)}
-                          </select>
-                        </label>
-                        <label>Verification Status
-                          <select value={paramForm.verificationStatus} onChange={e => setParamForm({ ...paramForm, verificationStatus: e.target.value })}>
-                            <option value="Requires Laboratory Verification">Requires Laboratory Verification</option>
-                            <option value="Verified">Verified</option>
-                          </select>
-                        </label>
-                      </div>
-                      <button className="primary" style={{ marginTop: '12px' }}>Add Parameter to Catalog</button>
-                    </form>
+                    {/* Add New Parameter Form (Admin Only) */}
+                    {!isSubAdmin && (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                            await api('/report-entry/parameters', { token, method: 'POST', body: JSON.stringify(paramForm) });
+                            setMessage('New parameter added to master catalog.');
+                            setParamForm({
+                              parameterName: '',
+                              category: selected?.name?.toUpperCase() || 'HEMATOLOGY',
+                              subcategory: '',
+                              unit: '',
+                              referenceValue: '',
+                              normalMin: '',
+                              normalMax: '',
+                              criticalLow: '',
+                              criticalHigh: '',
+                              methodOrAnalyzer: getCategoryDefaultAnalyzer(selected?.name || 'HEMATOLOGY'),
+                              specimenType: 'Serum',
+                              resultType: 'Numeric',
+                              referenceSource: 'Manufacturer Reagent Insert',
+                              verificationStatus: 'Requires Laboratory Verification'
+                            });
+                            loadParams();
+                          } catch (err) {
+                            if (!isSilentNetworkError(err)) setMessage(err.message);
+                          }
+                        }}
+                        style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}
+                      >
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#075c91' }}>＋ Add New Parameter to Master Catalog</h4>
+                        <div className="form-grid" style={{ gap: '10px' }}>
+                          <label>Parameter Name<input required value={paramForm.parameterName} onChange={e => setParamForm({ ...paramForm, parameterName: e.target.value })} placeholder="e.g. Total Cholesterol, HGB" /></label>
+                          <label>Category
+                            <select value={paramForm.category} onChange={e => setParamForm({ ...paramForm, category: e.target.value, methodOrAnalyzer: getCategoryDefaultAnalyzer(e.target.value) })}>
+                              {data.categories.map(c => <option key={c._id} value={c.name.toUpperCase()}>{c.name}</option>)}
+                            </select>
+                          </label>
+                          <label>Subcategory<input value={paramForm.subcategory} onChange={e => setParamForm({ ...paramForm, subcategory: e.target.value })} placeholder="e.g. Lipid Profile, CBC, Chemical Analysis" /></label>
+                          <label>Instrument / Analyzer
+                            <select value={paramForm.methodOrAnalyzer} onChange={e => setParamForm({ ...paramForm, methodOrAnalyzer: e.target.value })}>
+                              {DEFAULT_ANALYZERS.map(a => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                          </label>
+                          <label>Specimen Type
+                            <select value={paramForm.specimenType} onChange={e => setParamForm({ ...paramForm, specimenType: e.target.value })}>
+                              {SPECIMEN_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </label>
+                          <label>Result Type
+                            <select value={paramForm.resultType} onChange={e => setParamForm({ ...paramForm, resultType: e.target.value })}>
+                              {RESULT_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </label>
+                          <label>SI Unit<input value={paramForm.unit} onChange={e => setParamForm({ ...paramForm, unit: e.target.value })} placeholder="e.g. g/dL, mg/dL, mmol/L, %" /></label>
+                          <label>Reference Range<input value={paramForm.referenceValue} onChange={e => setParamForm({ ...paramForm, referenceValue: e.target.value })} placeholder="e.g. 12.0–17.0" /></label>
+                          <label>Normal Min (Low)<input type="number" step="any" value={paramForm.normalMin} onChange={e => setParamForm({ ...paramForm, normalMin: e.target.value })} placeholder="e.g. 12.0" /></label>
+                          <label>Normal Max (High)<input type="number" step="any" value={paramForm.normalMax} onChange={e => setParamForm({ ...paramForm, normalMax: e.target.value })} placeholder="e.g. 17.0" /></label>
+                          <label>Critical Low (Panic)<input type="number" step="any" value={paramForm.criticalLow} onChange={e => setParamForm({ ...paramForm, criticalLow: e.target.value })} placeholder="e.g. 7.0 (optional)" /></label>
+                          <label>Critical High (Panic)<input type="number" step="any" value={paramForm.criticalHigh} onChange={e => setParamForm({ ...paramForm, criticalHigh: e.target.value })} placeholder="e.g. 20.0 (optional)" /></label>
+                          <label>Reference Source
+                            <select value={paramForm.referenceSource} onChange={e => setParamForm({ ...paramForm, referenceSource: e.target.value })}>
+                              {REFERENCE_SOURCES.map(rs => <option key={rs} value={rs}>{rs}</option>)}
+                            </select>
+                          </label>
+                          <label>Verification Status
+                            <select value={paramForm.verificationStatus} onChange={e => setParamForm({ ...paramForm, verificationStatus: e.target.value })}>
+                              <option value="Requires Laboratory Verification">Requires Laboratory Verification</option>
+                              <option value="Verified">Verified</option>
+                            </select>
+                          </label>
+                        </div>
+                        <button className="primary" style={{ marginTop: '12px' }}>Add Parameter to Catalog</button>
+                      </form>
+                    )}
 
                     {/* Filter & Search Bar */}
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1005,32 +1065,38 @@ export default function LaboratoryTestsPage() {
                                   </span>
                                 </td>
                                 <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
-                                  <button
-                                    type="button"
-                                    className="secondary"
-                                    style={{ fontSize: '0.75rem', padding: '4px 8px', marginRight: '6px' }}
-                                    onClick={() => setEditingParam({ ...p })}
-                                  >
-                                    Edit Range
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="secondary danger"
-                                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                                    onClick={async () => {
-                                      if (confirm(`Delete ${p.parameterName}?`)) {
-                                        try {
-                                          await api(`/report-entry/parameters/${p._id}`, { token, method: 'DELETE' });
-                                          setMessage('Parameter deleted.');
-                                          loadParams();
-                                        } catch (err) {
-                                          if (!isSilentNetworkError(err)) setMessage(err.message);
-                                        }
-                                      }
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
+                                  {!isSubAdmin ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="secondary"
+                                        style={{ fontSize: '0.75rem', padding: '4px 8px', marginRight: '6px' }}
+                                        onClick={() => setEditingParam({ ...p })}
+                                      >
+                                        Edit Range
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="secondary danger"
+                                        style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                                        onClick={async () => {
+                                          if (confirm(`Delete ${p.parameterName}?`)) {
+                                            try {
+                                              await api(`/report-entry/parameters/${p._id}`, { token, method: 'DELETE' });
+                                              setMessage('Parameter deleted.');
+                                              loadParams();
+                                            } catch (err) {
+                                              if (!isSilentNetworkError(err)) setMessage(err.message);
+                                            }
+                                          }
+                                        }}
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Read-only</span>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -1059,38 +1125,40 @@ export default function LaboratoryTestsPage() {
                       Preload and manage professional diagnostic interpretation templates mapped to specific laboratory test types for Sample Collector selection.
                     </p>
 
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!interpForm.title.trim() || !interpForm.interpretation.trim()) return;
-                        try {
-                          await api('/clinical-interpretations', { token, method: 'POST', body: JSON.stringify(interpForm) });
-                          setMessage('New clinical interpretation template added.');
-                          setInterpForm({ laboratoryTestName: 'Lipid Profile', title: '', interpretation: '' });
-                          loadInterps();
-                        } catch (err) {
-                          if (!isSilentNetworkError(err)) setMessage(err.message);
-                        }
-                      }}
-                      style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}
-                    >
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#075c91' }}>＋ Add New Interpretation Template</h4>
-                      <div className="form-grid" style={{ gap: '10px' }}>
-                        <label>Laboratory Test Type
-                          <input
-                            required
-                            value={interpForm.laboratoryTestName}
-                            onChange={e => setInterpForm({ ...interpForm, laboratoryTestName: e.target.value })}
-                            placeholder="e.g. Lipid Profile, Semen Analysis, CBC"
-                          />
-                        </label>
-                        <label>Template Title<input required value={interpForm.title} onChange={e => setInterpForm({ ...interpForm, title: e.target.value })} placeholder="e.g. Lipid Profile Risk Assessment" /></label>
-                        <label className="wide">Interpretation Body
-                          <textarea required rows={3} value={interpForm.interpretation} onChange={e => setInterpForm({ ...interpForm, interpretation: e.target.value })} placeholder="Enter standard non-diagnostic clinical interpretation text..." />
-                        </label>
-                      </div>
-                      <button className="primary" style={{ marginTop: '12px' }}>Save Template</button>
-                    </form>
+                    {!isSubAdmin && (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!interpForm.title.trim() || !interpForm.interpretation.trim()) return;
+                          try {
+                            await api('/clinical-interpretations', { token, method: 'POST', body: JSON.stringify(interpForm) });
+                            setMessage('New clinical interpretation template added.');
+                            setInterpForm({ laboratoryTestName: 'Lipid Profile', title: '', interpretation: '' });
+                            loadInterps();
+                          } catch (err) {
+                            if (!isSilentNetworkError(err)) setMessage(err.message);
+                          }
+                        }}
+                        style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}
+                      >
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#075c91' }}>＋ Add New Interpretation Template</h4>
+                        <div className="form-grid" style={{ gap: '10px' }}>
+                          <label>Laboratory Test Type
+                            <input
+                              required
+                              value={interpForm.laboratoryTestName}
+                              onChange={e => setInterpForm({ ...interpForm, laboratoryTestName: e.target.value })}
+                              placeholder="e.g. Lipid Profile, Semen Analysis, CBC"
+                            />
+                          </label>
+                          <label>Template Title<input required value={interpForm.title} onChange={e => setInterpForm({ ...interpForm, title: e.target.value })} placeholder="e.g. Lipid Profile Risk Assessment" /></label>
+                          <label className="wide">Interpretation Body
+                            <textarea required rows={3} value={interpForm.interpretation} onChange={e => setInterpForm({ ...interpForm, interpretation: e.target.value })} placeholder="Enter standard non-diagnostic clinical interpretation text..." />
+                          </label>
+                        </div>
+                        <button className="primary" style={{ marginTop: '12px' }}>Save Template</button>
+                      </form>
+                    )}
 
                     <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -1115,21 +1183,25 @@ export default function LaboratoryTestsPage() {
                                 </span>
                               </td>
                               <td style={{ padding: '8px 10px' }}>
-                                <button
-                                  type="button"
-                                  className="secondary"
-                                  style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                                  onClick={async () => {
-                                    try {
-                                      await api(`/clinical-interpretations/${item._id}`, { token, method: 'PUT', body: JSON.stringify({ active: !item.active }) });
-                                      loadInterps();
-                                    } catch (err) {
-                                      if (!isSilentNetworkError(err)) setMessage(err.message);
-                                    }
-                                  }}
-                                >
-                                  {item.active ? 'Deactivate' : 'Activate'}
-                                </button>
+                                {!isSubAdmin ? (
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                                    onClick={async () => {
+                                      try {
+                                        await api(`/clinical-interpretations/${item._id}`, { token, method: 'PUT', body: JSON.stringify({ active: !item.active }) });
+                                        loadInterps();
+                                      } catch (err) {
+                                        if (!isSilentNetworkError(err)) setMessage(err.message);
+                                      }
+                                    }}
+                                  >
+                                    {item.active ? 'Deactivate' : 'Activate'}
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Read-only</span>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1385,7 +1457,7 @@ export default function LaboratoryTestsPage() {
       </div>
 
       {/* Edit Test Drawer */}
-      {editingTest && editForm && (() => {
+      {!isSubAdmin && editingTest && editForm && (() => {
         const isEditingCbc = /^CBC$/i.test(editingTest?.subcategory || '') && /^HEMATOLOGY$/i.test(data.categories.find(c => c._id === (editForm.categoryId || editingTest?.category?._id || editingTest?.category))?.name || '');
         return (
           <div className="lab-drawer-backdrop" role="presentation" onClick={closeEdit}>

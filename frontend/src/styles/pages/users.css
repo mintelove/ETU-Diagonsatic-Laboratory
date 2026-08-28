@@ -349,6 +349,11 @@
   color: #6b21a8;
 }
 
+.role-badge.sub-admin {
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+  color: #0369a1;
+}
+
 .role-badge.reception {
   background: linear-gradient(135deg, #dbeafe, #c7d2fe);
   color: #1e40af;

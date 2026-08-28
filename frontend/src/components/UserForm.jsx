@@ -282,9 +282,12 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                 >
                   <option value="Admin">Admin</option>
+                  <option value="Sub Admin">Sub Admin</option>
                   <option value="Reception">Reception</option>
                   <option value="Sample Collector">Sample Collector</option>
                   <option value="Approver">Approver</option>
+                  <option value="Pathologist">Pathologist</option>
+                  <option value="Radiologist">Radiologist</option>
                 </select>
               </div>
 

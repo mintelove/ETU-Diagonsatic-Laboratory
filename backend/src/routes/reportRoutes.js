@@ -10,11 +10,11 @@ const router = Router();
 router.get('/public/:token', viewPublicReport);
 router.get('/public/:token/pdf', downloadPublicPdf);
 
-// PROTECTED ROUTES — REQUIRES ADMIN AUTH
-router.use(requireAuth, allowRoles(ROLES.ADMIN));
-router.get('/transactions', getTransactionsReport);
-router.get('/stock.csv', exportCsv);
-router.get('/stock.xlsx', exportExcel);
-router.get('/stock.pdf', exportPdf);
+// PROTECTED ROUTES
+router.use(requireAuth);
+router.get('/transactions', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), getTransactionsReport);
+router.get('/stock.csv', allowRoles(ROLES.ADMIN), exportCsv);
+router.get('/stock.xlsx', allowRoles(ROLES.ADMIN), exportExcel);
+router.get('/stock.pdf', allowRoles(ROLES.ADMIN), exportPdf);
 
 export default router;

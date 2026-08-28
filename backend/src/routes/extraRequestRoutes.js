@@ -7,6 +7,6 @@ import { listRequests, reviewRequest } from '../controllers/extraRequestControll
 
 const router = Router();
 router.use(requireAuth);
-router.get('/', allowRoles(ROLES.SAMPLE_COLLECTOR, ROLES.ADMIN, ROLES.APPROVER), listRequests);
+router.get('/', allowRoles(ROLES.SAMPLE_COLLECTOR, ROLES.ADMIN, ROLES.APPROVER, ROLES.RECEPTION, ROLES.SUB_ADMIN), listRequests);
 router.patch('/:id/review', allowRoles(ROLES.ADMIN, ROLES.APPROVER), validate(reviewRequestSchema), reviewRequest);
 export default router;

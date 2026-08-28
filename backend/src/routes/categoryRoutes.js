@@ -28,8 +28,8 @@ const router = Router();
 // Require authenticated session for all operations
 router.use(requireAuth);
 
-// GET /api/categories — Accessible by Admin and Reception
-router.get('/', allowRoles(ROLES.ADMIN, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR), listCategories);
+// GET /api/categories — Accessible by Admin, Reception, Sample Collector, and Sub Admin
+router.get('/', allowRoles(ROLES.ADMIN, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR, ROLES.SUB_ADMIN), listCategories);
 
 // Restrict remaining endpoints to Administrator role
 router.use(allowRoles(ROLES.ADMIN));

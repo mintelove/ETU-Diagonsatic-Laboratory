@@ -35,12 +35,18 @@ function roleClass(role) {
   switch (role) {
     case 'Admin':
       return 'admin';
+    case 'Sub Admin':
+      return 'sub-admin';
     case 'Reception':
       return 'reception';
     case 'Sample Collector':
       return 'collector';
     case 'Approver':
       return 'approver';
+    case 'Pathologist':
+      return 'pathologist';
+    case 'Radiologist':
+      return 'radiologist';
     default:
       return '';
   }
@@ -539,7 +545,7 @@ export default function UsersPage() {
         </div>
 
         <div className="filter-group">
-          {['All', 'Admin', 'Reception', 'Sample Collector', 'Approver'].map(
+          {['All', 'Admin', 'Sub Admin', 'Reception', 'Sample Collector', 'Approver', 'Pathologist', 'Radiologist'].map(
             (role) => (
               <button
                 key={role}

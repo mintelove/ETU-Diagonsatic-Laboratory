@@ -10,8 +10,7 @@ import { api, isSilentNetworkError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
-
-const ETB = n => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ETB`;
+import { formatETB as ETB } from '../utils/currencyHelper.js';
 
 const categoryIcons = {
   'HEMATOLOGY and IMMUNO HEMATOLOGY': '🩸',

@@ -14,33 +14,34 @@ const sameDay = (a, b) => {
   if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return false;
   return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 };
-
 function formatCountdown(targetDate, now) {
   if (!targetDate) return null;
   const editDate = new Date(targetDate);
   if (isNaN(editDate.getTime())) return null;
 
-  const endOfDay = new Date(editDate);
-  endOfDay.setHours(24, 0, 0, 0);
-  const diffMs = endOfDay.getTime() - now.getTime();
+  const unlockTime = new Date(editDate.getTime() + 24 * 60 * 60 * 1000);
+  const diffMs = unlockTime.getTime() - now.getTime();
   if (diffMs <= 0) return null;
 
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
 
-  const pad = n => String(n).padStart(2, '0');
+  const pad = (n) => String(n).padStart(2, '0');
   return {
     short: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
-    full: `${hours} Hours ${minutes} Minutes ${seconds} Seconds`
+    full: `${hours}h ${minutes}m ${seconds}s`,
+    human: `${hours}h ${minutes}m`
   };
 }
 
 export default function StockPage() {
   const { token, user } = useAuth();
   const admin = user?.role === 'Admin';
+  const isSubAdmin = user?.role === 'Sub Admin' || (user?.role && user.role.toLowerCase().includes('sub admin'));
   const isReception = user?.role === 'Reception' || user?.role === 'Receptionist' || (user?.role && user.role.toLowerCase().includes('reception'));
-  const canManage = admin || isReception;
+  const isRestrictedEditor = isSubAdmin || isReception;
+  const canManage = admin || isRestrictedEditor;
   const { subscribe, unsubscribe } = useRealtime();
   const [params] = useSearchParams();
   const [items, setItems] = useState([]);
@@ -58,7 +59,7 @@ export default function StockPage() {
   const [busy, setBusy] = useState(false);
   const [stockManagementMode, setStockManagementMode] = useState('Smart');
   
-  // Real-time ticker for live countdowns
+  // Real-time ticker for live countdowns (updates every second)
   const [now, setNow] = useState(() => new Date());
 
   // Modal State for Request Admin Approval
@@ -66,58 +67,55 @@ export default function StockPage() {
   const [requestReason, setRequestReason] = useState('');
   const [requestedQty, setRequestedQty] = useState('');
 
-  const query = useMemo(() => new URLSearchParams({ page, limit: 15, search: q, ...Object.fromEntries(Object.entries(filter).filter(([, v]) => v)) }).toString(), [page, q, filter]);
-
+  // Keep live timer active every second for precise 24-hour auto-unlocking
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  const load = () => {
-    api(`/stock?${query}`, { token }).then(x => { setItems(x.items); setMeta(x.pagination); }).catch(e => {
+  const load = async () => {
+    try {
+      const qParams = new URLSearchParams({ page, limit: 15, search: q, ...filter });
+      const [resItems, resCats, resRequests] = await Promise.all([
+        api(`/stock?${qParams}`, { token }),
+        api('/categories', { token }),
+        isRestrictedEditor ? api('/extra-requests', { token }).catch(() => ({ requests: [] })) : Promise.resolve({ requests: [] })
+      ]);
+      setItems(resItems.items || []);
+      setMeta(resItems.pagination || {});
+      setCategories(resCats.categories || []);
+      setRequests(resRequests.requests || []);
+    } catch (e) {
       if (!isSilentNetworkError(e)) setError(e.message);
-    });
-    if (canManage) {
-      api('/extra-requests', { token }).then(x => setRequests(x.requests || [])).catch(() => {});
     }
   };
 
   useEffect(() => {
-    api('/categories', { token }).then(x => setCategories(x.categories)).catch(() => {});
-    api('/laboratory-tests/settings', { token }).then(x => setStockManagementMode(x.settings?.stockManagementMode || 'Smart')).catch(() => {});
     load();
-  }, [query]);
-
-  useEffect(() => {
-    if (params.get('item')) api(`/stock/${params.get('item')}`, { token }).then(x => { setSelected(x.item); setMode('history'); }).catch(() => {});
-  }, [params]);
-
-  useEffect(() => {
-    const cb = () => load();
-    subscribe('stock:change', cb);
-    subscribe('categories:change', cb);
-    subscribe('extraRequests:change', cb);
+    const handleStockChange = () => load();
+    const handleRequestsChange = () => load();
+    subscribe('stock:change', handleStockChange);
+    subscribe('extraRequests:change', handleRequestsChange);
     return () => {
-      unsubscribe('stock:change', cb);
-      unsubscribe('categories:change', cb);
-      unsubscribe('extraRequests:change', cb);
+      unsubscribe('stock:change', handleStockChange);
+      unsubscribe('extraRequests:change', handleRequestsChange);
     };
-  }, [subscribe, unsubscribe]);
+  }, [page, q, filter]);
 
-  async function updateMode(newMode) {
-    try {
-      await api('/laboratory-tests/settings', { token, method: 'PUT', body: JSON.stringify({ stockManagementMode: newMode }) });
-      setStockManagementMode(newMode);
-      setMessage(`Stock management mode changed to ${newMode} Stock Management.`);
-    } catch (e) {
-      if (!isSilentNetworkError(e)) setError(e.message);
+  useEffect(() => {
+    const modeParam = params.get('mode');
+    if (modeParam && ['Smart', 'Manual'].includes(modeParam)) {
+      setStockManagementMode(modeParam);
     }
-  }
+  }, [params]);
 
   const openApprovalModal = (item) => {
     setRequestModalItem(item);
     setRequestReason('');
-    setRequestedQty(item.remainingQuantity ?? item.currentQuantity);
+    setRequestedQty(item.remainingQuantity);
+    setError('');
   };
 
   const submitRequestApproval = async (e) => {
@@ -136,7 +134,7 @@ export default function StockPage() {
           requestedEdit: `Quantity request: ${requestedQty !== '' ? requestedQty : 'Modify item details'}`
         })
       });
-      setMessage(`Request Admin Approval for ${requestModalItem.itemName} submitted to Admin Approval Center.`);
+      setMessage(`Request to edit ${requestModalItem.itemName} submitted to Admin Approval Center.`);
       setRequestModalItem(null);
       setRequestReason('');
       setRequestedQty('');
@@ -161,7 +159,7 @@ export default function StockPage() {
     } catch (e) {
       if (!isSilentNetworkError(e)) {
         setError(e.message);
-        if (isReception && e.message.includes('Administrator approval is required') && selected) {
+        if (isRestrictedEditor && e.message.includes('Administrator approval is required') && selected) {
           openApprovalModal(selected);
         }
       }
@@ -193,7 +191,7 @@ export default function StockPage() {
     } catch (e) {
       if (!isSilentNetworkError(e)) {
         setError(e.message);
-        if (isReception && e.message.includes('Administrator approval is required')) {
+        if (isRestrictedEditor && e.message.includes('Administrator approval is required')) {
           openApprovalModal(i);
         }
       }
@@ -206,27 +204,29 @@ export default function StockPage() {
     setMode('history');
   }
 
-  // Partition items into editable vs locked for Receptionist
+  // Partition items into editable vs locked for Sub Admin / Receptionist (Strictly Per-Item 24h Lock)
   const { editableItems, lockedItems } = useMemo(() => {
-    if (!isReception) return { editableItems: items, lockedItems: [] };
+    if (!isRestrictedEditor) return { editableItems: items, lockedItems: [] };
     const ed = [];
     const lo = [];
     items.forEach(i => {
       const itemReq = requests.find(r => r.requestType === 'Stock Edit' && (r.item?._id === i._id || r.item === i._id));
-      const isEditedToday = i.receptionEditedOn && sameDay(i.receptionEditedOn, now);
-      const hasApprovedEdit = itemReq?.status === 'Approved' || i.receptionExtraEditGranted;
-      if (isEditedToday && !hasApprovedEdit) {
+      const editDate = i.userEditedOn || (isReception ? i.receptionEditedOn : null);
+      const isLocked24h = editDate && (now.getTime() - new Date(editDate).getTime() < 24 * 60 * 60 * 1000);
+      const hasApprovedEdit = itemReq?.status === 'Approved' || i.userExtraEditGranted || (isReception && i.receptionExtraEditGranted);
+      if (isLocked24h && !hasApprovedEdit) {
         lo.push(i);
       } else {
         ed.push(i);
       }
     });
     return { editableItems: ed, lockedItems: lo };
-  }, [items, isReception, requests, now]);
+  }, [items, isRestrictedEditor, isReception, requests, now]);
 
   const renderCard = (i, isLocked) => {
-    const itemReq = isReception ? requests.find(r => r.requestType === 'Stock Edit' && (r.item?._id === i._id || r.item === i._id)) : null;
-    const countdown = isLocked ? formatCountdown(i.receptionEditedOn, now) : null;
+    const itemReq = isRestrictedEditor ? requests.find(r => r.requestType === 'Stock Edit' && (r.item?._id === i._id || r.item === i._id)) : null;
+    const editDate = i.userEditedOn || (isReception ? i.receptionEditedOn : null);
+    const countdown = isLocked ? formatCountdown(editDate, now) : null;
 
     return (
       <article key={i._id} className="stock-card" style={isLocked ? { border: '2px solid rgba(245, 158, 11, 0.45)', background: 'var(--card-bg, #fff)' } : {}}>
@@ -247,22 +247,22 @@ export default function StockPage() {
           <span>{i.usedQuantity} used</span>
         </div>
 
-        {isReception && (
+        {isRestrictedEditor && (
           <div style={{ margin: '10px 0 4px 0' }}>
             {isLocked && countdown && (
               <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '10px', padding: '10px 12px', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', fontSize: '0.82rem', color: '#b45309', fontWeight: 700 }}>
-                  <span>🔒 Already Edited Today</span>
+                  <span>🔒 24-Hour Edit Lock</span>
                   <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', background: 'rgba(245, 158, 11, 0.2)', padding: '2px 8px', borderRadius: '6px', color: '#92400e' }}>
                     {countdown.short}
                   </span>
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #475569)', marginTop: '6px', textAlign: 'center', fontWeight: 600 }}>
-                  ⏳ Available again in: <span style={{ color: '#b45309' }}>{countdown.full}</span>
+                  ⏳ Can edit again in: <span style={{ color: '#b45309' }}>{countdown.human}</span> ({countdown.short})
                 </div>
-                {i.receptionEditedOn && (
+                {editDate && (
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary, #64748b)', textAlign: 'center', marginTop: '4px' }}>
-                    Last edited today at {new Date(i.receptionEditedOn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    Last edited at {new Date(editDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
               </div>
@@ -307,7 +307,7 @@ export default function StockPage() {
         )}
 
         <div className="card-footer">
-          <span>KES {Number(i.purchasePrice).toLocaleString()}</span>
+          <span>{Number(i.purchasePrice).toLocaleString()} ETB</span>
           <div className="actions" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="text-action" onClick={() => showHistory(i)}>History</button>
             {canManage && (
@@ -319,7 +319,7 @@ export default function StockPage() {
                     </button>
                   ) : (
                     <button className="secondary" style={{ background: 'var(--color-primary-container, rgba(2, 132, 199, 0.15))', color: 'var(--color-primary, #0284c7)', borderColor: 'var(--color-primary)', fontWeight: 700, fontSize: '0.78rem', padding: '6px 12px', borderRadius: '8px' }} onClick={() => openApprovalModal(i)}>
-                      🔐 Request Admin Approval
+                      🔐 Request Admin Permission
                     </button>
                   )
                 ) : (
@@ -442,14 +442,14 @@ export default function StockPage() {
       </div>
 
       {/* Recently Edited / Locked Items Section */}
-      {isReception && lockedItems.length > 0 && (
+      {isRestrictedEditor && lockedItems.length > 0 && (
         <div style={{ marginTop: '32px' }}>
           <div style={{ borderTop: '2px dashed var(--card-border, #cbd5e1)', paddingTop: '20px', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '1.2rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <span>🔒</span> Recently Edited / Locked Items ({lockedItems.length})
+              <span>🔒</span> 24-Hour Locked Stock Items ({lockedItems.length})
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-              These stock items were edited today and are restricted under daily limits. You can request Admin approval for additional edits.
+              These stock items were edited within the last 24 hours. The timer counts down per item and auto-unlocks when 24 hours expire, or you can request Admin Permission.
             </p>
           </div>
 

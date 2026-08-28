@@ -19,6 +19,8 @@ const icon = {
   users: '♚',
   settings: '⚙',
   about: 'ℹ',
+  pathology: '🔬',
+  radiology: '🩻',
 };
 
 export default function AppLayout() {
@@ -42,6 +44,10 @@ export default function AppLayout() {
       ? '/collection'
       : user.role === 'Approver'
       ? '/report-approvals'
+      : user.role === 'Pathologist'
+      ? '/pathology'
+      : user.role === 'Radiologist'
+      ? '/radiology'
       : '/admin';
 
   const locale = preferences.language === 'am' ? 'am-ET' : 'en-GB';
@@ -118,15 +124,23 @@ export default function AppLayout() {
               <Item to="/counselling" name={t('counselling')} kind="counselling" />
             </>
           )}
+          {user.role === 'Pathologist' && <Item to="/pathology" name="Pathology Queue" kind="pathology" />}
+          {user.role === 'Radiologist' && <Item to="/radiology" name="Radiology Queue" kind="radiology" />}
           {['Admin', 'Reception'].includes(user.role) && <Item to="/counselling" name={t('counselling')} kind="counselling" />}
-          {user.role === 'Admin' && <Item to="/extra-requests" name={t('extraRequests')} kind="approvals" />}
+          {['Admin', 'Sub Admin'].includes(user.role) && <Item to="/extra-requests" name={t('extraRequests')} kind="approvals" />}
           {user.role === 'Approver' && <Item to="/report-approvals" name={t('approvals')} kind="approvals" />}
-          {['Admin', 'Reception'].includes(user.role) && <Item to="/stock" name={t('stock')} kind="stock" />}
+          {['Admin', 'Sub Admin', 'Reception'].includes(user.role) && <Item to="/stock" name={t('stock')} kind="stock" />}
+          {['Admin', 'Sub Admin'].includes(user.role) && <Item to="/admin-reports" name={t('reports')} kind="reports" />}
+          {['Admin', 'Sub Admin'].includes(user.role) && <Item to="/laboratory-tests" name={t('labTests')} kind="samples" />}
+          {['Admin', 'Sub Admin'].includes(user.role) && (
+            <>
+              <Item to="/admin-pathology" name="Pathology" kind="pathology" />
+              <Item to="/admin-radiology" name="Radiology" kind="radiology" />
+            </>
+          )}
           {user.role === 'Admin' && (
             <>
-              <Item to="/admin-reports" name={t('reports')} kind="reports" />
               <Item to="/patient-management" name={t('patients')} kind="patients" />
-              <Item to="/laboratory-tests" name={t('labTests')} kind="samples" />
               <Item to="/categories" name={t('categories')} kind="categories" />
               <Item to="/users" name={t('users')} kind="users" />
               <Item to="/settings" name={t('settings')} kind="settings" />

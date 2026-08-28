@@ -26,6 +26,8 @@ import eventRoutes from './routes/eventRoutes.js';
 import laboratoryTestRoutes from './routes/laboratoryTestRoutes.js';
 import publicReportRoutes from './routes/publicReportRoutes.js';
 import clinicalInterpretationRoutes from './routes/clinicalInterpretationRoutes.js';
+import pathologyRoutes from './routes/pathologyRoutes.js';
+import radiologyRoutes from './routes/radiologyRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -49,7 +51,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
-app.use(express.json({ limit: '20kb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(mongoSanitize());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
@@ -74,6 +77,8 @@ app.use('/api/counselling', counsellingRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/laboratory-tests', laboratoryTestRoutes);
+app.use('/api/pathology', pathologyRoutes);
+app.use('/api/radiology', radiologyRoutes);
 app.use('/api/clinical-interpretations', clinicalInterpretationRoutes);
 app.use('/api/public', publicReportRoutes);
 app.use(notFound);

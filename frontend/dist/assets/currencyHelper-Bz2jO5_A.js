@@ -1,0 +1,1 @@
+function m(r,{decimals:t=2,showCode:n=!0,locale:u="en-US"}={}){const i=Number(r||0);if(isNaN(i))return n?"0.00 ETB":"0.00";const o=i.toLocaleString(u,{minimumFractionDigits:t,maximumFractionDigits:t});return n?`${o} ETB`:o}function e(r,t=2){return m(r,{decimals:t,showCode:!0})}export{e as f};

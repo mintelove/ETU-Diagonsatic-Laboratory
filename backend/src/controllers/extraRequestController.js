@@ -17,7 +17,7 @@ async function alertUsers(roles, message, entity) {
 export async function listRequests(req, res, next) {
   try {
     const filter = {};
-    if (['Sample Collector', 'Reception'].includes(req.user.role)) {
+    if (['Sample Collector', 'Reception', 'Sub Admin', 'sub_admin'].includes(req.user.role)) {
       filter.requestedBy = req.user.id;
     }
     if (req.query.status) filter.status = req.query.status;
@@ -47,12 +47,22 @@ export async function reviewRequest(req, res, next) {
       request.reviewedBy = req.user.id;
       request.reviewedAt = new Date();
 
+      const item = await StockItem.findById(request.item).session(session);
+      if (item) changedItem = item;
+
       if (decision === 'Approved') {
-        const item = await StockItem.findById(request.item).session(session);
         if (!item || item.status !== 'Active') throw new AppError('Stock item not found or inactive.', 422);
 
         if (request.requestType === 'Stock Edit') {
           item.receptionExtraEditGranted = true;
+          if (!item.userEdits) item.userEdits = [];
+          const userIdx = item.userEdits.findIndex((e) => String(e.user) === String(request.requestedBy));
+          if (userIdx >= 0) {
+            item.userEdits[userIdx].extraEditGranted = true;
+          } else {
+            item.userEdits.push({ user: request.requestedBy, editedOn: new Date(), extraEditGranted: true });
+          }
+
           if (request.quantity > 0 && request.quantity !== (item.currentQuantity - item.usedQuantity)) {
             const previousQuantity = item.currentQuantity - item.usedQuantity;
             item.currentQuantity = request.quantity + item.usedQuantity;
@@ -88,13 +98,34 @@ export async function reviewRequest(req, res, next) {
           changedItem = item;
         }
       }
+
       await request.save({ session });
-      await alertUsers(['Sample Collector', 'Reception'], `Stock request ${request.requestNumber} was ${decision.toLowerCase()}.`, request.id);
+
+      if (request.requestedBy) {
+        const stockItemName = changedItem?.itemName || 'Stock Item';
+        const notifMessage = request.requestType === 'Stock Edit'
+          ? (decision === 'Approved'
+              ? `Your request to edit ${stockItemName} was approved by the Admin.`
+              : `Your request to edit ${stockItemName} was rejected by the Admin.`)
+          : `Stock request ${request.requestNumber} was ${decision.toLowerCase()}.`;
+
+        await Notification.create([{
+          recipient: request.requestedBy,
+          type: 'Critical Laboratory Message',
+          message: notifMessage,
+          entity: request.id,
+          entityType: 'ExtraStockRequest',
+          item: request.item
+        }], { session });
+      }
+
+      await alertUsers(['Sample Collector', 'Reception', 'Sub Admin'], `Stock request ${request.requestNumber} was ${decision.toLowerCase()}.`, request.id);
     });
 
     if (changedItem) await notifyStockLevel(changedItem);
     await recordActivity(req.user.id, `Stock request ${decision.toLowerCase()}`, 'ExtraStockRequest', req.params.id, decision, { role: req.user.role, ipAddress: req.ip });
     emit('extraRequests:change', { action: decision.toLowerCase() });
+    emit('notifications:change', { action: 'new' });
     if (changedItem) emit('stock:change', { action: 'quantity' });
     res.json({ message: `Request ${decision.toLowerCase()}.` });
   } catch (error) { next(error); } finally { await session.endSession(); }

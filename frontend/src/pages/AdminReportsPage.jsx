@@ -12,10 +12,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import api, { isSilentNetworkError } from '../services/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 
 import { useScrollLock } from '../utils/useScrollLock.js';
 import ModalPortal from '../components/ModalPortal.jsx';
+import { formatETB } from '../utils/currencyHelper.js';
 
 function toISO(d) {
   const y = d.getFullYear();
@@ -29,13 +31,19 @@ function safe(val) {
 }
 
 export default function AdminReportsPage() {
-  const [reportMode, setReportMode] = useState('single'); // 'single' | 'range'
+  const { user } = useAuth();
+  const isSubAdmin = user?.role === 'Sub Admin' || (user?.role && user.role.toLowerCase().includes('sub admin'));
+  const [reportMode, setReportMode] = useState(isSubAdmin ? 'range' : 'single'); // 'single' | 'range'
   const [date, setDate] = useState(toISO(new Date()));
-  const [dateFrom, setDateFrom] = useState(toISO(new Date()));
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 3);
+    return toISO(d);
+  });
   const [dateTo, setDateTo] = useState(toISO(new Date()));
   const [receptionist, setReceptionist] = useState('all');
   const [collector, setCollector] = useState('all');
-  const [branchName, setBranchName] = useState('all');
+  const [branchName, setBranchName] = useState(isSubAdmin ? (user?.branchName || 'Main') : 'all');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,16 +54,16 @@ export default function AdminReportsPage() {
 
   /* ── Date Range Validation ───────────────────────────── */
   useEffect(() => {
-    if (reportMode === 'range' && dateFrom && dateTo && dateFrom > dateTo) {
+    if (!isSubAdmin && reportMode === 'range' && dateFrom && dateTo && dateFrom > dateTo) {
       setValidationError('From Date cannot be later than To Date.');
     } else {
       setValidationError('');
     }
-  }, [reportMode, dateFrom, dateTo]);
+  }, [reportMode, dateFrom, dateTo, isSubAdmin]);
 
   /* ── Load Transaction Report ────────────────────────── */
   const loadReport = useCallback(async () => {
-    if (reportMode === 'range' && dateFrom && dateTo && dateFrom > dateTo) {
+    if (!isSubAdmin && reportMode === 'range' && dateFrom && dateTo && dateFrom > dateTo) {
       setValidationError('From Date cannot be later than To Date.');
       return;
     }
@@ -65,17 +73,19 @@ export default function AdminReportsPage() {
       setError('');
       setValidationError('');
       const params = {
-        mode: reportMode,
+        mode: isSubAdmin ? 'range' : reportMode,
         receptionist,
         collector
       };
-      if (branchName !== 'all') params.branchName = branchName;
+      params.branchName = isSubAdmin ? (user?.branchName || 'Main') : (branchName !== 'all' ? branchName : undefined);
 
-      if (reportMode === 'range') {
-        params.dateFrom = dateFrom;
-        params.dateTo = dateTo;
-      } else {
-        params.date = date;
+      if (!isSubAdmin) {
+        if (reportMode === 'range') {
+          params.dateFrom = dateFrom;
+          params.dateTo = dateTo;
+        } else {
+          params.date = date;
+        }
       }
 
       const res = await api.get('/reports/transactions', { params });
@@ -85,7 +95,7 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [reportMode, date, dateFrom, dateTo, receptionist, collector, branchName]);
+  }, [reportMode, date, dateFrom, dateTo, receptionist, collector, branchName, isSubAdmin, user]);
 
   useEffect(() => {
     loadReport();
@@ -140,7 +150,7 @@ export default function AdminReportsPage() {
         </td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">📍 ${safe(t.branchName || 'Main')}</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">${safe(t.tests)}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #d6e2e7; text-align: right; font-weight: 600;">ETB ${(t.grandTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #d6e2e7; text-align: right; font-weight: 600;">${formatETB(t.grandTotal)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">${safe(t.paymentMethod)} (${safe(t.paymentStatus)})</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">${safe(t.receptionist)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #d6e2e7;">${safe(t.collector)}</td>
@@ -209,7 +219,7 @@ export default function AdminReportsPage() {
           </table>
           <div class="summary-box">
             <span>Total Transactions: ${data.summary?.totalTransactions || 0}</span>
-            <span>Total Revenue: ETB ${(data.summary?.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+            <span>Total Revenue: ${formatETB(data.summary?.totalRevenue)}</span>
           </div>
         ` : `
           <div style="padding: 30px; text-align: center; color: #607d8b; font-size: 16px; background: #fafafa; border: 1px dashed #cfd8dc; border-radius: 8px;">
@@ -287,103 +297,121 @@ export default function AdminReportsPage() {
             <span>🎛️</span> Report Filter Controls
           </h3>
           
-          {/* Report Mode Toggle Selector */}
-          <div style={{ display: 'flex', background: 'var(--color-background,#f0f4f7)', borderRadius: '8px', padding: '3px', border: '1px solid var(--color-border,#d7e5eb)' }}>
-            <button
-              onClick={() => setReportMode('single')}
-              style={{
-                padding: '0.4rem 0.9rem',
-                fontSize: '12px',
-                fontWeight: 600,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                background: reportMode === 'single' ? 'var(--color-primary,#075c91)' : 'transparent',
-                color: reportMode === 'single' ? '#fff' : 'var(--color-on-surface-variant,#546e7a)',
-                boxShadow: reportMode === 'single' ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              📅 Single Date
-            </button>
-            <button
-              onClick={() => setReportMode('range')}
-              style={{
-                padding: '0.4rem 0.9rem',
-                fontSize: '12px',
-                fontWeight: 600,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                background: reportMode === 'range' ? 'var(--color-primary,#075c91)' : 'transparent',
-                color: reportMode === 'range' ? '#fff' : 'var(--color-on-surface-variant,#546e7a)',
-                boxShadow: reportMode === 'range' ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              📆 Date Range
-            </button>
-          </div>
+          {/* Report Mode Toggle Selector (Admin Only) */}
+          {!isSubAdmin && (
+            <div style={{ display: 'flex', background: 'var(--color-background,#f0f4f7)', borderRadius: '8px', padding: '3px', border: '1px solid var(--color-border,#d7e5eb)' }}>
+              <button
+                onClick={() => setReportMode('single')}
+                style={{
+                  padding: '0.4rem 0.9rem',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: reportMode === 'single' ? 'var(--color-primary,#075c91)' : 'transparent',
+                  color: reportMode === 'single' ? '#fff' : 'var(--color-on-surface-variant,#546e7a)',
+                  boxShadow: reportMode === 'single' ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                📅 Single Date
+              </button>
+              <button
+                onClick={() => setReportMode('range')}
+                style={{
+                  padding: '0.4rem 0.9rem',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: reportMode === 'range' ? 'var(--color-primary,#075c91)' : 'transparent',
+                  color: reportMode === 'range' ? '#fff' : 'var(--color-on-surface-variant,#546e7a)',
+                  boxShadow: reportMode === 'range' ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                📆 Date Range
+              </button>
+            </div>
+          )}
         </div>
+
+        {isSubAdmin && (
+          <div style={{ background: 'var(--color-background, #f8fafc)', border: '1px solid var(--color-border, #e2e8f0)', borderRadius: '10px', padding: '12px 16px', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <strong style={{ fontSize: '0.9rem', color: 'var(--color-primary, #075c91)' }}>🔒 Reporting Window: Allowed Past 4 Days</strong>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)' }}>Showing clinical transactions for <strong>📍 {user?.branchName || 'Main'} Branch</strong> from the last 4 days (Current Date + 3 Days).</p>
+            </div>
+            <span style={{ background: 'rgba(7, 92, 145, 0.12)', color: 'var(--color-primary, #075c91)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700 }}>
+              Branch &amp; 4-Day Window Locked
+            </span>
+          </div>
+        )}
 
         {/* Filter Controls Responsive Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1.2rem', alignItems: 'flex-end' }}>
           
-          {/* Date Picker Controls */}
-          {reportMode === 'single' ? (
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
-                📅 Select Date
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
-              />
-            </div>
-          ) : (
-            <>
+          {/* Date Picker Controls (Admin Only) */}
+          {!isSubAdmin && (
+            reportMode === 'single' ? (
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
-                  🛫 From Date
+                  📅 Select Date
                 </label>
                 <input
                   type="date"
-                  value={dateFrom}
-                  onChange={e => setDateFrom(e.target.value)}
-                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: validationError ? '1px solid #e53935' : '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
                 />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
-                  🛬 To Date
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={e => setDateTo(e.target.value)}
-                  style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: validationError ? '1px solid #e53935' : '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
-                />
-              </div>
-            </>
+            ) : (
+              <>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
+                    🛫 From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={e => setDateFrom(e.target.value)}
+                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: validationError ? '1px solid #e53935' : '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
+                    🛬 To Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={e => setDateTo(e.target.value)}
+                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: validationError ? '1px solid #e53935' : '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
+                  />
+                </div>
+              </>
+            )
           )}
 
-          {/* Branch Dropdown */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
-              📍 Branch Name
-            </label>
-            <select
-              value={branchName}
-              onChange={e => setBranchName(e.target.value)}
-              style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
-            >
-              <option value="all">All Branches</option>
-              <option value="Main">Main Branch</option>
-              <option value="Otona">Otona Branch</option>
-            </select>
-          </div>
+          {/* Branch Dropdown (Admin Only) */}
+          {!isSubAdmin && (
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-on-surface-variant,#546e7a)', marginBottom: '6px' }}>
+                📍 Branch Name
+              </label>
+              <select
+                value={branchName}
+                onChange={e => setBranchName(e.target.value)}
+                style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--color-border,#cbdbe3)', fontSize: '13px', background: 'var(--color-surface,#fff)', color: 'var(--color-on-surface,#102a36)' }}
+              >
+                <option value="all">All Branches</option>
+                <option value="Main">Main Branch</option>
+                <option value="Otona">Otona Branch</option>
+              </select>
+            </div>
+          )}
 
           {/* Receptionist Dropdown */}
           <div>
@@ -486,7 +514,7 @@ export default function AdminReportsPage() {
         <article className="enterprise-card green" style={{ padding: '1rem 1.2rem' }}>
           <small style={{ color: 'var(--color-on-surface-variant,#506a77)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Total Filtered Revenue</small>
           <strong style={{ fontSize: '1.4rem', color: '#2e7d32', marginTop: '4px', display: 'block' }}>
-            ETB {validationError ? '0.00' : (data?.summary?.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {validationError ? '0.00 ETB' : formatETB(data?.summary?.totalRevenue)}
           </strong>
         </article>
       </div>
@@ -540,7 +568,7 @@ export default function AdminReportsPage() {
                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>📍 {t.branchName || 'Main'}</td>
                     <td style={{ padding: '10px 12px', color: 'var(--color-on-surface,#263238)' }}>{t.tests}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#2e7d32' }}>
-                      ETB {t.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      {formatETB(t.grandTotal)}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: t.paymentStatus === 'Paid' ? '#e8f5e9' : '#fff3e0', color: t.paymentStatus === 'Paid' ? '#1b5e20' : '#e65100', fontWeight: 600 }}>
@@ -603,7 +631,7 @@ export default function AdminReportsPage() {
             <div style={{ background: 'var(--color-surface-bright, #fff)', border: '1px solid var(--color-outline-variant, rgba(0,0,0,0.08))', borderRadius: '10px', padding: '12px' }}>
               <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary, #075c91)', fontSize: '0.82rem', textTransform: 'uppercase' }}>Billing & Payment</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Grand Total:</strong> {selectedTransaction?.grandTotal ? `${selectedTransaction.grandTotal.toLocaleString()} ETB` : '—'}</div>
+                <div><strong>Grand Total:</strong> {selectedTransaction?.grandTotal !== undefined ? formatETB(selectedTransaction.grandTotal) : '—'}</div>
                 <div><strong>Payment Status:</strong> {selectedTransaction?.paymentStatus}</div>
                 <div><strong>Payment Method:</strong> {selectedTransaction?.paymentMethod || 'Cash'}</div>
                 <div><strong>Receipt #:</strong> {selectedTransaction?.receiptNumber || '—'}</div>
