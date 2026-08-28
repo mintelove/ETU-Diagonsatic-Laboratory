@@ -118,6 +118,57 @@ export function ReportPreview({ report }) {
 
       {/* Test Parameters & Results Table — grouped by main category */}
       {(() => {
+        const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
+        const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
+
+        if (isPathology) {
+          if (report.reportType === 'Option A' || (!report.reportType && report.reportContent)) {
+            return (
+              <div style={{ margin: '14px 0', padding: '16px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#075c91', textTransform: 'uppercase' }}>Pathology Examination Report ({report.testType || 'Biopsy'})</h4>
+                <div className="rich-report-body" dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }} />
+              </div>
+            );
+          }
+          const s = report.structuredReport || {};
+          return (
+            <div style={{ margin: '14px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <h4 style={{ margin: '0 0 4px 0', color: '#075c91', textTransform: 'uppercase' }}>Structured Pathology Findings ({report.testType || 'Biopsy'})</h4>
+              {s.clinicalHistory && <div><b style={{ color: '#075c91' }}>Clinical History:</b> <div>{s.clinicalHistory}</div></div>}
+              {s.specimen && <div><b style={{ color: '#075c91' }}>Specimen / Site:</b> <div>{s.specimen}</div></div>}
+              {s.grossDescription && <div><b style={{ color: '#075c91' }}>Gross Description:</b> <div>{s.grossDescription}</div></div>}
+              {s.microscopicDescription && <div><b style={{ color: '#075c91' }}>Microscopic Findings:</b> <div>{s.microscopicDescription}</div></div>}
+              {s.cytologicalFindings && <div><b style={{ color: '#075c91' }}>Cytological Findings:</b> <div>{s.cytologicalFindings}</div></div>}
+              {s.diagnosis && <div style={{ background: '#f0f7fa', padding: '10px 14px', borderLeft: '4px solid #075c91', borderRadius: '4px' }}><b style={{ color: '#075c91' }}>Pathological Diagnosis:</b> <div style={{ fontWeight: 'bold' }}>{s.diagnosis}</div></div>}
+              {s.comments && <div><b style={{ color: '#075c91' }}>Comments:</b> <div>{s.comments}</div></div>}
+              {s.recommendation && <div><b style={{ color: '#075c91' }}>Recommendations:</b> <div>{s.recommendation}</div></div>}
+            </div>
+          );
+        }
+
+        if (isRadiology) {
+          const examLabel = report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging');
+          if (report.reportType === 'Option A' || (!report.reportType && report.reportContent)) {
+            return (
+              <div style={{ margin: '14px 0', padding: '16px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#075c91', textTransform: 'uppercase' }}>Radiology Examination Report ({examLabel})</h4>
+                <div className="rich-report-body" dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }} />
+              </div>
+            );
+          }
+          const s = report.structuredReport || {};
+          return (
+            <div style={{ margin: '14px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <h4 style={{ margin: '0 0 4px 0', color: '#075c91', textTransform: 'uppercase' }}>Structured Radiology Findings ({examLabel})</h4>
+              {s.clinicalInformation && <div><b style={{ color: '#075c91' }}>Clinical Information:</b> <div>{s.clinicalInformation}</div></div>}
+              {s.technique && <div><b style={{ color: '#075c91' }}>Technique:</b> <div>{s.technique}</div></div>}
+              {s.findings && <div><b style={{ color: '#075c91' }}>Imaging Findings:</b> <div>{s.findings}</div></div>}
+              {s.impression && <div style={{ background: '#f0f7fa', padding: '10px 14px', borderLeft: '4px solid #075c91', borderRadius: '4px' }}><b style={{ color: '#075c91' }}>Impression:</b> <div style={{ fontWeight: 'bold' }}>{s.impression}</div></div>}
+              {s.recommendation && <div><b style={{ color: '#075c91' }}>Recommendations:</b> <div>{s.recommendation}</div></div>}
+            </div>
+          );
+        }
+
         const results = report.results || [];
         if (!results.length) {
           return (

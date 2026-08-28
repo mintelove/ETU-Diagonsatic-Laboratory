@@ -238,30 +238,34 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     .toolbar { padding: 10px; text-align: center; background: #063d5b; }
     .toolbar button { padding: 7px 14px; border: 0; border-radius: 5px; margin: 0 4px; font-weight: bold; cursor: pointer; }
     .toolbar .primary { background: #17a2b8; color: white; }
-    .page { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 14mm; background: white; box-shadow: 0 2px 14px rgba(0,0,0,0.15); page-break-after: always; }
+    .page { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 14mm; background: white; box-shadow: 0 2px 14px rgba(0,0,0,0.15); }
     .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 3px solid #087ca8; padding-bottom: 12px; }
     .logo { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 15px; background: linear-gradient(135deg, #075c91, #10a4c7); color: #fff; font-size: 22px; font-weight: 800; margin-bottom: 8px; }
     .header h1 { margin: 6px 0 0; color: #075c91; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px; }
     .header p.sub { margin: 4px 0 0 0; font-size: 13px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 1px; }
-    .section { margin-top: 18px; }
+    .section { margin-top: 18px; page-break-inside: avoid; break-inside: avoid; }
     .section h2 { margin: 0 0 10px; padding: 7px 11px; background: #e8f5fa; color: #075c91; border-left: 4px solid #0b95b7; font-size: 12.5px; text-transform: uppercase; letter-spacing: .5px; }
-    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; font-size: 12.5px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #cbd5e1; }
+    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; font-size: 12.5px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
     .patient div { display: flex; gap: 8px; }
     .patient b { min-width: 115px; color: #475569; }
-    .result-cat-block { margin-bottom: 16px; }
+    .result-cat-block { margin-bottom: 16px; page-break-inside: avoid; break-inside: avoid; }
     .result-cat-header { margin: 0 0 6px 0; padding: 6px 12px; background: #075c91; color: #ffffff; border-radius: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
     th { background: #075c91; color: white; text-align: left; padding: 8px 10px; font-size: 12px; text-transform: uppercase; }
     td { padding: 8px 10px; border-bottom: 1px solid #d6e2e7; font-size: 12.5px; }
     tbody tr:nth-child(even) { background: #f8fafc; }
     td small { display: block; color: #657d87; margin-top: 4px; font-size: 11px; }
-    .rich-report-body img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 6px; }
-    .footer { margin-top: 25px; padding-top: 10px; border-top: 1px solid #c9d9df; display: flex; justify-content: space-between; color: #59727c; font-size: 11px; }
+    .rich-report-body { word-break: break-word; line-height: 1.6; }
+    .rich-report-body img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 4px; page-break-inside: avoid; break-inside: avoid; }
+    .rich-report-body table { width: 100%; border-collapse: collapse; margin: 10px 0; page-break-inside: avoid; break-inside: avoid; }
+    .rich-report-body table th, .rich-report-body table td { border: 1px solid #cbd5e1; padding: 6px 10px; }
+    .footer { margin-top: 25px; padding-top: 10px; border-top: 1px solid #c9d9df; display: flex; justify-content: space-between; color: #59727c; font-size: 11px; page-break-inside: avoid; break-inside: avoid; }
     .footer b { color: #203640; }
     @media print {
-      body { background: #fff; }
+      body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .toolbar { display: none; }
-      .page { margin: 0; width: auto; min-height: 0; padding: 0; box-shadow: none; }
+      .page { margin: 0; width: 100%; min-height: auto; padding: 10mm 12mm; box-shadow: none; }
     }
   </style>
 </head>

@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
+import RichReportEditor from '../components/RichReportEditor.jsx';
 
 export default function RadiologyPage() {
   const { user, token } = useAuth();
@@ -438,31 +439,13 @@ export default function RadiologyPage() {
             {reportType === 'Option A' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.84rem', color: '#475569' }}>
-                  <strong>💡 Tip for Option A:</strong> You can directly paste radiology imaging reports from Microsoft Word or documents. Multiple paragraphs, headings, diagnostic tables, and full-resolution imaging figures are preserved cleanly for multi-page A4 printing.
+                  <strong>💡 Option A Rich Document Editor:</strong> Type, paste from Microsoft Word (preserves font styles, headings, tables, and images), paste images from clipboard, or import a <code>.docx</code> file directly.
                 </div>
 
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  dangerouslySetInnerHTML={{ __html: reportContent }}
-                  onInput={() => {
-                    if (editorRef.current) setReportContent(editorRef.current.innerHTML);
-                  }}
-                  style={{
-                    minHeight: '280px',
-                    maxHeight: '460px',
-                    overflowY: 'auto',
-                    border: '1.5px solid var(--color-border, #cbd5e1)',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    background: '#fff',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    color: '#1e293b',
-                    outline: 'none'
-                  }}
+                <RichReportEditor
+                  value={reportContent}
+                  onChange={setReportContent}
+                  placeholder="Enter radiology imaging report, paste from Microsoft Word, or upload .docx report…"
                 />
               </div>
             )}
