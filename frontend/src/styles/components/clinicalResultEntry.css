@@ -1,0 +1,569 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ETU DIAGNOSTIC LABORATORY — CLINICAL RESULT ENTRY & SPECIALIST WORKSPACE
+   Shared Styling for Pathologist & Radiologist Workspaces (Light & Dark Themes)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. PAGE CONTAINER & HEADERS ────────────────────────────────────────── */
+.clinical-workspace-page {
+  padding: var(--space-6, 1.5rem);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.clinical-dept-banner {
+  background: linear-gradient(135deg, var(--color-surface-container, #f8fafc) 0%, var(--color-surface, #ffffff) 100%);
+  border: 1px solid var(--color-outline-variant, #cbd5e1);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme='dark'] .clinical-dept-banner {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #334155;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.clinical-dept-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clinical-dept-icon {
+  font-size: 2rem;
+  line-height: 1;
+  background: rgba(7, 92, 145, 0.1);
+  padding: 10px;
+  border-radius: 10px;
+}
+
+:root[data-theme='dark'] .clinical-dept-icon {
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.clinical-dept-title h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary, #075c91);
+  letter-spacing: -0.02em;
+}
+
+:root[data-theme='dark'] .clinical-dept-title h1 {
+  color: #38bdf8;
+}
+
+.clinical-dept-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary, #64748b);
+}
+
+:root[data-theme='dark'] .clinical-dept-subtitle {
+  color: #94a3b8;
+}
+
+.clinical-specialist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid #bae6fd;
+}
+
+:root[data-theme='dark'] .clinical-specialist-badge {
+  background: #164d6c;
+  color: #d9f1ff;
+  border-color: #0284c7;
+}
+
+/* ── 2. STATS OVERVIEW CARDS ────────────────────────────────────────────── */
+.clinical-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── 3. CLINICAL RESULT ENTRY MODAL & CARD ──────────────────────────────── */
+.clinical-modal-dialog {
+  max-width: 960px !important;
+  width: 95vw !important;
+  max-height: 94vh !important;
+  overflow-y: auto !important;
+  border-radius: 14px !important;
+  background: var(--color-surface, #ffffff) !important;
+  border: 1px solid var(--color-outline-variant, #cbd5e1) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+:root[data-theme='dark'] .clinical-modal-dialog {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+}
+
+.clinical-modal-header {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface, #ffffff);
+  z-index: 20;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-outline-variant, #cbd5e1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+:root[data-theme='dark'] .clinical-modal-header {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.clinical-modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-primary, #075c91);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:root[data-theme='dark'] .clinical-modal-header h2 {
+  color: #38bdf8;
+}
+
+/* ── 4. PATIENT & CASE INFORMATION CARD ─────────────────────────────────── */
+.clinical-card {
+  background: var(--color-surface-container, #f8fafc);
+  border: 1px solid var(--color-outline-variant, #e2e8f0);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+:root[data-theme='dark'] .clinical-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.clinical-card-header {
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary, #075c91);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:root[data-theme='dark'] .clinical-card-header {
+  color: #38bdf8;
+}
+
+.clinical-patient-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1.25rem;
+  font-size: 0.88rem;
+}
+
+.clinical-patient-field small {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+:root[data-theme='dark'] .clinical-patient-field small {
+  color: #94a3b8;
+}
+
+.clinical-patient-field strong {
+  color: var(--color-on-surface, #1e293b);
+  font-weight: 700;
+}
+
+:root[data-theme='dark'] .clinical-patient-field strong {
+  color: #f8fafc;
+}
+
+/* ── 5. ETU BRANDING HEADER PREVIEW IN MODAL ────────────────────────────── */
+.clinical-etu-header-preview {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+:root[data-theme='dark'] .clinical-etu-header-preview {
+  background: #16202c;
+  border-color: #475569;
+}
+
+.clinical-etu-header-preview.hidden-branding {
+  opacity: 0.45;
+  background: #f1f5f9;
+  border-style: dotted;
+}
+
+:root[data-theme='dark'] .clinical-etu-header-preview.hidden-branding {
+  background: #0f172a;
+  opacity: 0.35;
+}
+
+.clinical-etu-logo-img {
+  max-height: 75px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  margin-bottom: 4px;
+}
+
+.clinical-etu-header-text {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #075c91;
+  letter-spacing: 0.03em;
+}
+
+:root[data-theme='dark'] .clinical-etu-header-text {
+  color: #38bdf8;
+}
+
+/* ── 6. OPTION A / OPTION B TABS ────────────────────────────────────────── */
+.clinical-tabs-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--color-outline-variant, #e2e8f0);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+:root[data-theme='dark'] .clinical-tabs-bar {
+  border-color: #334155;
+}
+
+.clinical-tab-btn {
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:root[data-theme='dark'] .clinical-tab-btn {
+  color: #94a3b8;
+}
+
+.clinical-tab-btn:hover {
+  background: var(--color-surface-container, #f1f5f9);
+  color: var(--color-primary, #075c91);
+}
+
+:root[data-theme='dark'] .clinical-tab-btn:hover {
+  background: #1e293b;
+  color: #38bdf8;
+}
+
+.clinical-tab-btn.active {
+  color: var(--color-primary, #075c91);
+  border-bottom-color: var(--color-primary, #075c91);
+  background: #e0f2fe;
+}
+
+:root[data-theme='dark'] .clinical-tab-btn.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  background: #164d6c;
+}
+
+/* ── 7. BRANDING SHOW/HIDE SWITCH ───────────────────────────────────────── */
+.clinical-branding-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-surface-container, #f8fafc);
+  border: 1px solid var(--color-outline-variant, #cbd5e1);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-on-surface, #334155);
+  cursor: pointer;
+  user-select: none;
+}
+
+:root[data-theme='dark'] .clinical-branding-toggle {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+/* ── 8. STRUCTURED FORM FIELDS ─────────────────────────────────────────── */
+.clinical-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clinical-form-group label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-on-surface, #334155);
+}
+
+:root[data-theme='dark'] .clinical-form-group label {
+  color: #e2e8f0;
+}
+
+.clinical-form-group label span.required {
+  color: #ef4444;
+}
+
+.clinical-input,
+.clinical-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-outline-variant, #cbd5e1);
+  background: var(--input-bg, #ffffff);
+  color: var(--color-on-surface, #1e293b);
+  font-size: 0.88rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+:root[data-theme='dark'] .clinical-input,
+:root[data-theme='dark'] .clinical-textarea {
+  background: #16202c;
+  color: #ffffff;
+  border-color: #475569;
+}
+
+.clinical-input:focus,
+.clinical-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #075c91);
+  box-shadow: 0 0 0 3px rgba(7, 92, 145, 0.15);
+}
+
+:root[data-theme='dark'] .clinical-input:focus,
+:root[data-theme='dark'] .clinical-textarea:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+/* ── 9. APPROVAL SIGN-OFF BANNER ───────────────────────────────────────── */
+.clinical-signoff-banner {
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
+:root[data-theme='dark'] .clinical-signoff-banner {
+  background: #164d6c;
+  border-color: #0284c7;
+  color: #f8fafc;
+}
+
+.clinical-signoff-title {
+  color: #0369a1;
+  font-weight: 800;
+}
+
+:root[data-theme='dark'] .clinical-signoff-title {
+  color: #38bdf8;
+}
+
+/* ── 10. ACTION BUTTONS TOOLBAR ────────────────────────────────────────── */
+.clinical-actions-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-outline-variant, #e2e8f0);
+}
+
+:root[data-theme='dark'] .clinical-actions-toolbar {
+  border-color: #334155;
+}
+
+.clinical-btn-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-clinical-draft {
+  background: var(--color-surface-container, #f8fafc);
+  color: var(--color-on-surface, #334155);
+  border: 1px solid var(--color-outline-variant, #cbd5e1);
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+}
+
+:root[data-theme='dark'] .btn-clinical-draft {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+.btn-clinical-draft:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+:root[data-theme='dark'] .btn-clinical-draft:hover:not(:disabled) {
+  background: #334155;
+}
+
+.btn-clinical-preview {
+  background: #0284c7;
+  color: #ffffff;
+  border: 1px solid #0369a1;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+}
+
+.btn-clinical-preview:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.btn-clinical-print {
+  background: #0d9488;
+  color: #ffffff;
+  border: 1px solid #0f766e;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+}
+
+.btn-clinical-print:hover:not(:disabled) {
+  background: #0f766e;
+}
+
+.btn-clinical-approve {
+  background: #16a34a;
+  color: #ffffff;
+  border: 1px solid #15803d;
+  font-weight: 700;
+  padding: 9px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.92rem;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-clinical-approve:hover:not(:disabled) {
+  background: #15803d;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
+}
+
+/* ── 11. DARK THEME OVERRIDES FOR RICH REPORT EDITOR ─────────────────────── */
+:root[data-theme='dark'] .rich-report-editor-container {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .rich-editor-toolbar {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .rich-editor-toolbar select,
+:root[data-theme='dark'] .rich-editor-toolbar button {
+  background: #243346 !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+:root[data-theme='dark'] .rich-editor-content-area {
+  background: #090e15 !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .rich-editor-content-area table th {
+  background: #1e293b !important;
+  color: #38bdf8 !important;
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] .rich-editor-content-area table td {
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}

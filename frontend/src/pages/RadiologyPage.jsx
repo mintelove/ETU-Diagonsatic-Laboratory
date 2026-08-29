@@ -1,10 +1,10 @@
 /**
  * ETU Diagnostic Laboratory — Radiologist Workspace
  *
- * Dedicated clinical interface for Radiologists to review assigned examinations
- * (CT Scan, X-Ray, Ultrasound Abdominal/MSS/Doppler/Echo/Other),
- * enter reports via Option A (Copy/Paste default) or Option B (Structured Clinical Entry),
- * and directly confirm / approve reports.
+ * Professional Medical LIS Interface for Radiologists to review assigned examinations
+ * (CT Scan, X-Ray, Ultrasound Abdominal / MSS / Doppler / Echo / Other),
+ * enter reports via Option A (Specialist Rich Document / Word Import) or Option B (Structured Clinical Findings),
+ * preview live A4 reports, toggle ETU branding, and approve reports.
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -14,6 +14,9 @@ import { useRealtime } from '../context/RealtimeContext.jsx';
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import RichReportEditor from '../components/RichReportEditor.jsx';
+import { ReportPreview } from '../components/ReportPreview.jsx';
+import { printLabReport } from '../utils/printLabReport.js';
+import labLogo from '../assets/etu.jpg';
 
 export default function RadiologyPage() {
   const { user, token } = useAuth();
@@ -32,6 +35,7 @@ export default function RadiologyPage() {
   const [showFooter, setShowFooter] = useState(true);
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // Structured fields for Option B
   const [structured, setStructured] = useState({
@@ -112,7 +116,28 @@ export default function RadiologyPage() {
 
   const closeCaseModal = () => {
     setSelectedCase(null);
+    setPreviewModalOpen(false);
   };
+
+  // Construct synthetic live report object for preview & print
+  const liveReport = useMemo(() => {
+    if (!selectedCase) return null;
+    return {
+      ...selectedCase,
+      examinationType: selectedCase.examinationType,
+      ultrasoundSubtype: selectedCase.ultrasoundSubtype,
+      customExaminationName: selectedCase.customExaminationName,
+      patient: selectedCase.patient,
+      reportType,
+      reportContent: reportType === 'Option A' && editorRef.current ? editorRef.current.innerHTML : reportContent,
+      structuredReport: structured,
+      showFooter,
+      status: selectedCase.status || 'In Progress',
+      radiologist: user,
+      approvedBy: selectedCase.approvedBy || user,
+      approvedDate: selectedCase.approvedAt || new Date()
+    };
+  }, [selectedCase, reportType, reportContent, structured, showFooter, user]);
 
   const handleSaveDraft = async () => {
     if (!selectedCase) return;
@@ -144,7 +169,7 @@ export default function RadiologyPage() {
       setApproving(true);
       const htmlContent = reportType === 'Option A' && editorRef.current ? editorRef.current.innerHTML : reportContent;
       
-      // Basic check
+      // Validation check
       if (reportType === 'Option A' && (!htmlContent || !htmlContent.trim() || htmlContent === '<br>')) {
         showToast('Please paste or write the radiology report content before confirming approval.', 'error');
         setApproving(false);
@@ -180,6 +205,11 @@ export default function RadiologyPage() {
     }
   };
 
+  const handleDirectPrint = () => {
+    if (!liveReport) return;
+    printLabReport(liveReport, token, user, showFooter);
+  };
+
   // Filtered queue
   const filteredCases = useMemo(() => {
     return cases.filter(c => {
@@ -207,8 +237,8 @@ export default function RadiologyPage() {
   }, [cases]);
 
   return (
-    <section className="page radiology-page">
-      {/* Toast */}
+    <section className="clinical-workspace-page radiology-page">
+      {/* Toast Notification */}
       {toast && (
         <div
           className={`toast-message ${toast.type === 'error' ? 'error' : 'success'}`}
@@ -222,7 +252,7 @@ export default function RadiologyPage() {
             fontWeight: 600,
             zIndex: 2500,
             background: toast.type === 'error' ? 'var(--color-error, #b71c1c)' : 'var(--color-success, #2e7d32)',
-            boxShadow: 'var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.2))',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
             display: 'flex',
             gap: '8px',
             alignItems: 'center'
@@ -233,21 +263,26 @@ export default function RadiologyPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="dash-header" style={{ marginBottom: '1.5rem' }}>
-        <div>
-          <p className="eyebrow">Diagnostic Imaging & Radiology Department</p>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>🩻</span> Radiology Work Queue
-          </h1>
-          <p className="intro">
-            Welcome, <strong>Dr. {user?.fullName}</strong> · 📍 Branch: <strong>{user?.branchName || 'Main'}</strong>
-          </p>
+      {/* ── 1. DEPARTMENT HEADER BANNER ─────────────────────────────────── */}
+      <header className="clinical-dept-banner">
+        <div className="clinical-dept-title">
+          <span className="clinical-dept-icon">🩻</span>
+          <div>
+            <p className="clinical-dept-subtitle" style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+              ETU Diagnostic Laboratory
+            </p>
+            <h1>RADIOLOGY &amp; IMAGING RESULT ENTRY &amp; WORKSPACE</h1>
+          </div>
+        </div>
+        <div className="clinical-specialist-badge">
+          <span>👨‍⚕️</span>
+          <span>Authenticated Specialist: <strong>Dr. {user?.fullName}</strong></span>
+          <span>· 📍 {user?.branchName || 'Main Branch'}</span>
         </div>
       </header>
 
-      {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      {/* ── 2. SUMMARY STATISTICS ────────────────────────────────────────── */}
+      <div className="clinical-stats-grid">
         <article className="stat-card blue">
           <small>Total Examinations</small>
           <strong>{stats.total}</strong>
@@ -266,9 +301,9 @@ export default function RadiologyPage() {
         </article>
       </div>
 
-      {/* Toolbar */}
+      {/* ── 3. SEARCH & FILTER TOOLBAR ───────────────────────────────────── */}
       <div className="users-toolbar" style={{ marginBottom: '1.2rem', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-        <div className="search-box" style={{ flex: '1 1 260px' }}>
+        <div className="search-box" style={{ flex: '1 1 280px' }}>
           <span className="search-icon">🔍</span>
           <input
             type="text"
@@ -291,17 +326,17 @@ export default function RadiologyPage() {
         </div>
       </div>
 
-      {/* Examinations Queue Table */}
-      <section className="table-card" style={{ background: 'var(--color-surface,#fff)', borderRadius: '12px', border: '1px solid var(--color-border,#e2ecef)', overflow: 'hidden' }}>
+      {/* ── 4. EXAMINATIONS QUEUE TABLE ──────────────────────────────────── */}
+      <section className="table-card" style={{ borderRadius: '12px', overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: '#64748b' }}>
+          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>⏳</div>
             Loading radiology examinations…
           </div>
         ) : filteredCases.length === 0 ? (
-          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: '#64748b' }}>
+          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🩻</div>
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: '#1e293b' }}>No Radiology Cases Found</h3>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: 'var(--color-on-surface, #1e293b)' }}>No Radiology Cases Found</h3>
             <p style={{ margin: 0, fontSize: '0.88rem' }}>
               When Reception completes payment for CT Scan, X-Ray, or Ultrasound, examinations appear here automatically.
             </p>
@@ -310,10 +345,10 @@ export default function RadiologyPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: 'var(--color-background,#f8fafc)', borderBottom: '2px solid var(--color-border,#e2ecef)', color: 'var(--color-primary,#075c91)' }}>
+                <tr style={{ background: 'var(--color-surface-container, #f8fafc)', borderBottom: '2px solid var(--color-outline-variant, #cbd5e1)', color: 'var(--color-primary, #075c91)' }}>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>#</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Case / Patient</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Modality & Examination</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Modality &amp; Examination</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Registration Date</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>Payment</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
@@ -326,21 +361,21 @@ export default function RadiologyPage() {
                   const examName = c.customExaminationName || (c.ultrasoundSubtype ? `Ultrasound (${c.ultrasoundSubtype})` : c.examinationType);
 
                   return (
-                    <tr key={c._id} style={{ borderBottom: '1px solid var(--color-border,#edf2f7)' }}>
-                      <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>{i + 1}</td>
+                    <tr key={c._id} style={{ borderBottom: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>{i + 1}</td>
                       <td style={{ padding: '10px 12px' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--color-primary,#075c91)' }}>{c.patient?.name || '—'}</div>
-                        <small style={{ color: '#64748b' }}>{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</small>
+                        <div style={{ fontWeight: 700, color: 'var(--color-primary, #075c91)' }}>{c.patient?.name || '—'}</div>
+                        <small style={{ color: 'var(--text-secondary, #64748b)' }}>{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</small>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11.5px', background: '#fef3c7', color: '#92400e', fontWeight: 700 }}>
+                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11.5px', background: '#e0f2fe', color: '#0369a1', fontWeight: 700 }}>
                           {examName}
                         </span>
                         <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600, marginTop: '2px' }}>
                           {formatETB(c.price)}
                         </div>
                       </td>
-                      <td style={{ padding: '10px 12px', color: '#475569', fontSize: '12px' }}>
+                      <td style={{ padding: '10px 12px', color: 'var(--color-on-surface, #475569)', fontSize: '12px' }}>
                         {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
@@ -349,17 +384,17 @@ export default function RadiologyPage() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: isApproved ? '#dcfce7' : c.status === 'In Progress' ? '#fef3c7' : '#f1f5f9', color: isApproved ? '#166534' : c.status === 'In Progress' ? '#92400e' : '#475569', fontWeight: 600 }}>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: isApproved ? '#dcfce7' : c.status === 'In Progress' ? '#fef3c7' : 'var(--color-surface-container, #f1f5f9)', color: isApproved ? '#166534' : c.status === 'In Progress' ? '#92400e' : 'var(--text-secondary, #475569)', fontWeight: 600 }}>
                           {c.status}
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                         <button
                           className="primary-button"
-                          style={{ padding: '4px 10px', fontSize: '11.5px', fontWeight: 600 }}
+                          style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 700 }}
                           onClick={() => openCaseModal(c)}
                         >
-                          {isApproved ? '👁️ View Report' : '📝 Enter / Review Report'}
+                          {isApproved ? '👁️ View / Edit' : '📝 Enter Result'}
                         </button>
                       </td>
                     </tr>
@@ -371,238 +406,353 @@ export default function RadiologyPage() {
         )}
       </section>
 
-      {/* Report Entry & Approval Modal */}
-      <ModalPortal isOpen={!!selectedCase} onClose={closeCaseModal}>
-        <div className="modal-content" style={{ maxWidth: '880px', maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-          <header className="modal-header" style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 10, borderBottom: '1px solid #e2ecef', paddingBottom: '10px' }}>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🩻</span> Radiology Report — {selectedCase?.customExaminationName || selectedCase?.examinationType} ({selectedCase?.caseNumber})
-              </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-                Patient: <strong>{selectedCase?.patient?.name}</strong> ({selectedCase?.patient?.patientId}) · {selectedCase?.patient?.age} yrs / {selectedCase?.patient?.sex} · 📍 {selectedCase?.branchName}
-              </p>
-            </div>
-            <button className="close-button" onClick={closeCaseModal}>&times;</button>
-          </header>
-
-          <div style={{ marginTop: '12px' }}>
-            {/* Editor Option Tabs: Option A (Default) vs Option B */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2ecef', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setReportType('Option A')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderBottom: reportType === 'Option A' ? '3px solid var(--color-primary, #075c91)' : '3px solid transparent',
-                    background: reportType === 'Option A' ? '#e0f2fe' : 'transparent',
-                    color: reportType === 'Option A' ? 'var(--color-primary, #075c91)' : '#64748b',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    borderRadius: '6px 6px 0 0'
-                  }}
-                >
-                  📄 Option A — Copy / Paste Report (Default)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReportType('Option B')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderBottom: reportType === 'Option B' ? '3px solid var(--color-primary, #075c91)' : '3px solid transparent',
-                    background: reportType === 'Option B' ? '#e0f2fe' : 'transparent',
-                    color: reportType === 'Option B' ? 'var(--color-primary, #075c91)' : '#64748b',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    borderRadius: '6px 6px 0 0'
-                  }}
-                >
-                  📑 Option B — Professional Structured Report
-                </button>
-              </div>
-
-              {/* Show / Hide Footer Toggle */}
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showFooter}
-                  onChange={e => setShowFooter(e.target.checked)}
-                />
-                Show ETU Logo & Footer on A4
-              </label>
-            </div>
-
-            {/* ── OPTION A: RICH COPY/PASTE EDITOR ────────────────────────── */}
-            {reportType === 'Option A' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.84rem', color: '#475569' }}>
-                  <strong>💡 Option A Rich Document Editor:</strong> Type, paste from Microsoft Word (preserves font styles, headings, tables, and images), paste images from clipboard, or import a <code>.docx</code> file directly.
+      {/* ── 5. PROFESSIONAL RESULT ENTRY MODAL ────────────────────────────── */}
+      {selectedCase && (
+        <ModalPortal isOpen={!!selectedCase} onClose={closeCaseModal}>
+          <div className="modal-content clinical-modal-dialog" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <header className="clinical-modal-header">
+              <div>
+                <h2>
+                  <span>🩻</span> RADIOLOGY RESULT ENTRY — {selectedCase?.customExaminationName || selectedCase?.examinationType}
+                </h2>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
+                  Case Ref: <strong>{selectedCase?.caseNumber}</strong> · Branch: <strong>{selectedCase?.branchName}</strong>
                 </div>
-
-                <RichReportEditor
-                  value={reportContent}
-                  onChange={setReportContent}
-                  placeholder="Enter radiology imaging report, paste from Microsoft Word, or upload .docx report…"
-                />
               </div>
-            )}
+              <button className="close-button" onClick={closeCaseModal}>&times;</button>
+            </header>
 
-            {/* ── OPTION B: STRUCTURED REPORT ENTRY ───────────────────────── */}
-            {reportType === 'Option B' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Examination Title</label>
-                    <input
-                      type="text"
-                      className="global-input"
-                      value={structured.examination}
-                      onChange={e => setStructured({ ...structured, examination: e.target.value })}
-                      placeholder="e.g. Abdominal Ultrasound, Chest X-Ray"
-                      style={{ width: '100%' }}
-                    />
+            <div style={{ padding: '1.25rem' }}>
+              {/* ── CARD 1: PATIENT & CASE INFORMATION ── */}
+              <section className="clinical-card">
+                <div className="clinical-card-header">
+                  <span>🧑‍⚕️</span> Patient &amp; Case Information
+                </div>
+                <div className="clinical-patient-grid">
+                  <div className="clinical-patient-field">
+                    <small>Patient Name</small>
+                    <strong>{selectedCase?.patient?.name || '—'}</strong>
                   </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Clinical Indications / History</label>
-                    <textarea
-                      className="global-input"
-                      rows={1}
-                      value={structured.clinicalInformation}
-                      onChange={e => setStructured({ ...structured, clinicalInformation: e.target.value })}
-                      placeholder="Clinical presentation & symptoms…"
-                      style={{ width: '100%' }}
-                    />
+                  <div className="clinical-patient-field">
+                    <small>Patient ID</small>
+                    <strong>{selectedCase?.patient?.patientId || '—'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Age / Sex</small>
+                    <strong>{selectedCase?.patient?.age} yrs / {selectedCase?.patient?.sex}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Phone</small>
+                    <strong>{selectedCase?.patient?.phone || '—'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Patient Type</small>
+                    <strong>{selectedCase?.patient?.patientType || 'Self'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Modality / Examination</small>
+                    <strong style={{ color: 'var(--color-primary, #075c91)' }}>
+                      {selectedCase?.customExaminationName || (selectedCase?.ultrasoundSubtype ? `Ultrasound — ${selectedCase.ultrasoundSubtype}` : selectedCase?.examinationType)}
+                    </strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Registration Date</small>
+                    <strong>{selectedCase?.patient?.registrationDate ? new Date(selectedCase.patient.registrationDate).toLocaleString() : '—'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Examination Fee</small>
+                    <strong style={{ color: '#16a34a' }}>{formatETB(selectedCase?.price)}</strong>
                   </div>
                 </div>
+              </section>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Technique / Modality Protocol</label>
-                  <input
-                    type="text"
-                    className="global-input"
-                    value={structured.technique}
-                    onChange={e => setStructured({ ...structured, technique: e.target.value })}
-                    placeholder="Scanning parameters or radiography views…"
-                    style={{ width: '100%' }}
-                  />
-                </div>
-
-                {/* Ultrasound Abdominal Specific Organs */}
-                {selectedCase?.examinationType === 'Ultrasound' && selectedCase?.ultrasoundSubtype === 'Abdominal' && (
-                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: 'var(--color-primary, #075c91)', textTransform: 'uppercase' }}>
-                      Organ-Specific Sonographic Findings
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, marginBottom: '2px' }}>Liver</label>
-                        <input type="text" className="global-input" value={structured.liver} onChange={e => setStructured({ ...structured, liver: e.target.value })} placeholder="Size, parenchymal echogenicity, focal lesions…" style={{ width: '100%', fontSize: '12.5px' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, marginBottom: '2px' }}>Gallbladder & Biliary Tree</label>
-                        <input type="text" className="global-input" value={structured.gallbladder} onChange={e => setStructured({ ...structured, gallbladder: e.target.value })} placeholder="Wall thickness, calculi, CBD diameter…" style={{ width: '100%', fontSize: '12.5px' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, marginBottom: '2px' }}>Pancreas</label>
-                        <input type="text" className="global-input" value={structured.pancreas} onChange={e => setStructured({ ...structured, pancreas: e.target.value })} placeholder="Head, body, tail visualization…" style={{ width: '100%', fontSize: '12.5px' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, marginBottom: '2px' }}>Spleen</label>
-                        <input type="text" className="global-input" value={structured.spleen} onChange={e => setStructured({ ...structured, spleen: e.target.value })} placeholder="Dimensions, echotexture, splenomegaly…" style={{ width: '100%', fontSize: '12.5px' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, marginBottom: '2px' }}>Kidneys</label>
-                        <input type="text" className="global-input" value={structured.kidneys} onChange={e => setStructured({ ...structured, kidneys: e.target.value })} placeholder="Cortical thickness, corticomedullary differentiation, hydronephrosis…" style={{ width: '100%', fontSize: '12.5px' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, marginBottom: '2px' }}>Urinary Bladder</label>
-                        <input type="text" className="global-input" value={structured.urinaryBladder} onChange={e => setStructured({ ...structured, urinaryBladder: e.target.value })} placeholder="Distension, wall regularity, post-void residual…" style={{ width: '100%', fontSize: '12.5px' }} />
-                      </div>
-                    </div>
+              {/* ── CARD 2: ETU REPORT HEADER BRANDING PREVIEW ── */}
+              <div className={`clinical-etu-header-preview ${showFooter ? '' : 'hidden-branding'}`}>
+                {showFooter ? (
+                  <>
+                    <img src={labLogo} alt="ETU Diagnostic Laboratory" className="clinical-etu-logo-img" />
+                    <div className="clinical-etu-header-text">ETU DIAGNOSTIC LABORATORY · OFFICIAL RADIOLOGY &amp; IMAGING REPORT</div>
+                  </>
+                ) : (
+                  <div style={{ color: 'var(--text-secondary, #64748b)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                    ETU Header & Footer Branding is currently <strong>Hidden</strong> for plain paper printing.
                   </div>
                 )}
+              </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>General Imaging Findings</label>
-                  <textarea
-                    className="global-input"
-                    rows={4}
-                    value={structured.findings}
-                    onChange={e => setStructured({ ...structured, findings: e.target.value })}
-                    placeholder="Comprehensive radiological observations & findings…"
-                    style={{ width: '100%' }}
-                  />
+              {/* ── CARD 3: OPTION A / OPTION B SWITCHER & BRANDING TOGGLE ── */}
+              <div className="clinical-tabs-bar">
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`clinical-tab-btn ${reportType === 'Option A' ? 'active' : ''}`}
+                    onClick={() => setReportType('Option A')}
+                  >
+                    <span>📄</span> OPTION A — SPECIALIST REPORT (Copy / Paste / Word Docx)
+                  </button>
+                  <button
+                    type="button"
+                    className={`clinical-tab-btn ${reportType === 'Option B' ? 'active' : ''}`}
+                    onClick={() => setReportType('Option B')}
+                  >
+                    <span>📑</span> OPTION B — STRUCTURED RESULT ENTRY
+                  </button>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px', color: 'var(--color-primary, #075c91)' }}>
-                    Impression / Conclusion *
-                  </label>
-                  <textarea
-                    className="global-input"
-                    rows={2}
-                    value={structured.impression}
-                    onChange={e => setStructured({ ...structured, impression: e.target.value })}
-                    placeholder="Diagnostic impression and radiological conclusion…"
-                    style={{ width: '100%', fontWeight: 600 }}
+                {/* Show/Hide Branding Toggle Switch */}
+                <label className="clinical-branding-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showFooter}
+                    onChange={e => setShowFooter(e.target.checked)}
+                  />
+                  <span>Show ETU Header &amp; Footer</span>
+                </label>
+              </div>
+
+              {/* ── OPTION A: RICH COPY/PASTE DOCUMENT EDITOR ── */}
+              {reportType === 'Option A' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)', fontSize: '0.84rem', color: 'var(--color-on-surface, #475569)' }}>
+                    <strong>💡 Option A Specialist Editor:</strong> Type, paste from Microsoft Word (preserves font styling, tables, headings, and images), paste ultrasound/CT images from clipboard (Ctrl+V), or import a <code>.docx</code> file directly.
+                  </div>
+
+                  <RichReportEditor
+                    value={reportContent}
+                    onChange={setReportContent}
+                    placeholder="Enter comprehensive radiology findings, paste from Microsoft Word, or upload .docx report…"
                   />
                 </div>
+              )}
 
+              {/* ── OPTION B: STRUCTURED CLINICAL FIELDS ── */}
+              {reportType === 'Option B' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                    <div className="clinical-form-group">
+                      <label>Examination Title</label>
+                      <input
+                        type="text"
+                        className="clinical-input"
+                        value={structured.examination}
+                        onChange={e => setStructured({ ...structured, examination: e.target.value })}
+                        placeholder="e.g. Abdominal Ultrasound, Chest X-Ray"
+                      />
+                    </div>
+
+                    <div className="clinical-form-group">
+                      <label>Clinical Indications / History</label>
+                      <textarea
+                        className="clinical-textarea"
+                        rows={1}
+                        value={structured.clinicalInformation}
+                        onChange={e => setStructured({ ...structured, clinicalInformation: e.target.value })}
+                        placeholder="Clinical presentation & symptoms…"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="clinical-form-group">
+                    <label>Technique / Modality Protocol</label>
+                    <input
+                      type="text"
+                      className="clinical-input"
+                      value={structured.technique}
+                      onChange={e => setStructured({ ...structured, technique: e.target.value })}
+                      placeholder="Scanning parameters or radiography views…"
+                    />
+                  </div>
+
+                  {/* Ultrasound Abdominal Specific Organs */}
+                  {selectedCase?.examinationType === 'Ultrasound' && selectedCase?.ultrasoundSubtype === 'Abdominal' && (
+                    <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: 'var(--color-primary, #075c91)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Organ-Specific Sonographic Findings
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                        <div className="clinical-form-group">
+                          <label>Liver</label>
+                          <input type="text" className="clinical-input" value={structured.liver} onChange={e => setStructured({ ...structured, liver: e.target.value })} placeholder="Size, parenchymal echogenicity, focal lesions…" />
+                        </div>
+                        <div className="clinical-form-group">
+                          <label>Gallbladder &amp; Biliary Tree</label>
+                          <input type="text" className="clinical-input" value={structured.gallbladder} onChange={e => setStructured({ ...structured, gallbladder: e.target.value })} placeholder="Wall thickness, calculi, CBD diameter…" />
+                        </div>
+                        <div className="clinical-form-group">
+                          <label>Pancreas</label>
+                          <input type="text" className="clinical-input" value={structured.pancreas} onChange={e => setStructured({ ...structured, pancreas: e.target.value })} placeholder="Head, body, tail visualization…" />
+                        </div>
+                        <div className="clinical-form-group">
+                          <label>Spleen</label>
+                          <input type="text" className="clinical-input" value={structured.spleen} onChange={e => setStructured({ ...structured, spleen: e.target.value })} placeholder="Dimensions, echotexture, splenomegaly…" />
+                        </div>
+                        <div className="clinical-form-group">
+                          <label>Kidneys</label>
+                          <input type="text" className="clinical-input" value={structured.kidneys} onChange={e => setStructured({ ...structured, kidneys: e.target.value })} placeholder="Cortical thickness, hydronephrosis…" />
+                        </div>
+                        <div className="clinical-form-group">
+                          <label>Urinary Bladder</label>
+                          <input type="text" className="clinical-input" value={structured.urinaryBladder} onChange={e => setStructured({ ...structured, urinaryBladder: e.target.value })} placeholder="Distension, wall regularity, post-void residual…" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="clinical-form-group">
+                    <label>General Imaging Findings</label>
+                    <textarea
+                      className="clinical-textarea"
+                      rows={4}
+                      value={structured.findings}
+                      onChange={e => setStructured({ ...structured, findings: e.target.value })}
+                      placeholder="Comprehensive radiological observations & findings…"
+                    />
+                  </div>
+
+                  <div className="clinical-form-group">
+                    <label>
+                      Impression / Conclusion <span className="required">*</span>
+                    </label>
+                    <textarea
+                      className="clinical-textarea"
+                      rows={2}
+                      value={structured.impression}
+                      onChange={e => setStructured({ ...structured, impression: e.target.value })}
+                      placeholder="Diagnostic impression and radiological conclusion…"
+                      style={{ fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div className="clinical-form-group">
+                    <label>Recommendations</label>
+                    <textarea
+                      className="clinical-textarea"
+                      rows={2}
+                      value={structured.recommendation}
+                      onChange={e => setStructured({ ...structured, recommendation: e.target.value })}
+                      placeholder="e.g. Correlate clinically, repeat scan in 3 months"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ── CARD 4: SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
+              <div className="clinical-signoff-banner">
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Recommendations</label>
-                  <textarea
-                    className="global-input"
-                    rows={2}
-                    value={structured.recommendation}
-                    onChange={e => setStructured({ ...structured, recommendation: e.target.value })}
-                    placeholder="e.g. Correlate clinically, repeat scan in 3 months"
-                    style={{ width: '100%' }}
-                  />
+                  <span className="clinical-signoff-title">Approved By:</span> Dr. {user?.fullName || 'Radiologist'} · <em>Radiologist (Logged-in Specialist)</em>
+                </div>
+                <div style={{ fontWeight: 700 }}>
+                  {selectedCase?.approvedAt ? `Approved on ${new Date(selectedCase.approvedAt).toLocaleString()}` : 'Ready for Direct Sign-off'}
                 </div>
               </div>
-            )}
 
-            {/* Approval Info Banner */}
-            <div style={{ marginTop: '16px', padding: '10px 14px', borderRadius: '8px', background: '#e0f2fe', border: '1px solid #bae6fd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-              <div>
-                <strong>Approved By:</strong> Dr. {user?.fullName || 'Radiologist'} · <em>Radiologist</em>
-              </div>
-              <div style={{ color: '#0369a1', fontWeight: 600 }}>
-                {selectedCase?.approvedAt ? `Approved on ${new Date(selectedCase.approvedAt).toLocaleString()}` : 'Ready for Sign-off'}
-              </div>
-            </div>
+              {/* ── CARD 5: ACTIONS TOOLBAR ── */}
+              <div className="clinical-actions-toolbar">
+                <button type="button" className="btn-clinical-draft" onClick={closeCaseModal}>
+                  Close
+                </button>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-              <button type="button" className="secondary-button" onClick={closeCaseModal}>
-                Close
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleSaveDraft}
-                disabled={saving || approving}
-                style={{ background: '#f8fafc', borderColor: '#cbd5e1' }}
-              >
-                {saving ? 'Saving Draft…' : '💾 Save Draft'}
-              </button>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={handleApproveReport}
-                disabled={saving || approving}
-                style={{ background: '#16a34a', borderColor: '#15803d' }}
-              >
-                {approving ? 'Approving…' : '✅ Confirm / Approve Report'}
-              </button>
+                <div className="clinical-btn-group">
+                  <button
+                    type="button"
+                    className="btn-clinical-draft"
+                    onClick={handleSaveDraft}
+                    disabled={saving || approving}
+                  >
+                    <span>💾</span> {saving ? 'Saving Draft…' : 'Save Draft'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-clinical-preview"
+                    onClick={() => setPreviewModalOpen(true)}
+                  >
+                    <span>👁️</span> Preview A4 Report
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-clinical-print"
+                    onClick={handleDirectPrint}
+                  >
+                    <span>🖨️</span> Print A4 Report
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-clinical-approve"
+                    onClick={handleApproveReport}
+                    disabled={saving || approving}
+                  >
+                    <span>✅</span> {approving ? 'Approving…' : 'Confirm & Approve Report'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </ModalPortal>
+        </ModalPortal>
+      )}
+
+      {/* ── 6. DEDICATED A4 REPORT PREVIEW MODAL ──────────────────────────── */}
+      {previewModalOpen && liveReport && (
+        <ModalPortal isOpen={previewModalOpen} onClose={() => setPreviewModalOpen(false)}>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '880px',
+              maxHeight: '94vh',
+              overflowY: 'auto',
+              padding: '0',
+              background: '#cbd5e1',
+              borderRadius: '12px'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <header
+              style={{
+                position: 'sticky',
+                top: 0,
+                background: 'var(--color-surface, #ffffff)',
+                zIndex: 30,
+                padding: '12px 20px',
+                borderBottom: '1px solid var(--color-outline-variant, #cbd5e1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📄</span> Radiology A4 Report Preview
+                </h2>
+                <label className="clinical-branding-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showFooter}
+                    onChange={e => setShowFooter(e.target.checked)}
+                  />
+                  <span>Show ETU Header &amp; Footer</span>
+                </label>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn-clinical-print"
+                  onClick={handleDirectPrint}
+                >
+                  <span>🖨️</span> Print A4 Report
+                </button>
+                <button className="close-button" onClick={() => setPreviewModalOpen(false)}>&times;</button>
+              </div>
+            </header>
+
+            {/* A4 Document Canvas */}
+            <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
+              <ReportPreview report={liveReport} showFooter={showFooter} />
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </section>
   );
 }

@@ -1,10 +1,10 @@
 /**
  * ETU Diagnostic Laboratory — Pathologist Workspace
  *
- * Dedicated clinical interface for Pathologists to review assigned cases,
+ * Professional Medical LIS Interface for Pathologists to review assigned cases,
  * track 20-day (Biopsy) and 24-hour (FNAC / Peripheral Morphology) countdown deadlines,
- * enter reports via Option A (Copy/Paste default) or Option B (Structured Clinical Entry),
- * and directly confirm / approve reports.
+ * enter reports via Option A (Specialist Rich Document / Word Import) or Option B (Structured Clinical Findings),
+ * preview live A4 reports, toggle ETU branding, and approve reports.
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -14,6 +14,9 @@ import { useRealtime } from '../context/RealtimeContext.jsx';
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import RichReportEditor from '../components/RichReportEditor.jsx';
+import { ReportPreview } from '../components/ReportPreview.jsx';
+import { printLabReport } from '../utils/printLabReport.js';
+import labLogo from '../assets/etu.jpg';
 
 // Live countdown calculator
 function getCountdown(deadlineStr) {
@@ -52,11 +55,12 @@ export default function PathologyPage() {
 
   // Active Case Editor Modal
   const [selectedCase, setSelectedCase] = useState(null);
-  const [reportType, setReportType] = useState('Option A'); // Option A (Copy/Paste default) or Option B (Structured)
+  const [reportType, setReportType] = useState('Option A'); // Option A (Default) or Option B (Structured)
   const [reportContent, setReportContent] = useState('');
   const [showFooter, setShowFooter] = useState(true);
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // Structured fields for Option B
   const [structured, setStructured] = useState({
@@ -142,7 +146,26 @@ export default function PathologyPage() {
 
   const closeCaseModal = () => {
     setSelectedCase(null);
+    setPreviewModalOpen(false);
   };
+
+  // Construct synthetic live report object for preview & print
+  const liveReport = useMemo(() => {
+    if (!selectedCase) return null;
+    return {
+      ...selectedCase,
+      testType: selectedCase.testType,
+      patient: selectedCase.patient,
+      reportType,
+      reportContent: reportType === 'Option A' && editorRef.current ? editorRef.current.innerHTML : reportContent,
+      structuredReport: structured,
+      showFooter,
+      status: selectedCase.status || 'In Progress',
+      pathologist: user,
+      approvedBy: selectedCase.approvedBy || user,
+      approvedDate: selectedCase.approvedAt || new Date()
+    };
+  }, [selectedCase, reportType, reportContent, structured, showFooter, user]);
 
   const handleSaveDraft = async () => {
     if (!selectedCase) return;
@@ -174,7 +197,7 @@ export default function PathologyPage() {
       setApproving(true);
       const htmlContent = reportType === 'Option A' && editorRef.current ? editorRef.current.innerHTML : reportContent;
       
-      // Basic check
+      // Validation check
       if (reportType === 'Option A' && (!htmlContent || !htmlContent.trim() || htmlContent === '<br>')) {
         showToast('Please paste or write the pathology report content before confirming approval.', 'error');
         setApproving(false);
@@ -210,6 +233,11 @@ export default function PathologyPage() {
     }
   };
 
+  const handleDirectPrint = () => {
+    if (!liveReport) return;
+    printLabReport(liveReport, token, user, showFooter);
+  };
+
   // Filtered queue
   const filteredCases = useMemo(() => {
     return cases.filter(c => {
@@ -236,8 +264,8 @@ export default function PathologyPage() {
   }, [cases]);
 
   return (
-    <section className="page pathology-page">
-      {/* Toast */}
+    <section className="clinical-workspace-page pathology-page">
+      {/* Toast Notification */}
       {toast && (
         <div
           className={`toast-message ${toast.type === 'error' ? 'error' : 'success'}`}
@@ -251,7 +279,7 @@ export default function PathologyPage() {
             fontWeight: 600,
             zIndex: 2500,
             background: toast.type === 'error' ? 'var(--color-error, #b71c1c)' : 'var(--color-success, #2e7d32)',
-            boxShadow: 'var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.2))',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
             display: 'flex',
             gap: '8px',
             alignItems: 'center'
@@ -262,23 +290,28 @@ export default function PathologyPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="dash-header" style={{ marginBottom: '1.5rem' }}>
-        <div>
-          <p className="eyebrow">Clinical Pathology Department</p>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>🔬</span> Pathology Work Queue
-          </h1>
-          <p className="intro">
-            Welcome, <strong>Dr. {user?.fullName}</strong> · 📍 Branch: <strong>{user?.branchName || 'Main'}</strong>
-          </p>
+      {/* ── 1. DEPARTMENT HEADER BANNER ─────────────────────────────────── */}
+      <header className="clinical-dept-banner">
+        <div className="clinical-dept-title">
+          <span className="clinical-dept-icon">🔬</span>
+          <div>
+            <p className="clinical-dept-subtitle" style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+              ETU Diagnostic Laboratory
+            </p>
+            <h1>PATHOLOGY RESULT ENTRY & WORKSPACE</h1>
+          </div>
+        </div>
+        <div className="clinical-specialist-badge">
+          <span>👨‍⚕️</span>
+          <span>Authenticated Specialist: <strong>Dr. {user?.fullName}</strong></span>
+          <span>· 📍 {user?.branchName || 'Main Branch'}</span>
         </div>
       </header>
 
-      {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      {/* ── 2. SUMMARY STATISTICS ────────────────────────────────────────── */}
+      <div className="clinical-stats-grid">
         <article className="stat-card blue">
-          <small>Total Cases</small>
+          <small>Total Pathology Cases</small>
           <strong>{stats.total}</strong>
         </article>
         <article className="stat-card orange">
@@ -294,16 +327,16 @@ export default function PathologyPage() {
           <strong>{stats.approved}</strong>
         </article>
         {stats.overdue > 0 && (
-          <article className="stat-card red" style={{ borderColor: '#ef4444', background: '#fef2f2' }}>
-            <small style={{ color: '#b91c1c', fontWeight: 700 }}>⚠️ Deadline Overdue</small>
+          <article className="stat-card red" style={{ borderColor: '#ef4444' }}>
+            <small style={{ color: '#b91c1c', fontWeight: 800 }}>⚠️ Deadline Overdue</small>
             <strong style={{ color: '#b91c1c' }}>{stats.overdue}</strong>
           </article>
         )}
       </div>
 
-      {/* Toolbar */}
+      {/* ── 3. SEARCH & FILTER TOOLBAR ───────────────────────────────────── */}
       <div className="users-toolbar" style={{ marginBottom: '1.2rem', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-        <div className="search-box" style={{ flex: '1 1 260px' }}>
+        <div className="search-box" style={{ flex: '1 1 280px' }}>
           <span className="search-icon">🔍</span>
           <input
             type="text"
@@ -326,17 +359,17 @@ export default function PathologyPage() {
         </div>
       </div>
 
-      {/* Cases Queue Table */}
-      <section className="table-card" style={{ background: 'var(--color-surface,#fff)', borderRadius: '12px', border: '1px solid var(--color-border,#e2ecef)', overflow: 'hidden' }}>
+      {/* ── 4. CASES QUEUE TABLE ─────────────────────────────────────────── */}
+      <section className="table-card" style={{ borderRadius: '12px', overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: '#64748b' }}>
+          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>⏳</div>
             Loading pathology cases…
           </div>
         ) : filteredCases.length === 0 ? (
-          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: '#64748b' }}>
+          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🔬</div>
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: '#1e293b' }}>No Pathology Cases Found</h3>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: 'var(--color-on-surface, #1e293b)' }}>No Pathology Cases Found</h3>
             <p style={{ margin: 0, fontSize: '0.88rem' }}>
               When Reception completes payment for Biopsy, FNAC, or Peripheral Morphology, cases appear here automatically.
             </p>
@@ -345,7 +378,7 @@ export default function PathologyPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: 'var(--color-background,#f8fafc)', borderBottom: '2px solid var(--color-border,#e2ecef)', color: 'var(--color-primary,#075c91)' }}>
+                <tr style={{ background: 'var(--color-surface-container, #f8fafc)', borderBottom: '2px solid var(--color-outline-variant, #cbd5e1)', color: 'var(--color-primary, #075c91)' }}>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>#</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Case / Patient</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Examination</th>
@@ -363,11 +396,11 @@ export default function PathologyPage() {
                   const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
 
                   return (
-                    <tr key={c._id} style={{ borderBottom: '1px solid var(--color-border,#edf2f7)' }}>
-                      <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>{i + 1}</td>
+                    <tr key={c._id} style={{ borderBottom: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>{i + 1}</td>
                       <td style={{ padding: '10px 12px' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--color-primary,#075c91)' }}>{c.patient?.name || '—'}</div>
-                        <small style={{ color: '#64748b' }}>{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</small>
+                        <div style={{ fontWeight: 700, color: 'var(--color-primary, #075c91)' }}>{c.patient?.name || '—'}</div>
+                        <small style={{ color: 'var(--text-secondary, #64748b)' }}>{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</small>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11.5px', background: isBiopsy ? '#fef3c7' : '#e0e7ff', color: isBiopsy ? '#92400e' : '#3730a3', fontWeight: 700 }}>
@@ -382,14 +415,14 @@ export default function PathologyPage() {
                           {isApproved ? '✅ Completed' : (
                             <>
                               <span>⏱️ {isBiopsy ? '20-Day Target' : '24-Hour Target'}</span>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: countdown.isOverdue ? '#b91c1c' : '#475569', marginTop: '2px' }}>
+                              <div style={{ fontSize: '11px', fontWeight: 700, color: countdown.isOverdue ? '#b91c1c' : 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
                                 {countdown.text}
                               </div>
                             </>
                           )}
                         </div>
                       </td>
-                      <td style={{ padding: '10px 12px', color: '#475569', fontSize: '12px' }}>
+                      <td style={{ padding: '10px 12px', color: 'var(--color-on-surface, #475569)', fontSize: '12px' }}>
                         {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
@@ -398,17 +431,17 @@ export default function PathologyPage() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: isApproved ? '#dcfce7' : c.status === 'In Progress' ? '#fef3c7' : '#f1f5f9', color: isApproved ? '#166534' : c.status === 'In Progress' ? '#92400e' : '#475569', fontWeight: 600 }}>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: isApproved ? '#dcfce7' : c.status === 'In Progress' ? '#fef3c7' : 'var(--color-surface-container, #f1f5f9)', color: isApproved ? '#166534' : c.status === 'In Progress' ? '#92400e' : 'var(--text-secondary, #475569)', fontWeight: 600 }}>
                           {c.status}
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                         <button
                           className="primary-button"
-                          style={{ padding: '4px 10px', fontSize: '11.5px', fontWeight: 600 }}
+                          style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 700 }}
                           onClick={() => openCaseModal(c)}
                         >
-                          {isApproved ? '👁️ View Report' : '📝 Enter / Review Report'}
+                          {isApproved ? '👁️ View / Edit' : '📝 Enter Result'}
                         </button>
                       </td>
                     </tr>
@@ -420,273 +453,381 @@ export default function PathologyPage() {
         )}
       </section>
 
-      {/* Report Entry & Approval Modal */}
-      <ModalPortal isOpen={!!selectedCase} onClose={closeCaseModal}>
-        <div className="modal-content" style={{ maxWidth: '880px', maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-          <header className="modal-header" style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 10, borderBottom: '1px solid #e2ecef', paddingBottom: '10px' }}>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🔬</span> Pathology Report — {selectedCase?.testType} ({selectedCase?.caseNumber})
-              </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-                Patient: <strong>{selectedCase?.patient?.name}</strong> ({selectedCase?.patient?.patientId}) · {selectedCase?.patient?.age} yrs / {selectedCase?.patient?.sex} · 📍 {selectedCase?.branchName}
-              </p>
-            </div>
-            <button className="close-button" onClick={closeCaseModal}>&times;</button>
-          </header>
-
-          <div style={{ marginTop: '12px' }}>
-            {/* Editor Option Tabs: Option A (Default) vs Option B */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2ecef', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setReportType('Option A')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderBottom: reportType === 'Option A' ? '3px solid var(--color-primary, #075c91)' : '3px solid transparent',
-                    background: reportType === 'Option A' ? '#e0f2fe' : 'transparent',
-                    color: reportType === 'Option A' ? 'var(--color-primary, #075c91)' : '#64748b',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    borderRadius: '6px 6px 0 0'
-                  }}
-                >
-                  📄 Option A — Copy / Paste Report (Default)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReportType('Option B')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderBottom: reportType === 'Option B' ? '3px solid var(--color-primary, #075c91)' : '3px solid transparent',
-                    background: reportType === 'Option B' ? '#e0f2fe' : 'transparent',
-                    color: reportType === 'Option B' ? 'var(--color-primary, #075c91)' : '#64748b',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    borderRadius: '6px 6px 0 0'
-                  }}
-                >
-                  📑 Option B — Professional Structured Report
-                </button>
-              </div>
-
-              {/* Show / Hide Footer Toggle */}
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showFooter}
-                  onChange={e => setShowFooter(e.target.checked)}
-                />
-                Show ETU Logo & Footer on A4
-              </label>
-            </div>
-
-            {/* ── OPTION A: RICH COPY/PASTE EDITOR ────────────────────────── */}
-            {reportType === 'Option A' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.84rem', color: '#475569' }}>
-                  <strong>💡 Option A Rich Document Editor:</strong> Type, paste from Microsoft Word (preserves font styles, headings, tables, and images), paste images from clipboard, or import a <code>.docx</code> file directly.
+      {/* ── 5. PROFESSIONAL RESULT ENTRY MODAL ────────────────────────────── */}
+      {selectedCase && (
+        <ModalPortal isOpen={!!selectedCase} onClose={closeCaseModal}>
+          <div className="modal-content clinical-modal-dialog" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <header className="clinical-modal-header">
+              <div>
+                <h2>
+                  <span>🔬</span> PATHOLOGY RESULT ENTRY — {selectedCase?.testType}
+                </h2>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
+                  Case Ref: <strong>{selectedCase?.caseNumber}</strong> · Branch: <strong>{selectedCase?.branchName}</strong>
                 </div>
-
-                <RichReportEditor
-                  value={reportContent}
-                  onChange={setReportContent}
-                  placeholder="Enter pathology examination findings, paste from Microsoft Word, or upload .docx report…"
-                />
               </div>
-            )}
+              <button className="close-button" onClick={closeCaseModal}>&times;</button>
+            </header>
 
-            {/* ── OPTION B: STRUCTURED REPORT ENTRY ───────────────────────── */}
-            {reportType === 'Option B' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Clinical History / Indications</label>
-                    <textarea
-                      className="global-input"
-                      rows={2}
-                      value={structured.clinicalHistory}
-                      onChange={e => setStructured({ ...structured, clinicalHistory: e.target.value })}
-                      placeholder="Clinical presentation & relevant history…"
-                      style={{ width: '100%' }}
-                    />
+            <div style={{ padding: '1.25rem' }}>
+              {/* ── CARD 1: PATIENT & CASE INFORMATION ── */}
+              <section className="clinical-card">
+                <div className="clinical-card-header">
+                  <span>🧑‍⚕️</span> Patient &amp; Case Information
+                </div>
+                <div className="clinical-patient-grid">
+                  <div className="clinical-patient-field">
+                    <small>Patient Name</small>
+                    <strong>{selectedCase?.patient?.name || '—'}</strong>
                   </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Specimen / Anatomical Site</label>
-                    <input
-                      type="text"
-                      className="global-input"
-                      value={structured.specimen}
-                      onChange={e => setStructured({ ...structured, specimen: e.target.value })}
-                      placeholder="e.g. Left Breast Mass, Cervical Lymph Node"
-                      style={{ width: '100%' }}
-                    />
+                  <div className="clinical-patient-field">
+                    <small>Patient ID</small>
+                    <strong>{selectedCase?.patient?.patientId || '—'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Age / Sex</small>
+                    <strong>{selectedCase?.patient?.age} yrs / {selectedCase?.patient?.sex}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Phone</small>
+                    <strong>{selectedCase?.patient?.phone || '—'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Patient Type</small>
+                    <strong>{selectedCase?.patient?.patientType || 'Self'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Examination Type</small>
+                    <strong style={{ color: 'var(--color-primary, #075c91)' }}>{selectedCase?.testType}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Registration Date</small>
+                    <strong>{selectedCase?.patient?.registrationDate ? new Date(selectedCase.patient.registrationDate).toLocaleString() : '—'}</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Turnaround Target</small>
+                    <strong>{selectedCase?.testType === 'Biopsy' ? '20-Day Standard' : '24-Hour Target'}</strong>
                   </div>
                 </div>
+              </section>
 
-                {selectedCase?.testType === 'Biopsy' && (
+              {/* ── CARD 2: ETU REPORT HEADER BRANDING PREVIEW ── */}
+              <div className={`clinical-etu-header-preview ${showFooter ? '' : 'hidden-branding'}`}>
+                {showFooter ? (
                   <>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Gross Description</label>
-                      <textarea
-                        className="global-input"
-                        rows={2}
-                        value={structured.grossDescription}
-                        onChange={e => setStructured({ ...structured, grossDescription: e.target.value })}
-                        placeholder="Macroscopic appearance, dimensions, color, consistency…"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Microscopic Description</label>
-                      <textarea
-                        className="global-input"
-                        rows={3}
-                        value={structured.microscopicDescription}
-                        onChange={e => setStructured({ ...structured, microscopicDescription: e.target.value })}
-                        placeholder="Histopathological cellular architecture, nuclear features, stroma…"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
+                    <img src={labLogo} alt="ETU Diagnostic Laboratory" className="clinical-etu-logo-img" />
+                    <div className="clinical-etu-header-text">ETU DIAGNOSTIC LABORATORY · OFFICIAL PATHOLOGY REPORT</div>
                   </>
-                )}
-
-                {selectedCase?.testType === 'FNAC' && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Cytological Findings</label>
-                    <textarea
-                      className="global-input"
-                      rows={3}
-                      value={structured.cytologicalFindings}
-                      onChange={e => setStructured({ ...structured, cytologicalFindings: e.target.value })}
-                      placeholder="Smear adequacy, cell clusters, background, nuclear atypia…"
-                      style={{ width: '100%' }}
-                    />
+                ) : (
+                  <div style={{ color: 'var(--text-secondary, #64748b)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                    ETU Header & Footer Branding is currently <strong>Hidden</strong> for plain paper printing.
                   </div>
                 )}
+              </div>
 
-                {selectedCase?.testType === 'Peripheral Morphology' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>RBC Morphology</label>
-                      <textarea
-                        className="global-input"
-                        rows={2}
-                        value={structured.rbcMorphology}
-                        onChange={e => setStructured({ ...structured, rbcMorphology: e.target.value })}
-                        placeholder="Normochromic, microcytic…"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>WBC Morphology</label>
-                      <textarea
-                        className="global-input"
-                        rows={2}
-                        value={structured.wbcMorphology}
-                        onChange={e => setStructured({ ...structured, wbcMorphology: e.target.value })}
-                        placeholder="Count, differential, toxic granules…"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Platelet Morphology</label>
-                      <textarea
-                        className="global-input"
-                        rows={2}
-                        value={structured.plateletMorphology}
-                        onChange={e => setStructured({ ...structured, plateletMorphology: e.target.value })}
-                        placeholder="Adequate, clumps, giant forms…"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
+              {/* ── CARD 3: OPTION A / OPTION B SWITCHER & BRANDING TOGGLE ── */}
+              <div className="clinical-tabs-bar">
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`clinical-tab-btn ${reportType === 'Option A' ? 'active' : ''}`}
+                    onClick={() => setReportType('Option A')}
+                  >
+                    <span>📄</span> OPTION A — SPECIALIST REPORT (Copy / Paste / Word Docx)
+                  </button>
+                  <button
+                    type="button"
+                    className={`clinical-tab-btn ${reportType === 'Option B' ? 'active' : ''}`}
+                    onClick={() => setReportType('Option B')}
+                  >
+                    <span>📑</span> OPTION B — STRUCTURED RESULT ENTRY
+                  </button>
+                </div>
+
+                {/* Show/Hide Branding Toggle Switch */}
+                <label className="clinical-branding-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showFooter}
+                    onChange={e => setShowFooter(e.target.checked)}
+                  />
+                  <span>Show ETU Header &amp; Footer</span>
+                </label>
+              </div>
+
+              {/* ── OPTION A: RICH COPY/PASTE DOCUMENT EDITOR ── */}
+              {reportType === 'Option A' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)', fontSize: '0.84rem', color: 'var(--color-on-surface, #475569)' }}>
+                    <strong>💡 Option A Specialist Editor:</strong> Type, paste from Microsoft Word (preserves font styling, tables, headings, and images), paste images from clipboard (Ctrl+V), or import a <code>.docx</code> file directly.
                   </div>
-                )}
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px', color: 'var(--color-primary, #075c91)' }}>
-                    Pathological Diagnosis / Impression *
-                  </label>
-                  <textarea
-                    className="global-input"
-                    rows={2}
-                    value={structured.diagnosis}
-                    onChange={e => setStructured({ ...structured, diagnosis: e.target.value })}
-                    placeholder="Definitive pathological diagnosis…"
-                    style={{ width: '100%', fontWeight: 600 }}
+                  <RichReportEditor
+                    value={reportContent}
+                    onChange={setReportContent}
+                    placeholder="Enter comprehensive pathology findings, paste from Microsoft Word, or upload .docx report…"
                   />
                 </div>
+              )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Comments / Remarks</label>
+              {/* ── OPTION B: STRUCTURED CLINICAL FIELDS ── */}
+              {reportType === 'Option B' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                    <div className="clinical-form-group">
+                      <label>Clinical History / Indications</label>
+                      <textarea
+                        className="clinical-textarea"
+                        rows={2}
+                        value={structured.clinicalHistory}
+                        onChange={e => setStructured({ ...structured, clinicalHistory: e.target.value })}
+                        placeholder="Clinical presentation & relevant history…"
+                      />
+                    </div>
+
+                    <div className="clinical-form-group">
+                      <label>Specimen / Anatomical Site</label>
+                      <input
+                        type="text"
+                        className="clinical-input"
+                        value={structured.specimen}
+                        onChange={e => setStructured({ ...structured, specimen: e.target.value })}
+                        placeholder="e.g. Left Breast Mass, Cervical Lymph Node"
+                      />
+                    </div>
+                  </div>
+
+                  {selectedCase?.testType === 'Biopsy' && (
+                    <>
+                      <div className="clinical-form-group">
+                        <label>Gross Description</label>
+                        <textarea
+                          className="clinical-textarea"
+                          rows={2}
+                          value={structured.grossDescription}
+                          onChange={e => setStructured({ ...structured, grossDescription: e.target.value })}
+                          placeholder="Macroscopic appearance, dimensions, color, consistency…"
+                        />
+                      </div>
+
+                      <div className="clinical-form-group">
+                        <label>Microscopic Description</label>
+                        <textarea
+                          className="clinical-textarea"
+                          rows={3}
+                          value={structured.microscopicDescription}
+                          onChange={e => setStructured({ ...structured, microscopicDescription: e.target.value })}
+                          placeholder="Histopathological cellular architecture, nuclear features, stroma…"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {selectedCase?.testType === 'FNAC' && (
+                    <div className="clinical-form-group">
+                      <label>Cytological Findings</label>
+                      <textarea
+                        className="clinical-textarea"
+                        rows={3}
+                        value={structured.cytologicalFindings}
+                        onChange={e => setStructured({ ...structured, cytologicalFindings: e.target.value })}
+                        placeholder="Smear adequacy, cell clusters, background, nuclear atypia…"
+                      />
+                    </div>
+                  )}
+
+                  {selectedCase?.testType === 'Peripheral Morphology' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                      <div className="clinical-form-group">
+                        <label>RBC Morphology</label>
+                        <textarea
+                          className="clinical-textarea"
+                          rows={2}
+                          value={structured.rbcMorphology}
+                          onChange={e => setStructured({ ...structured, rbcMorphology: e.target.value })}
+                          placeholder="Normochromic, microcytic…"
+                        />
+                      </div>
+                      <div className="clinical-form-group">
+                        <label>WBC Morphology</label>
+                        <textarea
+                          className="clinical-textarea"
+                          rows={2}
+                          value={structured.wbcMorphology}
+                          onChange={e => setStructured({ ...structured, wbcMorphology: e.target.value })}
+                          placeholder="Count, differential, toxic granules…"
+                        />
+                      </div>
+                      <div className="clinical-form-group">
+                        <label>Platelet Morphology</label>
+                        <textarea
+                          className="clinical-textarea"
+                          rows={2}
+                          value={structured.plateletMorphology}
+                          onChange={e => setStructured({ ...structured, plateletMorphology: e.target.value })}
+                          placeholder="Adequate, clumps, giant forms…"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="clinical-form-group">
+                    <label>
+                      Pathological Diagnosis / Impression <span className="required">*</span>
+                    </label>
                     <textarea
-                      className="global-input"
+                      className="clinical-textarea"
                       rows={2}
-                      value={structured.comments}
-                      onChange={e => setStructured({ ...structured, comments: e.target.value })}
-                      placeholder="Additional pathological notes"
-                      style={{ width: '100%' }}
+                      value={structured.diagnosis}
+                      onChange={e => setStructured({ ...structured, diagnosis: e.target.value })}
+                      placeholder="Definitive pathological diagnosis…"
+                      style={{ fontWeight: 700 }}
                     />
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '3px' }}>Recommendations</label>
-                    <textarea
-                      className="global-input"
-                      rows={2}
-                      value={structured.recommendation}
-                      onChange={e => setStructured({ ...structured, recommendation: e.target.value })}
-                      placeholder="e.g. Immunohistochemistry, close follow-up"
-                      style={{ width: '100%' }}
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div className="clinical-form-group">
+                      <label>Comments / Remarks</label>
+                      <textarea
+                        className="clinical-textarea"
+                        rows={2}
+                        value={structured.comments}
+                        onChange={e => setStructured({ ...structured, comments: e.target.value })}
+                        placeholder="Additional pathological notes"
+                      />
+                    </div>
+
+                    <div className="clinical-form-group">
+                      <label>Recommendations</label>
+                      <textarea
+                        className="clinical-textarea"
+                        rows={2}
+                        value={structured.recommendation}
+                        onChange={e => setStructured({ ...structured, recommendation: e.target.value })}
+                        placeholder="e.g. Immunohistochemistry, close follow-up"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Approval Info Banner */}
-            <div style={{ marginTop: '16px', padding: '10px 14px', borderRadius: '8px', background: '#e0f2fe', border: '1px solid #bae6fd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-              <div>
-                <strong>Approved By:</strong> Dr. {user?.fullName || 'Pathologist'} · <em>Pathologist</em>
+              {/* ── CARD 4: SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
+              <div className="clinical-signoff-banner">
+                <div>
+                  <span className="clinical-signoff-title">Approved By:</span> Dr. {user?.fullName || 'Pathologist'} · <em>Pathologist (Logged-in Specialist)</em>
+                </div>
+                <div style={{ fontWeight: 700 }}>
+                  {selectedCase?.approvedAt ? `Approved on ${new Date(selectedCase.approvedAt).toLocaleString()}` : 'Ready for Direct Sign-off'}
+                </div>
               </div>
-              <div style={{ color: '#0369a1', fontWeight: 600 }}>
-                {selectedCase?.approvedAt ? `Approved on ${new Date(selectedCase.approvedAt).toLocaleString()}` : 'Ready for Sign-off'}
-              </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-              <button type="button" className="secondary-button" onClick={closeCaseModal}>
-                Close
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleSaveDraft}
-                disabled={saving || approving}
-                style={{ background: '#f8fafc', borderColor: '#cbd5e1' }}
-              >
-                {saving ? 'Saving Draft…' : '💾 Save Draft'}
-              </button>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={handleApproveReport}
-                disabled={saving || approving}
-                style={{ background: '#16a34a', borderColor: '#15803d' }}
-              >
-                {approving ? 'Approving…' : '✅ Confirm / Approve Report'}
-              </button>
+              {/* ── CARD 5: ACTIONS TOOLBAR ── */}
+              <div className="clinical-actions-toolbar">
+                <button type="button" className="btn-clinical-draft" onClick={closeCaseModal}>
+                  Close
+                </button>
+
+                <div className="clinical-btn-group">
+                  <button
+                    type="button"
+                    className="btn-clinical-draft"
+                    onClick={handleSaveDraft}
+                    disabled={saving || approving}
+                  >
+                    <span>💾</span> {saving ? 'Saving Draft…' : 'Save Draft'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-clinical-preview"
+                    onClick={() => setPreviewModalOpen(true)}
+                  >
+                    <span>👁️</span> Preview A4 Report
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-clinical-print"
+                    onClick={handleDirectPrint}
+                  >
+                    <span>🖨️</span> Print A4 Report
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-clinical-approve"
+                    onClick={handleApproveReport}
+                    disabled={saving || approving}
+                  >
+                    <span>✅</span> {approving ? 'Approving…' : 'Confirm & Approve Report'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </ModalPortal>
+        </ModalPortal>
+      )}
+
+      {/* ── 6. DEDICATED A4 REPORT PREVIEW MODAL ──────────────────────────── */}
+      {previewModalOpen && liveReport && (
+        <ModalPortal isOpen={previewModalOpen} onClose={() => setPreviewModalOpen(false)}>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '880px',
+              maxHeight: '94vh',
+              overflowY: 'auto',
+              padding: '0',
+              background: '#cbd5e1',
+              borderRadius: '12px'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <header
+              style={{
+                position: 'sticky',
+                top: 0,
+                background: 'var(--color-surface, #ffffff)',
+                zIndex: 30,
+                padding: '12px 20px',
+                borderBottom: '1px solid var(--color-outline-variant, #cbd5e1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📄</span> Pathology A4 Report Preview
+                </h2>
+                <label className="clinical-branding-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showFooter}
+                    onChange={e => setShowFooter(e.target.checked)}
+                  />
+                  <span>Show ETU Header &amp; Footer</span>
+                </label>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn-clinical-print"
+                  onClick={handleDirectPrint}
+                >
+                  <span>🖨️</span> Print A4 Report
+                </button>
+                <button className="close-button" onClick={() => setPreviewModalOpen(false)}>&times;</button>
+              </div>
+            </header>
+
+            {/* A4 Document Canvas */}
+            <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
+              <ReportPreview report={liveReport} showFooter={showFooter} />
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </section>
   );
 }

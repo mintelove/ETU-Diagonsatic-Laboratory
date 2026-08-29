@@ -41,7 +41,8 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   let mainBodyHtml = '';
   let subTitle = 'Official Laboratory Test Report';
   let preparedByName = safe(report.technician?.fullName || report.submittedBy?.fullName || user?.fullName || 'Clinical Specialist');
-  let approvedByName = safe(report.approvedBy?.fullName || (report.status === 'Approved' ? user?.fullName : 'Pending Specialist Approval'));
+  const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || (['Approved', 'Ready for Printing'].includes(report.status) ? user?.fullName : '');
+  let approvedByName = safe(rawApprover ? (rawApprover.startsWith('Dr.') ? rawApprover : `Dr. ${rawApprover}`) : 'Pending Specialist Approval');
   let approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : 'Approver / Laboratory Technologist');
 
   // ── 1. PATHOLOGY REPORT RENDERING ─────────────────────────────────────────
