@@ -977,35 +977,212 @@ export default function ReceptionPage() {
           ))}
       </div>
 
-      {/* ═══ VIEW 1: RECEPTION DASHBOARD ═══ */}
+      {/* ═══ VIEW 1 & VIEW 4: RECEPTION DASHBOARD & APPROVED REPORTS ═══ */}
+      {(view === 'dashboard' || view === 'reports') && (
+        <>
+          {/* ── 1. TOP-LEVEL SECTION: APPROVED DIAGNOSTICS REPORTS ── */}
+          <section className="table-card" style={{ marginBottom: 'var(--space-6)' }}>
+            <div className="table-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📝</span> Approved Diagnostics Reports
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <input
+                    type="checkbox"
+                    checked={showReportFooter}
+                    onChange={e => setShowReportFooter(e.target.checked)}
+                  />
+                  Show Logo & Footer
+                </label>
+                <div className="export-buttons">
+                  <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
+                  <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
+                </div>
+              </div>
+            </div>
+            {reports.length ? (
+              <div className="sample-types-table-wrapper">
+                <table className="sample-types-table">
+                  <thead>
+                    <tr>
+                      <th>Patient</th>
+                      <th>Department & Examination</th>
+                      <th>Report Summary</th>
+                      <th>Approved By</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map(r => {
+                      const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
+                      const isPath = dept === 'Pathology';
+                      const isRad = dept === 'Radiology';
+                      const examLabel = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || (r.results?.map(x => x.sampleName).slice(0, 2).join(', ')) || 'Laboratory Tests';
+
+                      return (
+                        <tr key={r._id}>
+                          <td><strong>{r.patient?.name}</strong><span>{r.patient?.patientId}</span></td>
+                          <td>
+                            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isPath ? '#fef3c7' : isRad ? '#e0f2fe' : '#e0e7ff', color: isPath ? '#92400e' : isRad ? '#0369a1' : '#3730a3' }}>
+                              {dept}
+                            </span>
+                            <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: '#1e293b' }}>
+                              {examLabel}
+                            </div>
+                          </td>
+                          <td>
+                            {r.results?.length ? (
+                              r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
+                            ) : r.reportContent ? (
+                              <span style={{ color: '#0369a1', fontStyle: 'italic' }}>Detailed Specialist Report</span>
+                            ) : r.structuredReport?.diagnosis ? (
+                              <span>{r.structuredReport.diagnosis}</span>
+                            ) : r.structuredReport?.impression ? (
+                              <span>{r.structuredReport.impression}</span>
+                            ) : 'Complete Clinical Report'}
+                          </td>
+                          <td>
+                            <strong>{r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—'))}</strong>
+                            <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
+                          </td>
+                          <td>
+                            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
+                              {r.status || 'Ready for Printing'}
+                            </span>
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: 600 }}
+                                onClick={() => setSelectedReportForPreview(r)}
+                              >
+                                👁️ Preview
+                              </button>
+                              <button
+                                type="button"
+                                className="primary-button"
+                                disabled={busy}
+                                style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 600 }}
+                                onClick={() => handlePrintA4Report(r._id)}
+                              >
+                                {busy ? 'Printing…' : '🖨️ Print A4'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
+          </section>
+
+          {/* ── A4 Report Preview Modal ────────────────────────────── */}
+          {selectedReportForPreview && (
+            <ModalPortal isOpen={!!selectedReportForPreview} onClose={() => setSelectedReportForPreview(null)}>
+              <div
+                className="modal-content"
+                style={{
+                  maxWidth: '860px',
+                  maxHeight: '92vh',
+                  overflowY: 'auto',
+                  padding: '0',
+                  background: '#e2e8f0',
+                  borderRadius: '10px'
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <header
+                  className="modal-header"
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    background: '#fff',
+                    zIndex: 10,
+                    padding: '12px 20px',
+                    borderBottom: '1px solid #cbd5e1',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <h2 style={{ fontSize: '1.15rem', color: '#075c91', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📄</span> A4 Report Preview
+                    </h2>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                      <input
+                        type="checkbox"
+                        checked={showReportFooter}
+                        onChange={e => setShowReportFooter(e.target.checked)}
+                      />
+                      Show Logo & Footer
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={busy}
+                      style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
+                      onClick={() => {
+                        if (selectedReportForPreview) {
+                          handlePrintA4Report(selectedReportForPreview._id);
+                        }
+                      }}
+                    >
+                      {busy ? 'Printing…' : '🖨️ Print A4 Report'}
+                    </button>
+                    <button className="close-button" onClick={() => setSelectedReportForPreview(null)}>&times;</button>
+                  </div>
+                </header>
+
+                {/* A4 Document Canvas */}
+                <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
+                  <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
+                </div>
+              </div>
+            </ModalPortal>
+          )}
+        </>
+      )}
+
+      {/* ── 2. RECEPTION STATS & RECENT ACTIVITY (Dashboard only) ── */}
       {view === 'dashboard' && (
         <>
           <div className="reception-stats">
-            <article className="stat-card blue">
-              <small>Today's Patients</small>
-              <strong>{dash?.summary.todayPatients ?? 0}</strong>
-            </article>
-            <article className="stat-card green">
-              <small>Today's Income</small>
-              <strong>{formatETB(dash?.summary.todayIncome)}</strong>
-            </article>
-            <article className="stat-card teal">
-              <small>Weekly Income</small>
-              <strong>{formatETB(dash?.summary.weeklyIncome)}</strong>
-            </article>
-            <article className="stat-card orange">
-              <small>Pending Collections</small>
-              <strong>{dash?.summary.waitingCollection ?? 0}</strong>
-            </article>
-            <article className="stat-card purple">
-              <small>Completed Registrations</small>
-              <strong>{dash?.summary.readyReports ?? 0}</strong>
-            </article>
-            <article className="stat-card indigo">
-              <small>Waiting Queue</small>
-              <strong>{dash?.summary.waitingCollection ?? 0}</strong>
-            </article>
-          </div>
+                <article className="stat-card blue">
+                  <small>Today's Patients</small>
+                  <strong>{dash?.summary.todayPatients ?? 0}</strong>
+                </article>
+                <article className="stat-card green">
+                  <small>Today's Income</small>
+                  <strong>{formatETB(dash?.summary.todayIncome)}</strong>
+                </article>
+                <article className="stat-card teal">
+                  <small>Weekly Income</small>
+                  <strong>{formatETB(dash?.summary.weeklyIncome)}</strong>
+                </article>
+                <article className="stat-card orange">
+                  <small>Pending Collections</small>
+                  <strong>{dash?.summary.waitingCollection ?? 0}</strong>
+                </article>
+                <article className="stat-card purple">
+                  <small>Completed Registrations</small>
+                  <strong>{dash?.summary.readyReports ?? 0}</strong>
+                </article>
+                <article className="stat-card indigo">
+                  <small>Waiting Queue</small>
+                  <strong>{dash?.summary.waitingCollection ?? 0}</strong>
+                </article>
+              </div>
 
           {/* Recent transactions listing (Step 8) */}
           <section className="dash-panel" style={{ marginTop: 'var(--space-6)' }}>
@@ -1931,177 +2108,7 @@ export default function ReceptionPage() {
         </section>
       )}
 
-      {/* ═══ VIEW 4: APPROVED REPORTS ═══ */}
-      {view === 'reports' && (
-        <section className="table-card">
-          <div className="table-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <h2>Approved Diagnostics Reports</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showReportFooter}
-                  onChange={e => setShowReportFooter(e.target.checked)}
-                />
-                Show Logo & Footer
-              </label>
-              <div className="export-buttons">
-                <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
-                <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
-              </div>
-            </div>
-          </div>
-          {reports.length ? (
-            <div className="sample-types-table-wrapper">
-              <table className="sample-types-table">
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Department & Examination</th>
-                    <th>Report Summary</th>
-                    <th>Approved By</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reports.map(r => {
-                    const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
-                    const isPath = dept === 'Pathology';
-                    const isRad = dept === 'Radiology';
-                    const examLabel = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || (r.results?.map(x => x.sampleName).slice(0, 2).join(', ')) || 'Laboratory Tests';
 
-                    return (
-                      <tr key={r._id}>
-                        <td><strong>{r.patient?.name}</strong><span>{r.patient?.patientId}</span></td>
-                        <td>
-                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isPath ? '#fef3c7' : isRad ? '#e0f2fe' : '#e0e7ff', color: isPath ? '#92400e' : isRad ? '#0369a1' : '#3730a3' }}>
-                            {dept}
-                          </span>
-                          <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: '#1e293b' }}>
-                            {examLabel}
-                          </div>
-                        </td>
-                        <td>
-                          {r.results?.length ? (
-                            r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
-                          ) : r.reportContent ? (
-                            <span style={{ color: '#0369a1', fontStyle: 'italic' }}>Detailed Specialist Report</span>
-                          ) : r.structuredReport?.diagnosis ? (
-                            <span>{r.structuredReport.diagnosis}</span>
-                          ) : r.structuredReport?.impression ? (
-                            <span>{r.structuredReport.impression}</span>
-                          ) : 'Complete Clinical Report'}
-                        </td>
-                        <td>
-                          <strong>{r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—'))}</strong>
-                          <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
-                        </td>
-                        <td>
-                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
-                            {r.status || 'Ready for Printing'}
-                          </span>
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: 600 }}
-                              onClick={() => setSelectedReportForPreview(r)}
-                            >
-                              👁️ Preview
-                            </button>
-                            <button
-                              type="button"
-                              className="primary-button"
-                              disabled={busy}
-                              style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 600 }}
-                              onClick={() => handlePrintA4Report(r._id)}
-                            >
-                              {busy ? 'Printing…' : '🖨️ Print A4'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
-
-          {/* ── A4 Report Preview Modal ────────────────────────────── */}
-          {selectedReportForPreview && (
-            <ModalPortal isOpen={!!selectedReportForPreview} onClose={() => setSelectedReportForPreview(null)}>
-              <div
-                className="modal-content"
-                style={{
-                  maxWidth: '860px',
-                  maxHeight: '92vh',
-                  overflowY: 'auto',
-                  padding: '0',
-                  background: '#e2e8f0',
-                  borderRadius: '10px'
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                <header
-                  className="modal-header"
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    background: '#fff',
-                    zIndex: 10,
-                    padding: '12px 20px',
-                    borderBottom: '1px solid #cbd5e1',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '10px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <h2 style={{ fontSize: '1.15rem', color: '#075c91', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>📄</span> A4 Report Preview
-                    </h2>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                      <input
-                        type="checkbox"
-                        checked={showReportFooter}
-                        onChange={e => setShowReportFooter(e.target.checked)}
-                      />
-                      Show Logo & Footer
-                    </label>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                      type="button"
-                      className="primary-button"
-                      disabled={busy}
-                      style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
-                      onClick={() => {
-                        if (selectedReportForPreview) {
-                          handlePrintA4Report(selectedReportForPreview._id);
-                        }
-                      }}
-                    >
-                      {busy ? 'Printing…' : '🖨️ Print A4 Report'}
-                    </button>
-                    <button className="close-button" onClick={() => setSelectedReportForPreview(null)}>&times;</button>
-                  </div>
-                </header>
-
-                {/* A4 Document Canvas */}
-                <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
-                  <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
-                </div>
-              </div>
-            </ModalPortal>
-          )}
-        </section>
-      )}
 
       {/* ═══ VIEW 5: COUNSELLING RECORDS HISTORY ═══ */}
       {view === 'counselling' && (
