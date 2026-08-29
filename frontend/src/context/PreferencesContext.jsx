@@ -6,7 +6,7 @@ import { getTranslation } from '../utils/translations.js';
 const PreferencesContext = createContext(null);
 
 const defaults = {
-  theme: 'light',
+  theme: 'dark', // Dark Mode is default everywhere across the entire application
   language: 'en',
   timeFormat: '24',
   dateFormat: 'locale',
@@ -25,20 +25,20 @@ function getLuminance(hex) {
   return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
 }
 
-export function applyCustomColors(colors, currentThemeMode = document.documentElement.dataset.theme || 'light') {
+export function applyCustomColors(colors, currentThemeMode = document.documentElement.dataset.theme || 'dark') {
   if (!colors || typeof colors !== 'object') return;
 
   const isDark = currentThemeMode === 'dark';
 
   if (isDark) {
     // DARK MODE AUTOMATIC COMBINATION MAPPING
-    const darkMainBg = colors.background && getLuminance(colors.background) < 0.25 ? colors.background : '#090e15';
-    const darkSidebar = colors.sidebar && getLuminance(colors.sidebar) < 0.35 ? colors.sidebar : '#0f172a';
-    const darkHeader = colors.header && getLuminance(colors.header) < 0.35 ? colors.header : '#1e293b';
-    const darkCard = colors.card && getLuminance(colors.card) < 0.35 ? colors.card : '#1e293b';
+    const darkMainBg = colors.background && getLuminance(colors.background) < 0.25 ? colors.background : '#090e17';
+    const darkSidebar = colors.sidebar && getLuminance(colors.sidebar) < 0.35 ? colors.sidebar : '#080d17';
+    const darkHeader = colors.header && getLuminance(colors.header) < 0.35 ? colors.header : '#0e1726';
+    const darkCard = colors.card && getLuminance(colors.card) < 0.35 ? colors.card : '#131e32';
     const darkHeading = colors.heading || '#38bdf8';
-    const darkBottom = colors.bottom || '#1e293b';
-    const darkPrimary = colors.primary || '#38bdf8';
+    const darkBottom = colors.bottom || '#131e32';
+    const darkPrimary = colors.primary || '#0284c7';
     const darkSecondary = colors.secondary || '#2dd4bf';
 
     const darkVars = {
@@ -49,8 +49,8 @@ export function applyCustomColors(colors, currentThemeMode = document.documentEl
       '--etu-header': darkHeader,
       '--etu-header-color': '#f8fafc',
       '--card-bg': darkCard,
-      '--modal-bg': darkCard,
-      '--input-bg': '#16202c',
+      '--modal-bg': '#111a2c',
+      '--input-bg': '#0d1626',
       '--dropdown-bg': darkCard,
       '--text-primary': '#f8fafc',
       '--color-on-surface': '#f8fafc',
@@ -63,12 +63,12 @@ export function applyCustomColors(colors, currentThemeMode = document.documentEl
       '--color-primary': darkPrimary,
       '--button-primary-bg': darkPrimary,
       '--color-secondary': darkSecondary,
-      '--card-border': '#334155',
-      '--input-border': '#475569',
-      '--table-header-bg': '#1e293b',
+      '--card-border': '#24344d',
+      '--input-border': '#2d3e5b',
+      '--table-header-bg': '#0d1626',
       '--table-header-color': '#38bdf8',
       '--table-bg': darkCard,
-      '--table-row-hover': '#243346',
+      '--table-row-hover': '#1c2b44',
     };
 
     Object.entries(darkVars).forEach(([varName, value]) => {
@@ -77,7 +77,7 @@ export function applyCustomColors(colors, currentThemeMode = document.documentEl
     return;
   }
 
-  // Light mode remains 100% unchanged
+  // LIGHT MODE AUTOMATIC COMBINATION MAPPING
   let fg = colors.textAccent;
   if (fg && getLuminance(fg) > 0.6) {
     fg = '#0f172a';
@@ -85,7 +85,7 @@ export function applyCustomColors(colors, currentThemeMode = document.documentEl
 
   let bg = colors.background;
   if (bg && getLuminance(bg) < 0.3) {
-    bg = '#f4f8fb';
+    bg = '#f4f7fa';
   }
 
   const propertyMapping = {
@@ -153,16 +153,17 @@ export function PreferencesProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = preferences.theme;
+    const currentTheme = preferences.theme || 'dark';
+    document.documentElement.dataset.theme = currentTheme;
     document.documentElement.lang = preferences.language === 'am' ? 'am' : 'en';
     localStorage.setItem('etu_preferences', JSON.stringify(preferences));
 
     if (preferences.customTheme) {
-      applyCustomColors(preferences.customTheme, preferences.theme);
+      applyCustomColors(preferences.customTheme, currentTheme);
     } else if (token && !loading) {
       api('/system/theme', { token })
         .then((res) => {
-          if (res?.theme) applyCustomColors(res.theme, preferences.theme);
+          if (res?.theme) applyCustomColors(res.theme, currentTheme);
         })
         .catch(() => {});
     }
@@ -179,7 +180,7 @@ export function PreferencesProvider({ children }) {
             token,
             method: 'PATCH',
             body: JSON.stringify(updates),
-            isWrite: false, // Option 2: Theme/Language UI changes never show Green Checkmark
+            isWrite: false, // Theme/Language UI changes never show Green Checkmark
           });
           setPreferences((current) => ({ ...current, ...result.preferences }));
         } catch (error) {
@@ -195,7 +196,7 @@ export function PreferencesProvider({ children }) {
     () => ({
       preferences,
       updatePreferences,
-      applyCustomColors: (colors) => applyCustomColors(colors, preferences.theme),
+      applyCustomColors: (colors) => applyCustomColors(colors, preferences.theme || 'dark'),
       resetCustomColors,
       t: (key, fallback) => getTranslation(key, preferences.language, fallback),
     }),

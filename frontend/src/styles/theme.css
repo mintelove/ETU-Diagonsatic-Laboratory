@@ -1,156 +1,182 @@
-/* ============================================================
-   ETU Diagnostic Laboratory — Comprehensive Theme System
-   Provides 100% accessible contrast and visibility for both
-   Light Mode (:root) and Dark Mode (:root[data-theme='dark']).
-   ============================================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   ETU DIAGNOSTIC LABORATORY — COMPREHENSIVE MEDICAL LIMS THEME SYSTEM
+   Standardized Healthcare Design System (Dark Default & Clinical Light Mode)
+   100% WCAG Accessible Contrast & Component Hierarchy
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-:root {
-  --color-primary: #0873a2;
-  --color-primary-hover: #054872;
-  --color-primary-light: #e3effb;
-  --color-primary-container: #d3e4fc;
-  --color-on-primary-container: #001c38;
-  --color-secondary: #126e98;
+/* ── 1. THEME TOKENS ─────────────────────────────────────────────────────── */
 
-  --color-surface: #f4f8fb;
-  --color-surface-dim: #e4eef5;
-  --color-surface-bright: #ffffff;
-  --color-surface-container: #ffffff;
-  --color-surface-container-high: #e8f0f6;
-  --color-on-surface: #19313b;
-  --color-on-surface-variant: #334155;
-  --color-outline: #94a3b8;
-  --color-outline-variant: #cbd5e1;
+/* LIGHT MODE TOKENS */
+:root,
+:root[data-theme='light'] {
+  /* Surfaces & Backgrounds */
+  --color-surface: #F4F7FA;
+  --color-surface-dim: #E9EEF5;
+  --color-surface-bright: #FFFFFF;
+  --color-surface-container: #FFFFFF;
+  --color-surface-container-high: #E2E8F0;
 
-  --card-bg: #ffffff;
-  --card-border: #cbd5e1;
-  --card-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  /* Cards & Containers */
+  --card-bg: #FFFFFF;
+  --card-border: #CBD5E1;
+  --card-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
 
-  --text-primary: #19313b;
+  /* Primary Brand (Medical Blue) */
+  --color-primary: #0284C7;
+  --color-primary-hover: #0369A1;
+  --color-primary-active: #075985;
+  --color-primary-light: #EFF6FF;
+  --color-primary-container: #E0F2FE;
+  --color-on-primary-container: #0A2540;
+  --color-secondary: #0D9488;
+
+  /* Typography (High-Contrast Navy/Charcoal Hierarchy) */
+  --text-primary: #0F172A;
   --text-secondary: #334155;
-  --text-muted: #64748b;
+  --text-muted: #64748B;
+  --color-on-surface: #0F172A;
+  --color-on-surface-variant: #334155;
+  --color-heading: #0A2540;
+  --color-bottom: #F4F7FA;
 
-  --table-bg: #ffffff;
-  --table-header-bg: #e2e8f0;
-  --table-header-color: #0873a2;
-  --table-row-hover: #f1f5f9;
-  --table-border: #cbd5e1;
+  /* Data Tables */
+  --table-bg: #FFFFFF;
+  --table-header-bg: #F8FAFC;
+  --table-header-color: #0A2540;
+  --table-row-hover: #F1F5F9;
+  --table-border: #E2E8F0;
 
-  --input-bg: #ffffff;
-  --input-color: #19313b;
-  --input-border: #94a3b8;
-  --input-placeholder: #64748b;
+  /* Form Controls */
+  --input-bg: #FFFFFF;
+  --input-color: #0F172A;
+  --input-border: #CBD5E1;
+  --input-placeholder: #64748B;
+  --dropdown-bg: #FFFFFF;
+  --dropdown-color: #0F172A;
+  --dropdown-border: #CBD5E1;
 
-  --dropdown-bg: #ffffff;
-  --dropdown-color: #19313b;
-  --dropdown-border: #cbd5e1;
+  /* Modals & Dialogs */
+  --modal-bg: #FFFFFF;
+  --modal-border: #CBD5E1;
+  --modal-overlay: rgba(15, 23, 42, 0.65);
 
-  --modal-bg: #ffffff;
-  --modal-border: #cbd5e1;
-  --modal-overlay: rgba(15, 23, 42, 0.55);
+  /* Buttons */
+  --button-primary-bg: #0284C7;
+  --button-primary-color: #FFFFFF;
+  --button-secondary-bg: #F1F5F9;
+  --button-secondary-color: #0F172A;
 
-  --button-primary-bg: #0873a2;
-  --button-primary-color: #ffffff;
-  --button-secondary-bg: #e2e8f0;
-  --button-secondary-color: #19313b;
+  /* Navigation: Clinical Deep Navy Sidebar + Clean White Top Header */
+  --etu-sidebar: #0A1B30;
+  --etu-sidebar-color: #F8FAFC;
+  --etu-sidebar-active: #0284C7;
+  --etu-header: #FFFFFF;
+  --etu-header-color: #0F172A;
 
-  --etu-sidebar: #093f5d;
-  --etu-sidebar-color: #edf8fc;
-  --etu-sidebar-active: #126e98;
-  --etu-header: #ffffff;
-  --etu-header-color: #19313b;
-
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-bg-strong: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(7, 92, 145, 0.2);
-  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.09);
-  --shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.12);
+  /* Shadows & Glass */
+  --glass-bg: rgba(255, 255, 255, 0.90);
+  --glass-bg-strong: rgba(255, 255, 255, 0.98);
+  --glass-border: rgba(2, 132, 199, 0.15);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.12);
 }
 
+/* DARK MODE TOKENS (DEFAULT EVERYWHERE) */
 :root[data-theme='dark'] {
-  --color-primary: #38bdf8;
-  --color-primary-hover: #7dd3fc;
-  --color-primary-light: #123e57;
-  --color-primary-container: #164d6c;
-  --color-on-primary-container: #d9f1ff;
-  --color-secondary: #2dd4bf;
+  /* Surfaces & Backgrounds */
+  --color-surface: #090E17;
+  --color-surface-dim: #0D1626;
+  --color-surface-bright: #131E32;
+  --color-surface-container: #131E32;
+  --color-surface-container-high: #1E2D48;
 
-  --color-surface: #090e15;
-  --color-surface-dim: #0d1722;
-  --color-surface-bright: #1e293b;
-  --color-surface-container: #1e293b;
-  --color-surface-container-high: #243346;
-  --color-on-surface: #f8fafc;
-  --color-on-surface-variant: #cbd5e1;
-  --color-outline: #475569;
-  --color-outline-variant: #334155;
-  --color-heading: #38bdf8;
-  --color-bottom: #1e293b;
-
-  --card-bg: #1e293b;
-  --card-border: #334155;
+  /* Cards & Containers */
+  --card-bg: #131E32;
+  --card-border: #24344D;
   --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  /* Primary Brand (Luminous Medical Cyan/Blue) */
+  --color-primary: #38BDF8;
+  --color-primary-hover: #7DD3FC;
+  --color-primary-active: #0284C7;
+  --color-primary-light: #162C4E;
+  --color-primary-container: #164D6C;
+  --color-on-primary-container: #D9F1FF;
+  --color-secondary: #2DD4BF;
 
-  --table-bg: #1e293b;
-  --table-header-bg: #1e293b;
-  --table-header-color: #38bdf8;
-  --table-row-hover: #243346;
-  --table-border: #334155;
+  /* Typography (Crisp Light Hierarchy) */
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --color-on-surface: #F8FAFC;
+  --color-on-surface-variant: #CBD5E1;
+  --color-heading: #38BDF8;
+  --color-bottom: #131E32;
 
-  --input-bg: #16202c;
-  --input-color: #ffffff;
-  --input-border: #475569;
-  --input-placeholder: #94a3b8;
+  /* Data Tables */
+  --table-bg: #131E32;
+  --table-header-bg: #0D1626;
+  --table-header-color: #38BDF8;
+  --table-row-hover: #1C2B44;
+  --table-border: #24344D;
 
-  --dropdown-bg: #1e293b;
-  --dropdown-color: #ffffff;
-  --dropdown-border: #334155;
+  /* Form Controls */
+  --input-bg: #0D1626;
+  --input-color: #FFFFFF;
+  --input-border: #2D3E5B;
+  --input-placeholder: #94A3B8;
+  --dropdown-bg: #131E32;
+  --dropdown-color: #FFFFFF;
+  --dropdown-border: #24344D;
 
-  --modal-bg: #1e293b;
-  --modal-border: #334155;
-  --modal-overlay: rgba(0, 0, 0, 0.75);
+  /* Modals & Dialogs */
+  --modal-bg: #111A2C;
+  --modal-border: #24344D;
+  --modal-overlay: rgba(0, 0, 0, 0.80);
 
-  --button-primary-bg: #0284c7;
-  --button-primary-color: #ffffff;
-  --button-secondary-bg: #243346;
-  --button-secondary-color: #f8fafc;
+  /* Buttons */
+  --button-primary-bg: #0284C7;
+  --button-primary-color: #FFFFFF;
+  --button-secondary-bg: #1E2D48;
+  --button-secondary-color: #F8FAFC;
 
-  --etu-sidebar: #0f172a;
-  --etu-sidebar-color: #f8fafc;
-  --etu-sidebar-active: #0284c7;
-  --etu-header: #1e293b;
-  --etu-header-color: #f8fafc;
+  /* Navigation: Deep Slate/Navy Surfaces */
+  --etu-sidebar: #080D17;
+  --etu-sidebar-color: #F8FAFC;
+  --etu-sidebar-active: #0284C7;
+  --etu-header: #0E1726;
+  --etu-header-color: #F8FAFC;
 
-  --glass-bg: rgba(30, 41, 59, 0.85);
-  --glass-bg-strong: rgba(36, 51, 70, 0.95);
-  --glass-border: rgba(56, 189, 248, 0.25);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  /* Shadows & Glass */
+  --glass-bg: rgba(19, 30, 50, 0.90);
+  --glass-bg-strong: rgba(19, 30, 50, 0.98);
+  --glass-border: rgba(56, 189, 248, 0.20);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.65);
 }
 
-/* ── BASE RESPONSIVE TRANSITIONS ───────────────────────── */
+/* ── 2. BASE DOCUMENT & BODY TRANSITIONS ──────────────────────────────────── */
 html, body, #root {
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   background-color: var(--color-surface);
   color: var(--color-on-surface);
+  min-height: 100vh;
+  font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Headings & Text Elements */
+/* Headings Hierarchy */
 h1, h2, h3, h4, h5, h6 {
   color: var(--color-heading, var(--color-on-surface));
+  letter-spacing: -0.01em;
 }
 
 p, span, label, small {
   color: inherit;
 }
 
-/* Cards & Container Surfaces */
+/* ── 3. CARDS & PANELS ───────────────────────────────────────────────────── */
 .card,
 .table-card,
 .history-card,
@@ -171,9 +197,10 @@ p, span, label, small {
   color: var(--text-primary) !important;
   border: 1px solid var(--card-border) !important;
   box-shadow: var(--shadow-sm);
+  border-radius: 12px;
 }
 
-/* Form Controls: Inputs, Selects, Textareas */
+/* ── 4. FORM CONTROLS & INPUTS ───────────────────────────────────────────── */
 input,
 select,
 textarea,
@@ -184,7 +211,31 @@ textarea,
   color: var(--input-color) !important;
   border: 1.5px solid var(--input-border) !important;
   border-radius: 8px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.form-control:focus,
+.input-field:focus,
+.global-input:focus {
+  outline: none !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18) !important;
+}
+
+:root[data-theme='dark'] input:focus,
+:root[data-theme='dark'] select:focus,
+:root[data-theme='dark'] textarea:focus,
+:root[data-theme='dark'] .form-control:focus,
+:root[data-theme='dark'] .input-field:focus,
+:root[data-theme='dark'] .global-input:focus {
+  border-color: #38BDF8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
 }
 
 input::placeholder,
@@ -198,48 +249,81 @@ select option {
   color: var(--dropdown-color) !important;
 }
 
-/* Data Tables */
+/* ── 5. DATA TABLES ──────────────────────────────────────────────────────── */
 table {
   width: 100%;
   border-collapse: collapse;
+  background-color: var(--table-bg);
 }
 
 th {
   background-color: var(--table-header-bg) !important;
   color: var(--table-header-color) !important;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
   padding: 10px 14px;
+  border-bottom: 1.5px solid var(--card-border) !important;
+  vertical-align: middle;
 }
 
 td {
   color: var(--text-primary) !important;
   border-bottom: 1px solid var(--card-border) !important;
   padding: 10px 14px;
+  font-size: 0.88rem;
+  vertical-align: middle;
 }
 
 tr:hover td {
   background-color: var(--table-row-hover) !important;
 }
 
-/* Buttons */
-.primary {
+/* ── 6. BUTTONS HIERARCHY ────────────────────────────────────────────────── */
+.primary,
+.btn-primary,
+button.primary {
   background-color: var(--button-primary-bg) !important;
   color: var(--button-primary-color) !important;
+  border: 1px solid transparent !important;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.secondary {
+.primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+button.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover) !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.30);
+}
+
+.secondary,
+.btn-secondary,
+button.secondary {
   background-color: var(--button-secondary-bg) !important;
   color: var(--button-secondary-color) !important;
   border: 1px solid var(--card-border) !important;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.secondary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+button.secondary:hover:not(:disabled) {
+  border-color: var(--color-primary) !important;
 }
 
 .reception-tabs button {
   background-color: var(--card-bg) !important;
   color: var(--text-secondary) !important;
   border: 1px solid var(--card-border) !important;
+  border-radius: 8px;
+  font-weight: 700;
 }
 
 .reception-tabs button.active {
@@ -248,10 +332,21 @@ tr:hover td {
   border-color: var(--button-primary-bg) !important;
 }
 
-/* Sidebar & Header Customizations */
+/* ── 7. SIDEBAR & TOP HEADER ─────────────────────────────────────────────── */
 .sidebar {
   background-color: var(--etu-sidebar) !important;
   color: var(--etu-sidebar-color) !important;
+}
+
+.sidebar a {
+  color: var(--etu-sidebar-color) !important;
+  opacity: 0.85;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  opacity: 1;
+  background-color: rgba(2, 132, 199, 0.20) !important;
 }
 
 .top-navigation {
@@ -260,18 +355,6 @@ tr:hover td {
   border-bottom: 1px solid var(--card-border) !important;
 }
 
-/* Modals & Overlay Dialogs */
-.modal,
-.modal-content,
-.dialog-box,
-.popup-container {
-  background-color: var(--card-bg) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--card-border) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
-/* Tool Buttons in Top Header */
 .top-tools {
   display: flex;
   align-items: center;
@@ -280,9 +363,10 @@ tr:hover td {
 }
 
 .clock {
-  font-size: 12px;
+  font-size: 0.82rem;
   color: var(--text-secondary);
   white-space: nowrap;
+  font-weight: 600;
 }
 
 .tool-button {
@@ -306,29 +390,28 @@ tr:hover td {
   border-color: var(--color-primary) !important;
 }
 
-/* Profile Chip */
 .profile-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
   background-color: var(--card-bg);
   border: 1px solid var(--card-border);
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
   min-width: 0;
 }
 
-/* Logout Button */
 .logout-button {
   padding: 6px 14px;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: 8px;
   background: rgba(220, 38, 38, 0.12);
-  color: #dc2626;
+  color: #DC2626;
   border: 1px solid rgba(220, 38, 38, 0.3);
-  font-weight: 600;
-  font-size: 0.8rem;
+  font-weight: 700;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
@@ -336,48 +419,92 @@ tr:hover td {
 }
 
 :root[data-theme='dark'] .logout-button {
-  background: rgba(220, 38, 38, 0.25);
-  color: #ff7b7b;
-  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.22);
+  color: #FF7B7B;
+  border-color: rgba(220, 38, 38, 0.45);
 }
 
 .logout-button:hover {
-  background: #dc2626;
-  color: #ffffff !important;
+  background: #DC2626;
+  color: #FFFFFF !important;
 }
 
-/* Status Badges */
+/* ── 8. MODALS & DIALOGS ─────────────────────────────────────────────────── */
+.modal,
+.modal-content,
+.dialog-box,
+.popup-container {
+  background-color: var(--modal-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border-radius: 14px;
+}
+
+/* ── 9. HIGH-CONTRAST STATUS BADGES ──────────────────────────────────────── */
 .badge-success, .status-approved, .status-completed {
-  background: rgba(26, 125, 54, 0.15) !important;
-  color: #108538 !important;
-  border: 1px solid rgba(26, 125, 54, 0.35) !important;
+  background: #DCFCE7 !important;
+  color: #166534 !important;
+  border: 1px solid #BBF7D0 !important;
+  font-weight: 700;
 }
 
 :root[data-theme='dark'] .badge-success,
 :root[data-theme='dark'] .status-approved,
 :root[data-theme='dark'] .status-completed {
   background: rgba(74, 222, 128, 0.18) !important;
-  color: #4ade80 !important;
-  border-color: rgba(74, 222, 128, 0.4) !important;
+  color: #4ADE80 !important;
+  border-color: rgba(74, 222, 128, 0.35) !important;
 }
 
-.badge-pending, .status-pending {
-  background: rgba(220, 140, 0, 0.15) !important;
-  color: #b47800 !important;
-  border: 1px solid rgba(220, 140, 0, 0.35) !important;
+.badge-pending, .status-pending, .status-waiting {
+  background: #FEF3C7 !important;
+  color: #92400E !important;
+  border: 1px solid #FDE68A !important;
+  font-weight: 700;
 }
 
 :root[data-theme='dark'] .badge-pending,
-:root[data-theme='dark'] .status-pending {
+:root[data-theme='dark'] .status-pending,
+:root[data-theme='dark'] .status-waiting {
   background: rgba(250, 204, 21, 0.18) !important;
-  color: #facc15 !important;
-  border-color: rgba(250, 204, 21, 0.4) !important;
+  color: #FACC15 !important;
+  border-color: rgba(250, 204, 21, 0.35) !important;
 }
 
-/* Print Overrides */
+.badge-info, .status-in-progress {
+  background: #EFF6FF !important;
+  color: #0369A1 !important;
+  border: 1px solid #BFDBFE !important;
+  font-weight: 700;
+}
+
+:root[data-theme='dark'] .badge-info,
+:root[data-theme='dark'] .status-in-progress {
+  background: rgba(56, 189, 248, 0.18) !important;
+  color: #38BDF8 !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+
+.badge-danger, .status-cancelled, .status-rejected {
+  background: #FEE2E2 !important;
+  color: #991B1B !important;
+  border: 1px solid #FECACA !important;
+  font-weight: 700;
+}
+
+:root[data-theme='dark'] .badge-danger,
+:root[data-theme='dark'] .status-cancelled,
+:root[data-theme='dark'] .status-rejected {
+  background: rgba(248, 113, 113, 0.18) !important;
+  color: #F87171 !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+/* ── 10. PRINT OVERRIDES ─────────────────────────────────────────────────── */
 @media print {
   html, body {
-    background: #ffffff !important;
+    background: #FFFFFF !important;
     color: #000000 !important;
   }
   * {
