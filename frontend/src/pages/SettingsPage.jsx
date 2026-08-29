@@ -22,7 +22,7 @@ const labels = {
 };
 
 export default function SettingsPage() {
-  const { preferences, updatePreferences, applyCustomColors, resetCustomColors, t } = usePreferences();
+  const { preferences, allowLightTheme, updateAllowLightTheme, updatePreferences, applyCustomColors, resetCustomColors, t } = usePreferences();
   const { token } = useAuth();
   const [theme, setTheme] = useState(defaults);
   const [selected, setSelected] = useState([]);
@@ -33,6 +33,7 @@ export default function SettingsPage() {
   const [result, setResult] = useState(null);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [updatingLightSetting, setUpdatingLightSetting] = useState(false);
   const [publicSharing, setPublicSharing] = useState({
     enabled: true,
     autoGenerateOnApproval: true,
@@ -156,12 +157,88 @@ export default function SettingsPage() {
     }
   };
 
+  const handleToggleAllowLight = async (enable) => {
+    try {
+      setUpdatingLightSetting(true);
+      await updateAllowLightTheme(enable);
+      setNotice(enable ? 'Light Theme is now enabled and available to users.' : 'Light Theme disabled. Dark Mode is now mandatory for all users.');
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setNotice(e.message || 'Failed to update Light Theme availability.');
+    } finally {
+      setUpdatingLightSetting(false);
+    }
+  };
+
   return (
     <div className="page settings-page">
       <p className="eyebrow">{t('preferences')}</p>
       <h1>Settings</h1>
       <p className="intro">Manage laboratory interface preferences and protected operational reset tools.</p>
       {notice && <div className="alert success">{notice}</div>}
+
+      {/* ── THEME AVAILABILITY & MANDATORY DARK MODE CONTROL (ADMIN ONLY) ── */}
+      <section className="settings-card" style={{ borderLeft: '5px solid var(--color-primary)' }}>
+        <h2>🎨 Appearance &amp; Light Theme Access Control</h2>
+        <p className="intro" style={{ marginBottom: '1rem' }}>
+          Control whether the Light Theme is accessible to laboratory staff (Receptionists, Sample Collectors, Approvers, Radiologists, Pathologists). When disabled, <strong>Dark Mode is mandatory for everyone</strong>.
+        </p>
+
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <button
+            type="button"
+            className={!allowLightTheme ? 'selected' : ''}
+            onClick={() => handleToggleAllowLight(false)}
+            disabled={updatingLightSetting}
+            style={{
+              padding: '14px 20px',
+              borderRadius: '12px',
+              border: !allowLightTheme ? '2px solid #0284c7' : '1px solid var(--card-border)',
+              background: !allowLightTheme ? 'var(--color-primary-container, rgba(2, 132, 199, 0.18))' : 'var(--card-bg)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              minWidth: '260px',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.95rem' }}>
+              <span>🔒</span> OFF — Mandatory Dark Mode (Default)
+            </div>
+            <small style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+              Light Theme is deactivated. Theme switch is hidden from all non-admin users.
+            </small>
+          </button>
+
+          <button
+            type="button"
+            className={allowLightTheme ? 'selected' : ''}
+            onClick={() => handleToggleAllowLight(true)}
+            disabled={updatingLightSetting}
+            style={{
+              padding: '14px 20px',
+              borderRadius: '12px',
+              border: allowLightTheme ? '2px solid #0284c7' : '1px solid var(--card-border)',
+              background: allowLightTheme ? 'var(--color-primary-container, rgba(2, 132, 199, 0.18))' : 'var(--card-bg)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              minWidth: '260px',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.95rem' }}>
+              <span>🔓</span> ON — Allow Light Theme
+            </div>
+            <small style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+              Users can toggle between Light and Dark mode using the header theme button.
+            </small>
+          </button>
+        </div>
+      </section>
       
       <section className="settings-card">
         <h2>Personal display</h2>

@@ -25,7 +25,7 @@ const icon = {
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { preferences, updatePreferences, t } = usePreferences();
+  const { preferences, updatePreferences, canToggleTheme, t } = usePreferences();
   const [now, setNow] = useState(new Date());
   const [collapsed, setCollapsed] = useState(Boolean(preferences.sidebarCollapsed));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -158,13 +158,15 @@ export default function AppLayout() {
             >
               🌐 <span>{preferences.language === 'en' ? 'English' : 'አማርኛ'}</span>
             </button>
-            <button
-              className="mobile-tool-btn"
-              title={t('theme')}
-              onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
-            >
-              <span>{preferences.theme === 'light' ? t('dark') : t('light')}</span>
-            </button>
+            {canToggleTheme && (
+              <button
+                className="mobile-tool-btn"
+                title={t('theme')}
+                onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
+              >
+                <span>{preferences.theme === 'light' ? t('dark') : t('light')}</span>
+              </button>
+            )}
             <button className="mobile-logout-btn" onClick={logout}>
               <span>{t('signOut')}</span>
             </button>
@@ -211,13 +213,15 @@ export default function AppLayout() {
             >
               {preferences.language === 'en' ? 'EN' : 'አማ'}
             </button>
-            <button
-              className="tool-button theme-toggle-btn"
-              title={t('theme')}
-              onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
-            >
-              {preferences.theme === 'light' ? '◐' : '☀'}
-            </button>
+            {canToggleTheme && (
+              <button
+                className="tool-button theme-toggle-btn"
+                title={t('theme')}
+                onClick={() => updatePreferences({ theme: preferences.theme === 'light' ? 'dark' : 'light' })}
+              >
+                {preferences.theme === 'light' ? '◐' : '☀'}
+              </button>
+            )}
             <span className="profile-chip" title={`${user.fullName} — ${t(user.role)} (${user.branchName || 'Main'} Branch)`}>
               ♙ <b>{user.fullName}</b> <span className="profile-role">({t(user.role)})</span> <small style={{ marginLeft: '4px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem' }}>📍 {user.branchName || 'Main'}</small>
             </span>

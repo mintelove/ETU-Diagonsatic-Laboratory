@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from './AuthContext.jsx';
+import { useRealtime } from './RealtimeContext.jsx';
 import { getTranslation } from '../utils/translations.js';
 
 const PreferencesContext = createContext(null);
@@ -141,10 +142,39 @@ export function resetCustomColors() {
 
 export function PreferencesProvider({ children }) {
   const { user, token, loading } = useAuth();
+  const { subscribe, unsubscribe } = useRealtime();
+  
+  // Backend system setting: Allow Light Theme (Default: false / Mandatory Dark Mode)
+  const [allowLightTheme, setAllowLightThemeState] = useState(false);
+
   const [preferences, setPreferences] = useState(() => ({
     ...defaults,
     ...JSON.parse(localStorage.getItem('etu_preferences') || '{}'),
   }));
+
+  const fetchSystemThemeSettings = useCallback(async () => {
+    if (!token || loading) return;
+    try {
+      const res = await api('/system/theme', { token });
+      if (res?.allowLightTheme !== undefined) {
+        setAllowLightThemeState(Boolean(res.allowLightTheme));
+      }
+      if (res?.theme) {
+        applyCustomColors(res.theme, preferences.theme || 'dark');
+      }
+    } catch (_) {
+      /* silent */
+    }
+  }, [token, loading, preferences.theme]);
+
+  useEffect(() => {
+    fetchSystemThemeSettings();
+    const handleSystemChange = () => fetchSystemThemeSettings();
+    subscribe('system:change', handleSystemChange);
+    return () => {
+      unsubscribe('system:change', handleSystemChange);
+    };
+  }, [fetchSystemThemeSettings, subscribe, unsubscribe]);
 
   useEffect(() => {
     if (user?.preferences) {
@@ -152,25 +182,29 @@ export function PreferencesProvider({ children }) {
     }
   }, [user]);
 
+  // Determine whether light theme is accessible for this session
+  const canToggleTheme = Boolean(user?.role === 'Admin' || allowLightTheme);
+
+  // Effective active theme: If allowLightTheme is OFF and user is not Admin, force 'dark'
+  const effectiveTheme = canToggleTheme ? (preferences.theme || 'dark') : 'dark';
+
   useEffect(() => {
-    const currentTheme = preferences.theme || 'dark';
-    document.documentElement.dataset.theme = currentTheme;
+    document.documentElement.dataset.theme = effectiveTheme;
     document.documentElement.lang = preferences.language === 'am' ? 'am' : 'en';
-    localStorage.setItem('etu_preferences', JSON.stringify(preferences));
+    localStorage.setItem('etu_preferences', JSON.stringify({ ...preferences, theme: effectiveTheme }));
 
     if (preferences.customTheme) {
-      applyCustomColors(preferences.customTheme, currentTheme);
-    } else if (token && !loading) {
-      api('/system/theme', { token })
-        .then((res) => {
-          if (res?.theme) applyCustomColors(res.theme, currentTheme);
-        })
-        .catch(() => {});
+      applyCustomColors(preferences.customTheme, effectiveTheme);
     }
-  }, [preferences, token, loading]);
+  }, [preferences, effectiveTheme]);
 
   const updatePreferences = useCallback(
     async (updates) => {
+      // If attempting to set theme to light when not permitted, force dark
+      if (updates.theme === 'light' && !canToggleTheme) {
+        updates.theme = 'dark';
+      }
+
       const previous = preferences;
       const next = { ...preferences, ...updates };
       setPreferences(next);
@@ -189,18 +223,35 @@ export function PreferencesProvider({ children }) {
         }
       }
     },
-    [preferences, token]
+    [preferences, token, canToggleTheme]
+  );
+
+  const updateAllowLightTheme = useCallback(
+    async (enableLight) => {
+      if (!token) return;
+      const res = await api('/system/allow-light-theme', {
+        token,
+        method: 'PUT',
+        body: JSON.stringify({ allowLightTheme: Boolean(enableLight) }),
+      });
+      setAllowLightThemeState(Boolean(res.allowLightTheme));
+      return res;
+    },
+    [token]
   );
 
   const value = useMemo(
     () => ({
-      preferences,
+      preferences: { ...preferences, theme: effectiveTheme },
+      allowLightTheme,
+      canToggleTheme,
+      updateAllowLightTheme,
       updatePreferences,
-      applyCustomColors: (colors) => applyCustomColors(colors, preferences.theme || 'dark'),
+      applyCustomColors: (colors) => applyCustomColors(colors, effectiveTheme),
       resetCustomColors,
       t: (key, fallback) => getTranslation(key, preferences.language, fallback),
     }),
-    [preferences, updatePreferences]
+    [preferences, effectiveTheme, allowLightTheme, canToggleTheme, updateAllowLightTheme, updatePreferences]
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

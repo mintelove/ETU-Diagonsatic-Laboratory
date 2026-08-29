@@ -22,7 +22,33 @@ async function verify(user, password) {
 }
 
 export async function getTheme(req, res, next) {
-  try { const setting = await SystemSetting.findOne({ key:'theme' }).lean(); res.json({ theme:setting?.value || null }); } catch (error) { next(error); }
+  try {
+    const [themeSetting, allowLightSetting] = await Promise.all([
+      SystemSetting.findOne({ key: 'theme' }).lean(),
+      SystemSetting.findOne({ key: 'allowLightTheme' }).lean()
+    ]);
+    res.json({
+      theme: themeSetting?.value || null,
+      allowLightTheme: Boolean(allowLightSetting?.value)
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAllowLightTheme(req, res, next) {
+  try {
+    const allowLightTheme = Boolean(req.body.allowLightTheme);
+    const setting = await SystemSetting.findOneAndUpdate(
+      { key: 'allowLightTheme' },
+      { $set: { value: allowLightTheme, updatedBy: req.user.id } },
+      { new: true, upsert: true }
+    );
+    emit('system:change', { action: 'allowLightTheme', allowLightTheme });
+    res.json({ allowLightTheme: setting.value, message: `Light Theme has been ${allowLightTheme ? 'enabled for users' : 'disabled (Mandatory Dark Mode)'}.` });
+  } catch (error) {
+    next(error);
+  }
 }
 
 export async function setTheme(req, res, next) {

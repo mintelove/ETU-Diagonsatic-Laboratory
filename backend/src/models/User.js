@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
   lastLogin: { type: Date, default: null },
   profilePhoto: { type: String, default: '' },
-  preferences: { theme: { type: String, enum: ['light', 'dark'], default: 'light' }, language: { type: String, enum: ['en', 'am'], default: 'en' }, timeFormat: { type: String, enum: ['12', '24'], default: '24' }, dateFormat: { type: String, enum: ['locale', 'iso'], default: 'locale' }, notifications: { type: Boolean, default: true }, sidebarCollapsed: { type: Boolean, default: false }, customTheme: { type: mongoose.Schema.Types.Mixed, default: null } }
+  preferences: { theme: { type: String, enum: ['light', 'dark'], default: 'dark' }, language: { type: String, enum: ['en', 'am'], default: 'en' }, timeFormat: { type: String, enum: ['12', '24'], default: '24' }, dateFormat: { type: String, enum: ['locale', 'iso'], default: 'locale' }, notifications: { type: Boolean, default: true }, sidebarCollapsed: { type: Boolean, default: false }, customTheme: { type: mongoose.Schema.Types.Mixed, default: null } }
 }, { timestamps: { createdAt: 'createdDate', updatedAt: 'updatedDate' }, versionKey: false });
 
 userSchema.pre('save', async function hashPassword(next) {
