@@ -2,6 +2,7 @@ import { api } from '../api/client.js';
 import { getToken, getUser } from './storage.js';
 import { calculateFlag } from './flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from './categoryHelper.js';
+import labLogo from '../assets/etu.jpg';
 
 const safe = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 const stamp = value => value ? new Date(value).toLocaleString() : '—';
@@ -26,9 +27,10 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   const patient = report.patient || {};
   const showFooter = showFooterOverride !== undefined ? showFooterOverride : (report.showFooter !== undefined ? report.showFooter : true);
 
-  const logoHeader = (showFooter && logoBase64)
-    ? `<img src="${logoBase64}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 90px; width: auto; max-width: 100%; display: block; margin: 0 auto 10px; object-fit: contain;" />`
-    : (showFooter ? `<div class="logo">ETU</div>` : '');
+  const logoImg = logoBase64 || labLogo;
+  const logoHeader = (showFooter && logoImg)
+    ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 90px; width: auto; max-width: 100%; display: block; margin: 0 auto 10px; object-fit: contain;" />`
+    : '';
 
   const refHtml = patient.referralHospital ? `<div><b>Referral Hospital Name</b>${safe(patient.referralHospital)}</div><div><b>Referral Hospital Address</b>${safe(referralHospitalAddress || patient.address || 'Not recorded')}</div>` : '';
   const bpHtml = (patient.systolicBP || patient.diastolicBP) ? `<div><b>Blood Pressure</b>${safe(patient.systolicBP || '—')}/${safe(patient.diastolicBP || '—')} mmHg</div>` : '';

@@ -14,6 +14,8 @@ import { printLabReport } from '../utils/printLabReport.js';
 import { useScrollLock } from '../utils/useScrollLock.js';
 import { preparePOS80ReceiptData, isCbcParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
 import { formatETB } from '../utils/currencyHelper.js';
+import ModalPortal from '../components/ModalPortal.jsx';
+import ReportPreview from '../components/ReportPreview.jsx';
 
 const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
 const CATEGORY_THEMES = {
@@ -453,8 +455,9 @@ export default function ReceptionPage() {
   const [stockItems, setStockItems] = useState([]);
   const [customRadiologyExamName, setCustomRadiologyExamName] = useState('');
   const [showReportFooter, setShowReportFooter] = useState(true);
+  const [selectedReportForPreview, setSelectedReportForPreview] = useState(null);
 
-  useScrollLock(!!selectedCounselling || !!history || !!receiptData || !!manualStockPatient || !!pendingManualStockPatient);
+  useScrollLock(!!selectedCounselling || !!history || !!receiptData || !!manualStockPatient || !!pendingManualStockPatient || !!selectedReportForPreview);
 
   // Patient Registration Form State
   const [patientName, setPatientName] = useState('');
@@ -1999,10 +2002,26 @@ export default function ReceptionPage() {
                             {r.status || 'Ready for Printing'}
                           </span>
                         </td>
-                        <td>
-                          <button className="primary-button" disabled={busy} onClick={() => handlePrintA4Report(r._id)}>
-                            {busy ? 'Printing…' : '🖨️ Print A4 Report'}
-                          </button>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: 600 }}
+                              onClick={() => setSelectedReportForPreview(r)}
+                            >
+                              👁️ Preview
+                            </button>
+                            <button
+                              type="button"
+                              className="primary-button"
+                              disabled={busy}
+                              style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 600 }}
+                              onClick={() => handlePrintA4Report(r._id)}
+                            >
+                              {busy ? 'Printing…' : '🖨️ Print A4'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2011,6 +2030,88 @@ export default function ReceptionPage() {
               </table>
             </div>
           ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
+
+          {/* ── A4 Report Preview Modal ────────────────────────────── */}
+          {selectedReportForPreview && (
+            <ModalPortal isOpen={!!selectedReportForPreview} onClose={() => setSelectedReportForPreview(null)}>
+              <div
+                className="modal-content"
+                style={{
+                  maxWidth: '860px',
+                  maxHeight: '92vh',
+                  overflowY: 'auto',
+                  padding: '0',
+                  background: '#e2e8f0',
+                  borderRadius: '10px'
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <header
+                  className="modal-header"
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    background: '#fff',
+                    zIndex: 10,
+                    padding: '12px 20px',
+                    borderBottom: '1px solid #cbd5e1',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <h2 style={{ fontSize: '1.15rem', color: '#075c91', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📄</span> A4 Report Preview
+                    </h2>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                      <input
+                        type="checkbox"
+                        checked={showReportFooter}
+                        onChange={e => setShowReportFooter(e.target.checked)}
+                      />
+                      Show Logo & Footer
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={busy}
+                      style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
+                      onClick={() => {
+                        if (selectedReportForPreview) {
+                          handlePrintA4Report(selectedReportForPreview._id);
+                        }
+                      }}
+                    >
+                      {busy ? 'Printing…' : '🖨️ Print A4 Report'}
+                    </button>
+                    <button className="close-button" onClick={() => setSelectedReportForPreview(null)}>&times;</button>
+                  </div>
+                </header>
+
+                {/* A4 Document Canvas */}
+                <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center' }}>
+                  <div
+                    style={{
+                      width: '100%',
+                      maxWidth: '794px',
+                      background: '#ffffff',
+                      padding: '32px 36px',
+                      borderRadius: '4px',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                      color: '#0f172a'
+                    }}
+                  >
+                    <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
+                  </div>
+                </div>
+              </div>
+            </ModalPortal>
+          )}
         </section>
       )}
 

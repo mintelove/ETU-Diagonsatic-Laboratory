@@ -62,13 +62,16 @@ export function getReportTestTypes(report) {
   };
 }
 
-export function ReportPreview({ report }) {
+export function ReportPreview({ report, showFooter = true }) {
   if (!report) return null;
   const { token: authToken } = useAuth();
   const p = report.patient || {};
   const { categoriesMap, testNames, formattedNames } = getReportTestTypes(report);
   const sampleTypesStr = (p.sampleTypes || []).map(x => x?.name || x).filter(Boolean).join(', ') || 'Specimen Assigned';
   const isApproved = ['Approved', 'Ready for Printing'].includes(report.status);
+
+  const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
+  const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
 
   const [fetchedToken, setFetchedToken] = useState(report.publicReport?.token || null);
   const currentToken = report.publicReport?.token || fetchedToken;
@@ -86,23 +89,36 @@ export function ReportPreview({ report }) {
     }
   }, [report._id, report.status, report.publicReport?.token, isApproved, authToken]);
 
+  const reportSubTitle = isPathology
+    ? `Pathology Examination Report — ${report.testType || 'Biopsy'}`
+    : isRadiology
+    ? `Radiology & Imaging Report — ${report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging')}`
+    : 'Laboratory Test Report';
+
   return (
-    <section className="table-card" style={{ margin: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: '14px', borderBottom: '2px solid var(--color-outline-variant, #e2e8f0)', paddingBottom: '12px' }}>
-        <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '90px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 8px', display: 'block' }} />
-        <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Review</p>
-        <h2 style={{ margin: '2px 0 0', color: 'var(--color-primary, #075c91)', fontSize: '1.4rem' }}>ETU Diagnostic Laboratory</h2>
-      </div>
+    <section className="table-card" style={{ margin: 0, padding: '0', background: 'transparent', boxShadow: 'none' }}>
+      {showFooter ? (
+        <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '2px solid var(--color-outline-variant, #e2e8f0)', paddingBottom: '12px' }}>
+          <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '85px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 8px', display: 'block' }} />
+          <h2 style={{ margin: '2px 0 0', color: 'var(--color-primary, #075c91)', fontSize: '1.35rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ETU Diagnostic Laboratory</h2>
+          <p className="eyebrow" style={{ margin: '4px 0 0', color: '#0369a1', fontWeight: 700, letterSpacing: '0.8px' }}>{reportSubTitle}</p>
+        </div>
+      ) : (
+        <div style={{ marginBottom: '14px', borderBottom: '2px solid #075c91', paddingBottom: '8px' }}>
+          <h3 style={{ margin: 0, color: '#075c91', fontSize: '1.15rem', textTransform: 'uppercase' }}>{reportSubTitle}</h3>
+        </div>
+      )}
 
       {/* Patient & Report Metadata Grid */}
-      <div className="form-grid" style={{ gap: '10px 20px', marginBottom: '14px' }}>
+      <div className="form-grid" style={{ gap: '10px 20px', marginBottom: '16px', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
         <p style={{ margin: 0 }}><strong>Patient Name:</strong> {p.name || '—'}</p>
         <p style={{ margin: 0 }}><strong>Patient ID:</strong> {p.patientId || '—'}</p>
         <p style={{ margin: 0 }}><strong>Barcode:</strong> {p.barcode || p.patientId || '—'}</p>
         <p style={{ margin: 0 }}><strong>Age / Sex:</strong> {p.age || '—'} / {p.sex || '—'}</p>
-        <p style={{ margin: 0 }}><strong>Sample Type(s):</strong> {sampleTypesStr}</p>
-        <p style={{ margin: 0 }}><strong>Collector:</strong> {report.technician?.fullName || report.submittedBy?.fullName || '—'}</p>
-        <p style={{ margin: 0 }}><strong>Date / Time:</strong> {new Date(report.submittedDate || report.submittedAt || report.updatedDate || report.createdDate).toLocaleString()}</p>
+        <p style={{ margin: 0 }}><strong>Examination / Specimen:</strong> {report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr}</p>
+        <p style={{ margin: 0 }}><strong>Registration Date:</strong> {new Date(p.registrationDate || p.createdDate || report.createdDate).toLocaleString()}</p>
+        <p style={{ margin: 0 }}><strong>Branch:</strong> 📍 {report.branchName || p.branchName || 'Main'}</p>
+        <p style={{ margin: 0 }}><strong>Phone:</strong> {p.phone || '—'}</p>
         {(p.systolicBP || p.diastolicBP) && (
           <p style={{ margin: 0 }}><strong>Blood Pressure:</strong> {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</p>
         )}
@@ -360,11 +376,30 @@ export function ReportPreview({ report }) {
         </div>
       )}
 
+      {/* Authorization & Sign-off Section */}
+      <div style={{ marginTop: '18px', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: '#075c91' }}>
+          Authorization & Sign-off
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px 16px', fontSize: '0.85rem' }}>
+          <div><strong>Authorized Specialist:</strong> {report.technician?.fullName || report.submittedBy?.fullName || 'Clinical Specialist'}</div>
+          <div><strong>Approved By:</strong> Dr. {report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || 'Pending Specialist Approval'} ({isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : 'Approver'})</div>
+          <div><strong>Approval Date:</strong> {new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</div>
+        </div>
+      </div>
+
       {/* Remarks / Comments */}
       {report.comments && (
         <p style={{ margin: '8px 0 0 0', fontSize: '0.88rem' }}>
           <strong>Collector Comments:</strong> {report.comments}
         </p>
+      )}
+
+      {showFooter && (
+        <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#64748b' }}>
+          <span>Prepared & Verified Diagnostically</span>
+          <span style={{ fontWeight: 700, color: '#075c91' }}>ETU Diagnostic Laboratory</span>
+        </div>
       )}
     </section>
   );
