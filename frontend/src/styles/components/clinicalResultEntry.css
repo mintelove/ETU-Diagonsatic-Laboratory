@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ETU DIAGNOSTIC LABORATORY — CLINICAL RESULT ENTRY & SPECIALIST WORKSPACE
-   High-Efficiency Medical LIS Layout for Pathologist & Radiologist Workspaces
+   Hospital-Grade LIS & Worklist Design System (Light & Dark Themes)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. MAIN WORKSPACE CONTAINER (EFFICIENT SCREEN UTILIZATION) ──────────── */
+/* ── 1. MAIN WORKSPACE CONTAINER ────────────────────────────────────────── */
 .clinical-workspace-page {
-  padding: 1rem 1.25rem;
+  padding: 1.15rem 1.5rem;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -18,18 +18,18 @@
   }
 }
 
-/* ── 2. COMPACT DEPARTMENT BANNER ────────────────────────────────────────── */
+/* ── 2. COMPACT MEDICAL WORKSPACE HEADER ─────────────────────────────────── */
 .clinical-dept-banner {
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  padding: 0.75rem 1.25rem;
-  margin-bottom: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.85rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
@@ -42,20 +42,21 @@
 .clinical-dept-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .clinical-dept-icon {
-  font-size: 1.6rem;
+  font-size: 1.75rem;
   line-height: 1;
   background: #f0f9ff;
   color: #0284c7;
-  padding: 8px;
-  border-radius: 8px;
+  padding: 9px;
+  border-radius: 10px;
   border: 1px solid #bae6fd;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 :root[data-theme='dark'] .clinical-dept-icon {
@@ -66,7 +67,7 @@
 
 .clinical-dept-title h1 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #075c91;
   letter-spacing: -0.01em;
@@ -78,12 +79,12 @@
 }
 
 .clinical-dept-subtitle {
-  margin: 0;
-  font-size: 0.75rem;
+  margin: 0 0 2px 0;
+  font-size: 0.74rem;
   color: #475569;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 :root[data-theme='dark'] .clinical-dept-subtitle {
@@ -93,12 +94,12 @@
 .clinical-specialist-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
+  gap: 8px;
+  padding: 6px 14px;
   background: #f0f9ff;
   color: #0369a1;
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 700;
   border: 1px solid #bae6fd;
   white-space: nowrap;
@@ -110,12 +111,12 @@
   border-color: #0284c7;
 }
 
-/* ── 3. COMPACT SUMMARY STATISTICS CARDS ─────────────────────────────────── */
+/* ── 3. MEDICAL KPI SUMMARY CARDS ────────────────────────────────────────── */
 .clinical-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
 }
 
 .pathology-page .stat-card,
@@ -123,21 +124,21 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 0.65rem 1rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
   position: relative;
   overflow: hidden;
-  min-height: 60px;
+  min-height: 64px;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pathology-page .stat-card:hover,
 .radiology-page .stat-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.07);
 }
 
 .pathology-page .stat-card::before,
@@ -175,25 +176,37 @@
   background: #dc2626;
 }
 
+.pathology-page .stat-card-header,
+.radiology-page .stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
 .pathology-page .stat-card small,
 .radiology-page .stat-card small {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #475569;
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .pathology-page .stat-card strong,
 .radiology-page .stat-card strong {
-  font-size: 1.45rem;
+  font-size: 1.55rem;
   font-weight: 800;
   color: #0f172a;
   line-height: 1;
+}
+
+.pathology-page .stat-card .stat-desc,
+.radiology-page .stat-card .stat-desc {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 2px;
+  font-weight: 500;
 }
 
 :root[data-theme='dark'] .pathology-page .stat-card,
@@ -213,7 +226,36 @@
   color: #f8fafc;
 }
 
-/* ── 4. SEAMLESS SEARCH & FILTER TOOLBAR ────────────────────────────────── */
+:root[data-theme='dark'] .pathology-page .stat-card .stat-desc,
+:root[data-theme='dark'] .radiology-page .stat-card .stat-desc {
+  color: #94a3b8;
+}
+
+/* ── 4. WORKLIST SECTION & TOOLBAR ───────────────────────────────────────── */
+.clinical-worklist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.clinical-worklist-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #075c91;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:root[data-theme='dark'] .clinical-worklist-title {
+  color: #38bdf8;
+}
+
 .pathology-page .users-toolbar,
 .radiology-page .users-toolbar {
   margin-bottom: 0.75rem;
@@ -333,7 +375,7 @@
   color: #ffffff;
 }
 
-/* ── 5. EFFICIENT CLINICAL QUEUE TABLE CARD ─────────────────────────────── */
+/* ── 5. PROFESSIONAL PATIENT WORKLIST TABLE ──────────────────────────────── */
 .pathology-page .table-card,
 .radiology-page .table-card {
   background: #ffffff;
@@ -355,7 +397,7 @@
 .radiology-page table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .pathology-page table thead tr,
@@ -367,7 +409,7 @@
 .pathology-page table thead th,
 .radiology-page table thead th {
   color: #075c91 !important;
-  font-size: 0.75rem !important;
+  font-size: 0.76rem !important;
   font-weight: 800 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.04em !important;
@@ -409,8 +451,121 @@
 
 .pathology-page table td,
 .radiology-page table td {
-  padding: 8px 12px !important;
+  padding: 9px 12px !important;
   vertical-align: middle;
+}
+
+/* Patient Name Hierarchy */
+.patient-cell-name {
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #075c91;
+  line-height: 1.2;
+}
+
+:root[data-theme='dark'] .patient-cell-name {
+  color: #38bdf8;
+}
+
+.patient-cell-meta {
+  font-size: 0.75rem;
+  color: #475569;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+:root[data-theme='dark'] .patient-cell-meta {
+  color: #94a3b8;
+}
+
+/* Examination & Status Badges */
+.badge-modality {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.badge-biopsy {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-status-paid {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-status-approved {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-status-progress {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+  border: 1px solid #fde68a;
+}
+
+.badge-status-queued {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+}
+
+:root[data-theme='dark'] .badge-status-queued {
+  background: #243346;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+/* Primary Action Button */
+.btn-open-case {
+  background: #0284c7;
+  color: #ffffff !important;
+  border: 1px solid #0369a1;
+  font-weight: 700;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-open-case:hover {
+  background: #0369a1;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
 }
 
 /* ── 6. MODAL & RESULT ENTRY DIALOG ─────────────────────────────────────── */

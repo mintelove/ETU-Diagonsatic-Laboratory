@@ -263,51 +263,71 @@ export default function RadiologyPage() {
         </div>
       )}
 
-      {/* ── 1. DEPARTMENT HEADER BANNER ─────────────────────────────────── */}
+      {/* ── 1. COMPACT SPECIALIST WORKSPACE HEADER ───────────────────────── */}
       <header className="clinical-dept-banner">
         <div className="clinical-dept-title">
           <span className="clinical-dept-icon">🩻</span>
           <div>
-            <p className="clinical-dept-subtitle" style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-              ETU Diagnostic Laboratory
-            </p>
+            <p className="clinical-dept-subtitle">ETU DIAGNOSTIC LABORATORY</p>
             <h1>RADIOLOGY &amp; IMAGING RESULT ENTRY &amp; WORKSPACE</h1>
           </div>
         </div>
         <div className="clinical-specialist-badge">
           <span>👨‍⚕️</span>
           <span>Authenticated Specialist: <strong>Dr. {user?.fullName}</strong></span>
-          <span>· 📍 {user?.branchName || 'Main Branch'}</span>
+          <span>· 📍 {user?.branchName || 'Main'}</span>
         </div>
       </header>
 
-      {/* ── 2. SUMMARY STATISTICS ────────────────────────────────────────── */}
+      {/* ── 2. MEDICAL KPI SUMMARY CARDS ─────────────────────────────────── */}
       <div className="clinical-stats-grid">
         <article className="stat-card blue">
-          <small>Total Examinations</small>
+          <div className="stat-card-header">
+            <small>TOTAL EXAMINATIONS</small>
+            <span>📊</span>
+          </div>
           <strong>{stats.total}</strong>
+          <span className="stat-desc">All imaging examinations</span>
         </article>
         <article className="stat-card orange">
-          <small>Waiting Examination</small>
+          <div className="stat-card-header">
+            <small>WAITING EXAMINATION</small>
+            <span>⏳</span>
+          </div>
           <strong>{stats.queued}</strong>
+          <span className="stat-desc">Awaiting radiology scan/review</span>
         </article>
         <article className="stat-card purple">
-          <small>In Progress</small>
+          <div className="stat-card-header">
+            <small>IN PROGRESS</small>
+            <span>🩻</span>
+          </div>
           <strong>{stats.inProgress}</strong>
+          <span className="stat-desc">Image analysis &amp; drafting</span>
         </article>
         <article className="stat-card green">
-          <small>Approved Reports</small>
+          <div className="stat-card-header">
+            <small>APPROVED REPORTS</small>
+            <span>✅</span>
+          </div>
           <strong>{stats.approved}</strong>
+          <span className="stat-desc">Ready for printing / released</span>
         </article>
       </div>
 
-      {/* ── 3. SEARCH & FILTER TOOLBAR ───────────────────────────────────── */}
+      {/* ── 3. WORKLIST TITLE & FILTER TOOLBAR ────────────────────────────── */}
+      <div className="clinical-worklist-header">
+        <div className="clinical-worklist-title">
+          <span>📋</span> RADIOLOGY &amp; IMAGING WORKLIST
+        </div>
+      </div>
+
       <div className="users-toolbar">
         <div className="search-box">
           <span className="search-icon">🔍</span>
           <input
             type="text"
-            placeholder="Search exam #, patient ID, name, or modality…"
+            placeholder="Search patient ID, case number, patient name, or examination…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -336,23 +356,23 @@ export default function RadiologyPage() {
         ) : filteredCases.length === 0 ? (
           <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '6px' }}>🩻</div>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: 'var(--color-on-surface, #1e293b)' }}>No Radiology Cases Found</h3>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: 'var(--color-on-surface, #1e293b)' }}>No Radiology Examinations Waiting</h3>
             <p style={{ margin: 0, fontSize: '0.84rem' }}>
-              When Reception completes payment for CT Scan, X-Ray, or Ultrasound, examinations appear here automatically.
+              When Reception completes payment for CT Scan, X-Ray, or Ultrasound, examinations appear in this worklist automatically.
             </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <table>
               <thead>
-                <tr style={{ background: 'var(--color-surface-container, #f8fafc)', borderBottom: '2px solid var(--color-outline-variant, #cbd5e1)', color: 'var(--color-primary, #075c91)' }}>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>#</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Case / Patient</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Modality &amp; Examination</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Registration Date</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Payment</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Action</th>
+                <tr>
+                  <th style={{ textAlign: 'center', width: '40px' }}>#</th>
+                  <th style={{ textAlign: 'left' }}>Patient / Case</th>
+                  <th style={{ textAlign: 'left' }}>Modality &amp; Examination</th>
+                  <th style={{ textAlign: 'left' }}>Registration Date</th>
+                  <th style={{ textAlign: 'center' }}>Payment</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th style={{ textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,40 +381,39 @@ export default function RadiologyPage() {
                   const examName = c.customExaminationName || (c.ultrasoundSubtype ? `Ultrasound (${c.ultrasoundSubtype})` : c.examinationType);
 
                   return (
-                    <tr key={c._id} style={{ borderBottom: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
-                      <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>{i + 1}</td>
-                      <td style={{ padding: '10px 12px' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--color-primary, #075c91)' }}>{c.patient?.name || '—'}</div>
-                        <small style={{ color: 'var(--text-secondary, #64748b)' }}>{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</small>
+                    <tr key={c._id}>
+                      <td style={{ textAlign: 'center', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>{i + 1}</td>
+                      <td>
+                        <div className="patient-cell-name">{c.patient?.name || '—'}</div>
+                        <div className="patient-cell-meta">{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</div>
                       </td>
-                      <td style={{ padding: '10px 12px' }}>
-                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11.5px', background: '#e0f2fe', color: '#0369a1', fontWeight: 700 }}>
+                      <td>
+                        <span className="badge-modality">
                           {examName}
                         </span>
-                        <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600, marginTop: '2px' }}>
+                        <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
                           {formatETB(c.price)}
                         </div>
                       </td>
-                      <td style={{ padding: '10px 12px', color: 'var(--color-on-surface, #475569)', fontSize: '12px' }}>
+                      <td style={{ color: 'var(--color-on-surface, #475569)', fontSize: '12px', whiteSpace: 'nowrap' }}>
                         {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
-                          ✓ Paid
-                        </span>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="badge-status-paid">✓ Paid</span>
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: isApproved ? '#dcfce7' : c.status === 'In Progress' ? '#fef3c7' : 'var(--color-surface-container, #f1f5f9)', color: isApproved ? '#166534' : c.status === 'In Progress' ? '#92400e' : 'var(--text-secondary, #475569)', fontWeight: 600 }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={isApproved ? 'badge-status-approved' : c.status === 'In Progress' ? 'badge-status-progress' : 'badge-status-queued'}>
                           {c.status}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <td style={{ textAlign: 'center' }}>
                         <button
-                          className="primary-button"
-                          style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 700 }}
+                          type="button"
+                          className="btn-open-case"
                           onClick={() => openCaseModal(c)}
                         >
-                          {isApproved ? '👁️ View / Edit' : '📝 Enter Result'}
+                          <span>{isApproved ? '👁️' : '📝'}</span>
+                          <span>{isApproved ? 'View / Edit →' : 'Open Case →'}</span>
                         </button>
                       </td>
                     </tr>
