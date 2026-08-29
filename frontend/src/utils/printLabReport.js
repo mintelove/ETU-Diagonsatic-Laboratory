@@ -233,43 +233,45 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   <meta charset="utf-8">
   <title>ETU Diagnostic Laboratory Report</title>
   <style>
-    @page { size: A4 portrait; margin: 10mm 12mm; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #e2e8f0; color: #0f172a; font: 13px Arial, Helvetica, sans-serif; line-height: 1.55; }
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #e2e8f0; color: #0f172a; font: 13px Arial, Helvetica, sans-serif; line-height: 1.5; }
     .toolbar { padding: 10px; text-align: center; background: #075c91; position: sticky; top: 0; z-index: 100; }
     .toolbar button { padding: 7px 16px; border: 0; border-radius: 5px; margin: 0 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
     .toolbar .primary { background: #0b95b7; color: white; }
-    .page { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 16mm; background: white; box-shadow: 0 4px 25px rgba(0,0,0,0.15); border-radius: 2px; }
-    .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2.5px solid #087ca8; padding-bottom: 12px; margin-bottom: 14px; }
-    .header h1 { margin: 2px 0 0; color: #075c91; font-size: 22px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; }
-    .header p.sub { margin: 3px 0 0; font-size: 12.5px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.8px; }
-    .section { margin-top: 14px; page-break-inside: avoid; break-inside: avoid; }
-    .section h2 { margin: 0 0 8px; padding: 6px 10px; background: #e8f5fa; color: #075c91; border-left: 4px solid #0b95b7; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
-    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 20px; font-size: 12.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
+    .page { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 12mm 14mm; background: white; box-shadow: 0 4px 25px rgba(0,0,0,0.15); border-radius: 2px; }
+    .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2.5px solid #087ca8; padding-bottom: 8px; margin-bottom: 10px; page-break-inside: avoid; break-inside: avoid; }
+    .header h1 { margin: 2px 0 0; color: #075c91; font-size: 20px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; line-height: 1.2; }
+    .header p.sub { margin: 3px 0 0; font-size: 12px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.8px; }
+    .section { margin-top: 10px; page-break-inside: auto; break-inside: auto; }
+    .section h2 { margin: 0 0 6px; padding: 5px 8px; background: #e8f5fa; color: #075c91; border-left: 4px solid #0b95b7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; page-break-after: avoid; break-after: avoid; }
+    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 16px; font-size: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
     .patient div { display: flex; gap: 8px; }
-    .patient b { min-width: 125px; color: #475569; }
-    .result-cat-block { margin-bottom: 16px; page-break-inside: avoid; break-inside: avoid; }
-    .result-cat-header { margin: 0 0 6px 0; padding: 5px 10px; background: #075c91; color: #ffffff; border-radius: 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; page-break-inside: auto; }
+    .patient b { min-width: 120px; color: #475569; }
+    .result-cat-block { margin-bottom: 14px; page-break-inside: auto; break-inside: auto; }
+    .result-cat-header { margin: 0 0 6px 0; padding: 5px 10px; background: #075c91; color: #ffffff; border-radius: 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; page-break-after: avoid; break-after: avoid; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; page-break-inside: auto; }
     tr { page-break-inside: avoid; break-inside: avoid; }
-    th { background: #075c91; color: white; text-align: left; padding: 7px 10px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
-    td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; font-size: 12.5px; }
+    th { background: #075c91; color: white; text-align: left; padding: 6px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
     tbody tr:nth-child(even) { background: #f8fafc; }
     td small { display: block; color: #64748b; margin-top: 2px; font-size: 10.5px; }
-    .rich-report-body { padding: 12px 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; line-height: 1.6; color: #0f172a; word-break: break-word; }
-    .rich-report-body img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 4px; page-break-inside: avoid; break-inside: avoid; }
-    .rich-report-body table { width: 100%; border-collapse: collapse; margin: 10px 0; page-break-inside: avoid; break-inside: avoid; }
-    .rich-report-body table th, .rich-report-body table td { border: 1px solid #cbd5e1; padding: 6px 10px; }
-    .signoff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; font-size: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
+    .rich-report-body { padding: 10px 12px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; line-height: 1.55; color: #0f172a; word-break: break-word; page-break-inside: auto; break-inside: auto; }
+    .rich-report-body img { max-width: 100%; height: auto; display: block; margin: 8px auto; border-radius: 4px; page-break-inside: avoid; break-inside: avoid; }
+    .rich-report-body table { width: 100%; border-collapse: collapse; margin: 8px 0; page-break-inside: auto; break-inside: auto; }
+    .rich-report-body table tr { page-break-inside: avoid; break-inside: avoid; }
+    .rich-report-body table th, .rich-report-body table td { border: 1px solid #cbd5e1; padding: 5px 8px; }
+    .signoff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; font-size: 11.5px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
     .signoff-grid div { display: flex; flex-direction: column; gap: 2px; }
     .signoff-grid b { color: #475569; }
     .signoff-grid strong { color: #0f172a; }
-    .footer { margin-top: 22px; padding-top: 10px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px; page-break-inside: avoid; break-inside: avoid; }
+    .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px; page-break-inside: avoid; break-inside: avoid; }
     @media print {
       body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       .toolbar { display: none !important; }
-      .page { margin: 0 !important; width: 100% !important; max-width: 100% !important; min-height: auto !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
-      .section, .patient, .rich-report-body img, .rich-report-body table, .signoff-grid, .footer { page-break-inside: avoid !important; break-inside: avoid !important; }
+      .page { margin: 0 !important; width: 100% !important; max-width: 100% !important; min-height: auto !important; height: auto !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
+      .header, .patient, .signoff-grid, .footer, tr, img { page-break-inside: avoid !important; break-inside: avoid !important; }
+      .section, .rich-report-body, table { page-break-inside: auto !important; break-inside: auto !important; }
     }
   </style>
 </head>
