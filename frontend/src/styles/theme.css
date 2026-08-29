@@ -318,6 +318,84 @@ tr:hover td {
   background-color: var(--table-row-hover) !important;
 }
 
+/* Light Mode specific table row hover contrast */
+:root[data-theme='light'] tr:hover td,
+:root[data-theme='light'] .sample-types-table tr:hover td,
+:root[data-theme='light'] table tr:hover td,
+:root:not([data-theme='dark']) tr:hover td,
+:root:not([data-theme='dark']) .sample-types-table tr:hover td,
+:root:not([data-theme='dark']) table tr:hover td {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+
+:root[data-theme='light'] tr:hover td strong,
+:root[data-theme='light'] tr:hover td b,
+:root:not([data-theme='dark']) tr:hover td strong,
+:root:not([data-theme='dark']) tr:hover td b {
+  color: #0F172A !important;
+}
+
+:root[data-theme='light'] tr:hover td span,
+:root:not([data-theme='dark']) tr:hover td span {
+  color: #334155 !important;
+}
+
+:root[data-theme='light'] tr:hover td strong + span,
+:root:not([data-theme='dark']) tr:hover td strong + span {
+  color: #64748B !important;
+}
+
+:root[data-theme='light'] tr:hover td code,
+:root:not([data-theme='dark']) tr:hover td code {
+  background-color: #E2E8F0 !important;
+  color: #0284C7 !important;
+}
+
+:root[data-theme='light'] .activity:hover,
+:root:not([data-theme='dark']) .activity:hover {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+
+:root[data-theme='light'] .sample-card:hover,
+:root[data-theme='light'] .sample-selection-card:hover,
+:root:not([data-theme='dark']) .sample-card:hover,
+:root:not([data-theme='dark']) .sample-selection-card:hover {
+  background-color: #F0F9FF !important;
+  border-color: #0284C7 !important;
+}
+
+/* Dark Mode specific table row hover contrast */
+:root[data-theme='dark'] tr:hover td,
+:root[data-theme='dark'] .sample-types-table tr:hover td,
+:root[data-theme='dark'] table tr:hover td {
+  background-color: #1C2B44 !important;
+  color: #F8FAFC !important;
+}
+
+:root[data-theme='dark'] tr:hover td strong,
+:root[data-theme='dark'] tr:hover td b {
+  color: #F8FAFC !important;
+}
+
+:root[data-theme='dark'] tr:hover td span {
+  color: #CBD5E1 !important;
+}
+
+:root[data-theme='dark'] tr:hover td strong + span {
+  color: #94A3B8 !important;
+}
+
+:root[data-theme='dark'] tr:hover td code {
+  background-color: #0D1626 !important;
+  color: #38BDF8 !important;
+}
+
+:root[data-theme='dark'] .activity:hover {
+  background-color: #162C4E !important;
+}
+
 td strong,
 td b {
   color: var(--text-primary) !important;

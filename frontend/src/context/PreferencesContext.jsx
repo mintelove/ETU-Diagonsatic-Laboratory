@@ -89,31 +89,38 @@ export function applyCustomColors(colors, currentThemeMode = document.documentEl
     bg = '#f4f7fa';
   }
 
-  const propertyMapping = {
-    primary: ['--color-primary', '--button-primary-bg'],
-    secondary: ['--color-secondary'],
-    sidebar: ['--etu-sidebar'],
-    header: ['--etu-header'],
-    card: ['--card-bg', '--modal-bg', '--input-bg', '--dropdown-bg'],
-    button: ['--button-primary-bg'],
-    background: ['--color-surface', '--color-surface-dim'],
-    textAccent: ['--text-primary', '--color-on-surface', '--input-color', '--dropdown-color'],
-    heading: ['--color-heading'],
-    bottom: ['--color-bottom'],
+  const lightVars = {
+    '--color-surface': bg || '#f4f7fa',
+    '--color-surface-dim': '#e9eef5',
+    '--etu-sidebar': '#0a1b30',
+    '--etu-sidebar-color': '#f8fafc',
+    '--etu-header': '#ffffff',
+    '--etu-header-color': '#0f172a',
+    '--card-bg': '#ffffff',
+    '--modal-bg': '#ffffff',
+    '--input-bg': '#ffffff',
+    '--dropdown-bg': '#ffffff',
+    '--text-primary': fg || '#0f172a',
+    '--color-on-surface': fg || '#0f172a',
+    '--input-color': '#0f172a',
+    '--dropdown-color': '#0f172a',
+    '--text-secondary': '#334155',
+    '--color-on-surface-variant': '#334155',
+    '--color-heading': colors.heading || '#0a2540',
+    '--color-bottom': colors.bottom || '#f4f7fa',
+    '--color-primary': colors.primary || '#0284c7',
+    '--button-primary-bg': colors.primary || '#0284c7',
+    '--color-secondary': colors.secondary || '#0d9488',
+    '--card-border': '#cbd5e1',
+    '--input-border': '#cbd5e1',
+    '--table-header-bg': '#f8fafc',
+    '--table-header-color': '#0a2540',
+    '--table-bg': '#ffffff',
+    '--table-row-hover': '#f1f5f9',
   };
 
-  const resolved = {
-    ...colors,
-    ...(fg ? { textAccent: fg } : {}),
-    ...(bg ? { background: bg } : {}),
-  };
-
-  Object.entries(propertyMapping).forEach(([key, cssVars]) => {
-    if (resolved[key]) {
-      cssVars.forEach((varName) => {
-        document.documentElement.style.setProperty(varName, resolved[key]);
-      });
-    }
+  Object.entries(lightVars).forEach(([varName, value]) => {
+    document.documentElement.style.setProperty(varName, value);
   });
 }
 
@@ -122,7 +129,9 @@ export function resetCustomColors() {
     '--color-primary',
     '--color-secondary',
     '--etu-sidebar',
+    '--etu-sidebar-color',
     '--etu-header',
+    '--etu-header-color',
     '--card-bg',
     '--modal-bg',
     '--input-bg',
@@ -134,8 +143,16 @@ export function resetCustomColors() {
     '--color-on-surface',
     '--input-color',
     '--dropdown-color',
+    '--text-secondary',
+    '--color-on-surface-variant',
     '--color-heading',
     '--color-bottom',
+    '--card-border',
+    '--input-border',
+    '--table-header-bg',
+    '--table-header-color',
+    '--table-bg',
+    '--table-row-hover',
   ];
   mapping.forEach((cssVar) => document.documentElement.style.removeProperty(cssVar));
 }
