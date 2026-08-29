@@ -305,8 +305,15 @@ export async function approveCase(req, res, next) {
  */
 export async function getCatalog(req, res, next) {
   try {
-    const category = await LaboratoryTestCategory.findOne({ name: /^Pathology$/i });
-    if (!category) return res.json({ tests: [] });
+    let category = await LaboratoryTestCategory.findOne({ name: /^Pathology$/i });
+    if (!category) {
+      category = await LaboratoryTestCategory.create({
+        name: 'Pathology',
+        code: 'PATH',
+        description: 'Pathology & Cytopathology Examinations',
+        status: 'Active'
+      });
+    }
 
     const tests = await LaboratoryTest.find({ category: category._id })
       .populate('category', 'name')
@@ -314,34 +321,76 @@ export async function getCatalog(req, res, next) {
       .sort({ name: 1 })
       .lean();
 
-    res.json({ tests });
+    res.json({ category, tests });
   } catch (e) {
     next(e);
   }
 }
 
 /**
- * PUT /api/pathology/catalog/:id/price
+ * PUT /api/pathology/catalog/:id and /api/pathology/catalog/:id/price
  */
-export async function updateTestPrice(req, res, next) {
+export async function updateTest(req, res, next) {
   try {
-    const { price } = req.body;
-    if (price === undefined || Number(price) < 0) {
-      throw new AppError('Valid price is required.', 422);
-    }
-    const test = await LaboratoryTest.findByIdAndUpdate(
-      req.params.id,
-      { $set: { price: Number(price) } },
-      { new: true }
-    );
+    const { name, subcategory, price, description, status } = req.body;
+    const test = await LaboratoryTest.findById(req.params.id);
     if (!test) throw new AppError('Pathology test not found.', 404);
 
-    await recordActivity(req.user.id, 'Updated pathology test price', 'LaboratoryTest', test.id, `${test.name} -> ${price} ETB`);
-    res.json({ test, message: 'Price updated successfully.' });
+    if (name !== undefined) {
+      const trimmedName = String(name).trim();
+      if (!trimmedName) throw new AppError('Test name cannot be empty.', 422);
+      
+      const existing = await LaboratoryTest.findOne({
+        category: test.category,
+        name: trimmedName,
+        _id: { $ne: test._id }
+      });
+      if (existing) {
+        throw new AppError(`A pathology test with the name "${trimmedName}" already exists.`, 409);
+      }
+      test.name = trimmedName;
+    }
+
+    if (price !== undefined) {
+      const numPrice = Number(price);
+      if (isNaN(numPrice) || numPrice < 0) {
+        throw new AppError('Valid numeric price in ETB (>= 0) is required.', 422);
+      }
+      test.price = numPrice;
+    }
+
+    if (subcategory !== undefined) {
+      test.subcategory = String(subcategory).trim() || 'Biopsy';
+    }
+
+    if (description !== undefined) {
+      test.description = String(description).trim();
+    }
+
+    if (status !== undefined) {
+      if (!['Active', 'Inactive'].includes(status)) {
+        throw new AppError('Status must be either Active or Inactive.', 422);
+      }
+      test.status = status;
+    }
+
+    await test.save();
+
+    await recordActivity(
+      req.user.id,
+      'Updated pathology test',
+      'LaboratoryTest',
+      test.id,
+      `${test.name} (${test.price} ETB, ${test.status})`
+    );
+
+    res.json({ test, message: `Pathology test "${test.name}" updated successfully.` });
   } catch (e) {
     next(e);
   }
 }
+
+export const updateTestPrice = updateTest;
 
 /**
  * POST /api/pathology/catalog
@@ -353,25 +402,40 @@ export async function createTest(req, res, next) {
       category = await LaboratoryTestCategory.create({
         name: 'Pathology',
         code: 'PATH',
-        description: 'Pathology & Cytopathology Examinations'
+        description: 'Pathology & Cytopathology Examinations',
+        status: 'Active'
       });
     }
 
-    const { name, subcategory, price, description } = req.body;
-    if (!name || !price) throw new AppError('Name and price are required.', 422);
+    const { name, subcategory, price, description, status } = req.body;
+    const trimmedName = String(name || '').trim();
+    if (!trimmedName) throw new AppError('Name is required.', 422);
+
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      throw new AppError('Valid numeric price in ETB (>= 0) is required.', 422);
+    }
+
+    const existing = await LaboratoryTest.findOne({
+      category: category._id,
+      name: trimmedName
+    });
+    if (existing) {
+      throw new AppError(`A pathology test with the name "${trimmedName}" already exists.`, 409);
+    }
 
     const test = await LaboratoryTest.create({
-      name,
+      name: trimmedName,
       code: `PATH-${Date.now().toString(36).toUpperCase()}`,
       category: category._id,
-      subcategory: subcategory || 'Biopsy',
-      price: Number(price),
-      description: description || '',
-      status: 'Active'
+      subcategory: String(subcategory || 'Biopsy').trim(),
+      price: numPrice,
+      description: String(description || '').trim(),
+      status: status && ['Active', 'Inactive'].includes(status) ? status : 'Active'
     });
 
-    await recordActivity(req.user.id, 'Created pathology test', 'LaboratoryTest', test.id, test.name);
-    res.status(201).json({ test, message: 'Pathology test created successfully.' });
+    await recordActivity(req.user.id, 'Created pathology test', 'LaboratoryTest', test.id, `${test.name} (${test.price} ETB)`);
+    res.status(201).json({ test, message: `Pathology test "${test.name}" created successfully.` });
   } catch (e) {
     next(e);
   }
@@ -389,12 +453,13 @@ export async function deleteTest(req, res, next) {
     if (inUse) {
       test.status = 'Inactive';
       await test.save();
-      return res.json({ message: 'Pathology test set to Inactive as it has associated case history.' });
+      await recordActivity(req.user.id, 'Deactivated pathology test with case history', 'LaboratoryTest', test.id, test.name);
+      return res.json({ message: `"${test.name}" has existing patient case history, so it was set to Inactive.` });
     }
 
     await LaboratoryTest.findByIdAndDelete(test._id);
     await recordActivity(req.user.id, 'Deleted pathology test', 'LaboratoryTest', test.id, test.name);
-    res.json({ message: 'Pathology test deleted successfully.' });
+    res.json({ message: `Pathology test "${test.name}" deleted successfully.` });
   } catch (e) {
     next(e);
   }

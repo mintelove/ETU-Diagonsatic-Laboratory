@@ -1,7 +1,7 @@
 /**
  * ETU Diagnostic Laboratory — Admin Radiology Department Configuration Page
  *
- * Allows Main Admin to view and configure Radiology tests, ultrasound subcategories, and prices.
+ * Allows Main Admin to view and configure Radiology categories, examinations, and prices.
  * Provides strict Read-Only mode for Sub Admin users.
  */
 
@@ -34,7 +34,7 @@ export default function AdminRadiologyPage() {
     try {
       setLoading(true);
       const data = await api('/radiology/catalog', { token });
-      setCategory(data.category);
+      setCategory(data.category || null);
       setTests(data.tests || []);
     } catch (e) {
       if (!isSilentNetworkError(e)) {
@@ -68,9 +68,9 @@ export default function AdminRadiologyPage() {
   const openEditModal = (t) => {
     if (isSubAdmin) return;
     setEditingTest(t);
-    setFormName(t.name);
-    setFormSubcategory(t.subcategory || 'Radiology');
-    setFormPrice(String(t.price));
+    setFormName(t.name || '');
+    setFormSubcategory(t.subcategory || 'Ultrasound');
+    setFormPrice(String(t.price !== undefined ? t.price : ''));
     setFormDescription(t.description || '');
     setFormStatus(t.status || 'Active');
     setModalOpen(true);
@@ -79,46 +79,50 @@ export default function AdminRadiologyPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubAdmin) return;
-    if (!formName.trim()) {
-      showToast('Please enter a test name.', 'error');
+    const trimmedName = formName.trim();
+    if (!trimmedName) {
+      showToast('Please enter an examination / category name.', 'error');
       return;
     }
     const numPrice = Number(formPrice);
     if (isNaN(numPrice) || numPrice < 0) {
-      showToast('Please enter a valid price in ETB.', 'error');
+      showToast('Please enter a valid numeric price in ETB (>= 0).', 'error');
       return;
     }
 
     try {
       setSaving(true);
       if (editingTest) {
-        // Update price & description
-        await api(`/radiology/catalog/${editingTest._id}/price`, {
+        // Update category / test name, price, subcategory, description, status
+        const res = await api(`/radiology/catalog/${editingTest._id}`, {
           token,
           method: 'PUT',
           body: JSON.stringify({
+            name: trimmedName,
+            subcategory: formSubcategory || 'Ultrasound',
             price: numPrice,
-            description: formDescription,
+            description: formDescription.trim(),
             status: formStatus
           })
         });
-        showToast(`Updated ${editingTest.name} successfully.`);
+        showToast(res.message || `Updated "${trimmedName}" successfully.`);
       } else {
-        // Create new test
-        await api('/radiology/catalog', {
+        // Create new radiology examination / category
+        const res = await api('/radiology/catalog', {
           token,
           method: 'POST',
           body: JSON.stringify({
-            name: formName,
+            name: trimmedName,
             subcategory: formSubcategory || 'Ultrasound',
             price: numPrice,
-            description: formDescription
+            description: formDescription.trim(),
+            status: formStatus
           })
         });
-        showToast('Created new Radiology examination successfully.');
+        showToast(res.message || `Created "${trimmedName}" successfully.`);
       }
       setModalOpen(false);
-      loadData();
+      await loadData();
     } catch (e) {
       showToast(e.message || 'Failed to save changes.', 'error');
     } finally {
@@ -128,15 +132,20 @@ export default function AdminRadiologyPage() {
 
   const handleDelete = async (t) => {
     if (isSubAdmin) return;
-    if (!window.confirm(`Are you sure you want to delete the Radiology examination "${t.name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete the Radiology category/examination "${t.name}"?`)) return;
     try {
-      await api(`/radiology/catalog/${t._id}`, { token, method: 'DELETE' });
-      showToast(`Deleted ${t.name} successfully.`);
-      loadData();
+      const res = await api(`/radiology/catalog/${t._id}`, { token, method: 'DELETE' });
+      showToast(res.message || `Deleted "${t.name}" successfully.`);
+      await loadData();
     } catch (e) {
       showToast(e.message || 'Failed to delete examination.', 'error');
     }
   };
+
+  const activeCount = tests.filter(t => t.status === 'Active').length;
+  const ctScanFee = tests.find(t => t.subcategory === 'CT Scan' || t.name.toLowerCase().includes('ct scan'))?.price;
+  const xRayFee = tests.find(t => t.subcategory === 'X-Ray' || t.name.toLowerCase().includes('x-ray'))?.price;
+  const usBaseFee = tests.find(t => t.subcategory === 'Ultrasound' || t.name.toLowerCase().includes('ultrasound'))?.price;
 
   return (
     <section className="page admin-radiology-page">
@@ -173,11 +182,11 @@ export default function AdminRadiologyPage() {
             <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span>🩻</span> Radiology Management
             </h1>
-            <p className="intro">Manage medical imaging examinations, CT Scan, X-Ray, Ultrasound subcategories, and ETB pricing.</p>
+            <p className="intro">Manage medical imaging categories, CT Scan, X-Ray, Ultrasound subcategories, and ETB pricing.</p>
           </div>
           {!isSubAdmin && (
             <button className="primary-button" onClick={openCreateModal} style={{ padding: '0.6rem 1.2rem' }}>
-              ＋ Add Radiology Examination
+              ＋ Add Radiology Category
             </button>
           )}
         </div>
@@ -188,7 +197,7 @@ export default function AdminRadiologyPage() {
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 18px', marginBottom: '1.5rem', color: '#166534', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '1.2rem' }}>🔒</span>
           <div>
-            <strong>Read-Only Mode:</strong> Sub Admin accounts can view Radiology categories and examination fees, but cannot edit prices or modify tests.
+            <strong>Read-Only Mode:</strong> Sub Admin accounts can view Radiology categories and examination fees, but cannot edit prices or modify records.
           </div>
         </div>
       )}
@@ -196,20 +205,20 @@ export default function AdminRadiologyPage() {
       {/* Overview Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <article className="stat-card blue">
-          <small>Active Examinations</small>
-          <strong>{tests.length}</strong>
+          <small>Active Categories & Tests</small>
+          <strong>{activeCount} / {tests.length}</strong>
         </article>
         <article className="stat-card orange">
           <small>CT Scan Standard Fee</small>
-          <strong>800 ETB</strong>
+          <strong>{ctScanFee !== undefined ? formatETB(ctScanFee) : '800 ETB'}</strong>
         </article>
         <article className="stat-card teal">
           <small>X-Ray Standard Fee</small>
-          <strong>250 ETB</strong>
+          <strong>{xRayFee !== undefined ? formatETB(xRayFee) : '250 ETB'}</strong>
         </article>
         <article className="stat-card green">
           <small>Ultrasound Base Fee</small>
-          <strong>800 ETB</strong>
+          <strong>{usBaseFee !== undefined ? formatETB(usBaseFee) : '800 ETB'}</strong>
         </article>
       </div>
 
@@ -217,7 +226,7 @@ export default function AdminRadiologyPage() {
       <section className="table-card" style={{ background: 'var(--color-surface,#fff)', borderRadius: '12px', border: '1px solid var(--color-border,#e2ecef)', overflow: 'hidden' }}>
         <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid var(--color-border,#e2ecef)', background: 'var(--color-background,#f8fafc)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ fontSize: '1.05rem', margin: 0, color: 'var(--color-primary,#075c91)' }}>
-            Radiology Examinations & Prices (ETB)
+            Radiology Categories, Examinations & Prices (ETB)
           </h2>
         </div>
 
@@ -228,7 +237,7 @@ export default function AdminRadiologyPage() {
           </div>
         ) : tests.length === 0 ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-            No radiology examinations found. Click "Add Radiology Examination" to create one.
+            No radiology categories found. Click "Add Radiology Category" to create one.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -236,7 +245,7 @@ export default function AdminRadiologyPage() {
               <thead>
                 <tr style={{ background: 'var(--color-background,#f8fafc)', borderBottom: '2px solid var(--color-border,#e2ecef)', color: 'var(--color-primary,#075c91)' }}>
                   <th style={{ padding: '10px 14px', textAlign: 'left' }}>#</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left' }}>Examination Name</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'left' }}>Category / Examination Name</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left' }}>Modality / Subcategory</th>
                   <th style={{ padding: '10px 14px', textAlign: 'right' }}>Price (ETB)</th>
                   <th style={{ padding: '10px 14px', textAlign: 'center' }}>Status</th>
@@ -257,7 +266,7 @@ export default function AdminRadiologyPage() {
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11.5px', background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>
-                        {t.subcategory || 'Radiology'}
+                        {t.subcategory || 'Ultrasound'}
                       </span>
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#15803d', fontSize: '14px' }}>
@@ -276,12 +285,13 @@ export default function AdminRadiologyPage() {
                             style={{ padding: '4px 10px', fontSize: '11.5px', fontWeight: 600, border: '1px solid var(--color-primary,#075c91)', color: 'var(--color-primary,#075c91)' }}
                             onClick={() => openEditModal(t)}
                           >
-                            ✏️ Edit Price
+                            ✏️ Edit
                           </button>
                           <button
                             className="filter-chip"
                             style={{ padding: '4px 8px', fontSize: '11.5px', fontWeight: 600, border: '1px solid #ef4444', color: '#ef4444' }}
                             onClick={() => handleDelete(t)}
+                            title="Delete category"
                           >
                             🗑️
                           </button>
@@ -301,21 +311,20 @@ export default function AdminRadiologyPage() {
         <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
           <header className="modal-header">
             <h2 style={{ fontSize: '1.15rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>{editingTest ? '✏️' : '＋'}</span> {editingTest ? `Edit ${editingTest.name}` : 'Add Radiology Examination'}
+              <span>{editingTest ? '✏️' : '＋'}</span> {editingTest ? `Edit ${editingTest.name}` : 'Add Radiology Category'}
             </h2>
             <button className="close-button" onClick={() => setModalOpen(false)}>&times;</button>
           </header>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Examination Name *</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Category / Examination Name *</label>
               <input
                 type="text"
                 required
                 className="global-input"
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                disabled={Boolean(editingTest)}
                 placeholder="e.g. CT Scan, X-Ray, Ultrasound - Abdominal"
                 style={{ width: '100%' }}
               />
@@ -329,9 +338,9 @@ export default function AdminRadiologyPage() {
                 onChange={e => setFormSubcategory(e.target.value)}
                 style={{ width: '100%' }}
               >
+                <option value="Ultrasound">Ultrasound</option>
                 <option value="CT Scan">CT Scan</option>
                 <option value="X-Ray">X-Ray</option>
-                <option value="Ultrasound">Ultrasound</option>
                 <option value="General Radiology">General Radiology</option>
               </select>
             </div>

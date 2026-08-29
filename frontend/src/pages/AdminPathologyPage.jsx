@@ -92,33 +92,36 @@ export default function AdminPathologyPage() {
     try {
       setSaving(true);
       if (editingTest) {
-        // Update price & description
-        await api(`/pathology/catalog/${editingTest._id}/price`, {
+        // Update name, subcategory, price, description, status
+        const res = await api(`/pathology/catalog/${editingTest._id}`, {
           token,
           method: 'PUT',
           body: JSON.stringify({
+            name: formName.trim(),
+            subcategory: formSubcategory || formName.trim(),
             price: numPrice,
-            description: formDescription,
+            description: formDescription.trim(),
             status: formStatus
           })
         });
-        showToast(`Updated ${editingTest.name} successfully.`);
+        showToast(res.message || `Updated "${formName.trim()}" successfully.`);
       } else {
         // Create new test
-        await api('/pathology/catalog', {
+        const res = await api('/pathology/catalog', {
           token,
           method: 'POST',
           body: JSON.stringify({
-            name: formName,
-            subcategory: formSubcategory || formName,
+            name: formName.trim(),
+            subcategory: formSubcategory || formName.trim(),
             price: numPrice,
-            description: formDescription
+            description: formDescription.trim(),
+            status: formStatus
           })
         });
-        showToast('Created new Pathology test successfully.');
+        showToast(res.message || `Created "${formName.trim()}" successfully.`);
       }
       setModalOpen(false);
-      loadData();
+      await loadData();
     } catch (e) {
       showToast(e.message || 'Failed to save changes.', 'error');
     } finally {
@@ -320,7 +323,6 @@ export default function AdminPathologyPage() {
                 className="global-input"
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                disabled={Boolean(editingTest)}
                 placeholder="e.g. Biopsy, FNAC, Peripheral Morphology"
                 style={{ width: '100%' }}
               />

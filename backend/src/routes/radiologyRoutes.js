@@ -15,6 +15,7 @@ router.post('/cases/:id/approve', allowRoles(ROLES.ADMIN, ROLES.RADIOLOGIST), c.
 
 // Catalog / Price management routes (Sub Admin can only read; Admin can mutate)
 router.get('/catalog', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST, ROLES.RECEPTION), c.getCatalog);
+router.put('/catalog/:id', allowRoles(ROLES.ADMIN), c.updateTest);
 router.put('/catalog/:id/price', allowRoles(ROLES.ADMIN), c.updateTestPrice);
 router.post('/catalog', allowRoles(ROLES.ADMIN), c.createTest);
 router.delete('/catalog/:id', allowRoles(ROLES.ADMIN), c.deleteTest);
