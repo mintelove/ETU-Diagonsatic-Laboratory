@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import NotificationBell from './NotificationBell.jsx';
@@ -23,19 +23,71 @@ const icon = {
   radiology: '🩻',
 };
 
+const INITIAL_COLLAPSE_DELAY = 4000; // 4 seconds after login/load
+const LEAVE_COLLAPSE_DELAY = 3500;   // 3.5 seconds after mouse leave
+
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const { preferences, updatePreferences, canToggleTheme, t } = usePreferences();
   const [now, setNow] = useState(new Date());
-  const [collapsed, setCollapsed] = useState(Boolean(preferences.sidebarCollapsed));
+  
+  // Sidebar starts fully expanded after login/load
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const collapseTimerRef = useRef(null);
 
-  useEffect(() => setCollapsed(Boolean(preferences.sidebarCollapsed)), [preferences.sidebarCollapsed]);
+  // Initial load: keep expanded for 4 seconds, then smoothly auto-collapse
+  useEffect(() => {
+    collapseTimerRef.current = setTimeout(() => {
+      setIsCollapsed(true);
+    }, INITIAL_COLLAPSE_DELAY);
+
+    return () => {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Mouse enters sidebar: immediately start smooth expansion with NO delay
+  const handleMouseEnter = () => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+    setIsHovered(true);
+  };
+
+  // Mouse leaves sidebar: wait 3.5s before smoothly auto-collapsing
+  const handleMouseLeave = () => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+    }
+    collapseTimerRef.current = setTimeout(() => {
+      setIsHovered(false);
+      setIsCollapsed(true);
+    }, LEAVE_COLLAPSE_DELAY);
+  };
+
+  const isEffectiveCollapsed = isCollapsed && !isHovered;
+
+  const handleToggle = () => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+    if (isEffectiveCollapsed) {
+      setIsCollapsed(false);
+      setIsHovered(true);
+    } else {
+      setIsCollapsed(true);
+      setIsHovered(false);
+    }
+  };
 
   const home =
     user.role === 'Reception'
@@ -62,12 +114,6 @@ export default function AppLayout() {
     hour12: preferences.timeFormat === '12',
   });
 
-  const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    updatePreferences({ sidebarCollapsed: next }).catch(() => setCollapsed(!next));
-  };
-
   const Item = ({ to, name, kind }) => (
     <NavLink to={to} title={name} onClick={() => setMobileOpen(false)}>
       <span aria-hidden="true">{icon[kind]}</span>
@@ -76,7 +122,7 @@ export default function AppLayout() {
   );
 
   return (
-    <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-sidebar-open' : ''}`}>
+    <div className={`app-shell ${isEffectiveCollapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-sidebar-open' : ''}`}>
       <header className="mobile-header no-print">
         <button
           className="mobile-menu-toggle"
@@ -99,19 +145,27 @@ export default function AppLayout() {
 
       {mobileOpen && <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />}
 
-      <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+      <aside
+        className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+      >
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Logo size={44} style={{ borderRadius: '8px', background: '#fff', padding: '3px', flexShrink: 0 }} />
-          {!collapsed && (
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-              <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#d5f1fb', letterSpacing: '0.5px' }}>ETU</span>
-              <small style={{ fontSize: '0.7rem', opacity: 0.85, color: '#edf8fc' }}>Diagnostic Laboratory</small>
-            </div>
-          )}
+          <div className="brand-text">
+            <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#d5f1fb', letterSpacing: '0.5px' }}>ETU</span>
+            <small style={{ fontSize: '0.7rem', opacity: 0.85, color: '#edf8fc' }}>Diagnostic Laboratory</small>
+          </div>
         </div>
         <nav aria-label="Primary navigation">
-          <button className="sidebar-collapse" title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggle}>
-            {collapsed ? '›' : '‹'}
+          <button
+            className="sidebar-collapse"
+            title={isEffectiveCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={handleToggle}
+          >
+            {isEffectiveCollapsed ? '›' : '‹'}
           </button>
 
           <Item to={home} name={t('dashboard')} kind="dashboard" />

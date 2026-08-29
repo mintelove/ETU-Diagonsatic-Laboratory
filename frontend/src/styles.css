@@ -998,28 +998,20 @@ td span {
 }
 
 .app-shell {
-    transition: grid-template-columns .25s ease
+    transition: grid-template-columns 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-collapsed {
-    grid-template-columns: 72px minmax(0, 1fr)
+    grid-template-columns: 72px minmax(0, 1fr);
 }
 
 .sidebar-collapsed .sidebar {
-    padding-left: .7rem;
-    padding-right: .7rem
-}
-
-.sidebar-collapsed .brand small,
-.sidebar-collapsed .sidebar nav b,
-.sidebar-collapsed .user-card strong,
-.sidebar-collapsed .user-card span,
-.sidebar-collapsed .link-button {
-    display: none
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
 }
 
 .sidebar-collapsed .sidebar nav a {
-    justify-content: center
+    justify-content: center;
 }
 
 .negative-stock {
