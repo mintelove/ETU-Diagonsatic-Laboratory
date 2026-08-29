@@ -3,8 +3,9 @@
  *
  * Professional Medical LIS Card-Based Interface for Radiologists to review assigned examinations
  * (CT Scan, X-Ray, Ultrasound Abdominal / MSS / Doppler / Echo / Other),
- * enter reports via Option A (Specialist Rich Document / Word Import) or Option B (Structured Clinical Findings),
- * preview live A4 reports, toggle ETU branding, and approve reports.
+ * across both Main and Otona branches (Global queue).
+ * Supports editing existing reports via Option A or Option B, preserving existing content,
+ * previewing live A4 reports, toggling ETU branding, and returning reports to the original sending receptionist.
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -195,7 +196,7 @@ export default function RadiologyPage() {
         })
       });
 
-      showToast(`Radiology report approved! Ready for Reception to print.`);
+      showToast(`Radiology report approved! Ready for original sending Receptionist.`);
       closeCaseModal();
       loadQueue();
     } catch (e) {
@@ -223,7 +224,9 @@ export default function RadiologyPage() {
         c.customExaminationName?.toLowerCase().includes(lower) ||
         c.patient?.patientId?.toLowerCase().includes(lower) ||
         c.patient?.name?.toLowerCase().includes(lower) ||
-        c.patient?.phone?.toLowerCase().includes(lower)
+        c.patient?.phone?.toLowerCase().includes(lower) ||
+        c.branchName?.toLowerCase().includes(lower) ||
+        c.registeredBy?.fullName?.toLowerCase().includes(lower)
       );
     });
   }, [cases, statusFilter, search]);
@@ -277,7 +280,7 @@ export default function RadiologyPage() {
             <span>👨‍⚕️</span> Dr. {user?.fullName || 'Specialist'}
           </div>
           <div className="clinical-specialist-meta">
-            Authenticated Radiologist · Branch: <strong>{user?.branchName || 'Main'}</strong>
+            Authenticated Radiologist · <strong>Global (Main &amp; Otona)</strong>
           </div>
         </div>
       </header>
@@ -290,7 +293,7 @@ export default function RadiologyPage() {
             <div className="clinical-kpi-icon-pill">📊</div>
           </div>
           <div className="clinical-kpi-number">{stats.total}</div>
-          <p className="clinical-kpi-desc">All imaging examinations</p>
+          <p className="clinical-kpi-desc">All cross-branch examinations</p>
         </article>
 
         <article className="clinical-kpi-card orange">
@@ -317,7 +320,7 @@ export default function RadiologyPage() {
             <div className="clinical-kpi-icon-pill">✅</div>
           </div>
           <div className="clinical-kpi-number">{stats.approved}</div>
-          <p className="clinical-kpi-desc">Ready for printing</p>
+          <p className="clinical-kpi-desc">Ready for printing / released</p>
         </article>
       </div>
 
@@ -325,14 +328,14 @@ export default function RadiologyPage() {
       <div className="clinical-worklist-card">
         <div className="clinical-worklist-top-bar">
           <h2 className="clinical-worklist-heading">
-            <span>📋</span> RADIOLOGY WORKLIST
+            <span>📋</span> RADIOLOGY WORKLIST (CROSS-BRANCH)
           </h2>
 
           <div className="clinical-search-input-box">
             <span>🔍</span>
             <input
               type="text"
-              placeholder="Search patient ID, name, case number, examination…"
+              placeholder="Search patient ID, name, branch, case number, examination…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -370,7 +373,7 @@ export default function RadiologyPage() {
             <p className="clinical-empty-text">
               {search || statusFilter !== 'all'
                 ? 'No examinations match your search query or selected filter.'
-                : 'When Reception registers and bills CT Scan, X-Ray, or Ultrasound, examinations appear in this worklist automatically.'}
+                : 'When Reception registers and bills CT Scan, X-Ray, or Ultrasound from Main or Otona branches, examinations appear in this worklist automatically.'}
             </p>
           </div>
         ) : (
@@ -379,6 +382,7 @@ export default function RadiologyPage() {
               const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
               const examName = c.customExaminationName || (c.ultrasoundSubtype ? `Ultrasound — ${c.ultrasoundSubtype}` : c.examinationType);
               const statusClass = isApproved ? 'ready' : c.status === 'In Progress' ? 'in-progress' : 'queued';
+              const senderName = c.registeredBy?.fullName || c.patient?.registeredBy?.fullName || 'Reception';
 
               return (
                 <div key={c._id} className="clinical-patient-case-card">
@@ -388,7 +392,8 @@ export default function RadiologyPage() {
                     <div className="clinical-patient-subtext">
                       <span className="clinical-patient-id-badge">{c.patient?.patientId}</span>
                       <span>· {c.patient?.age} yrs / {c.patient?.sex}</span>
-                      <span>· 📍 {c.branchName}</span>
+                      <span style={{ color: '#0369A1', fontWeight: 700 }}>· 📍 {c.branchName} Branch</span>
+                      <span>· 👨‍💼 Sent by: <strong>{senderName}</strong></span>
                     </div>
                   </div>
 
@@ -438,7 +443,7 @@ export default function RadiologyPage() {
         )}
       </div>
 
-      {/* ── 5. PROFESSIONAL RESULT ENTRY MODAL ────────────────────────────── */}
+      {/* ── 5. PROFESSIONAL RESULT ENTRY & EDITING MODAL ──────────────────── */}
       {selectedCase && (
         <ModalPortal isOpen={!!selectedCase} onClose={closeCaseModal}>
           <div className="modal-content clinical-modal-dialog" onClick={e => e.stopPropagation()}>
@@ -446,10 +451,15 @@ export default function RadiologyPage() {
             <header className="clinical-modal-header">
               <div>
                 <h2>
-                  <span>🩻</span> RADIOLOGY RESULT ENTRY — {selectedCase?.customExaminationName || selectedCase?.examinationType}
+                  <span>🩻</span> RADIOLOGY REPORT — {selectedCase?.customExaminationName || selectedCase?.examinationType}
+                  {['Approved', 'Ready for Printing'].includes(selectedCase?.status) && (
+                    <span className="clinical-status-pill ready" style={{ marginLeft: '10px', fontSize: '0.75rem' }}>
+                      ✓ Approved (Edit Mode)
+                    </span>
+                  )}
                 </h2>
                 <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: '2px', fontWeight: 600 }}>
-                  Case Ref: <strong>{selectedCase?.caseNumber}</strong> · Branch: <strong>{selectedCase?.branchName}</strong>
+                  Case Ref: <strong>{selectedCase?.caseNumber}</strong> · Branch: <strong>{selectedCase?.branchName}</strong> · Sent by: <strong>{selectedCase?.registeredBy?.fullName || selectedCase?.patient?.registeredBy?.fullName || 'Reception'}</strong>
                 </div>
               </div>
               <button className="close-button" onClick={closeCaseModal}>&times;</button>
@@ -475,8 +485,12 @@ export default function RadiologyPage() {
                     <strong>{selectedCase?.patient?.age} yrs / {selectedCase?.patient?.sex}</strong>
                   </div>
                   <div className="clinical-patient-field">
-                    <small>Phone</small>
-                    <strong>{selectedCase?.patient?.phone || '—'}</strong>
+                    <small>Originating Branch</small>
+                    <strong style={{ color: '#0369A1' }}>📍 {selectedCase?.branchName} Branch</strong>
+                  </div>
+                  <div className="clinical-patient-field">
+                    <small>Original Sender</small>
+                    <strong>{selectedCase?.registeredBy?.fullName || selectedCase?.patient?.registeredBy?.fullName || 'Receptionist'}</strong>
                   </div>
                   <div className="clinical-patient-field">
                     <small>Modality / Examination</small>
@@ -710,7 +724,7 @@ export default function RadiologyPage() {
                     onClick={handleApproveReport}
                     disabled={saving || approving}
                   >
-                    <span>✅</span> {approving ? 'Approving…' : 'Confirm & Approve Report'}
+                    <span>✅</span> {approving ? 'Approving…' : ['Approved', 'Ready for Printing'].includes(selectedCase?.status) ? 'Update & Re-Approve Report' : 'Confirm & Approve Report'}
                   </button>
                 </div>
               </div>

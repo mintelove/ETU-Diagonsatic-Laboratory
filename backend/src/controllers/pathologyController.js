@@ -45,25 +45,30 @@ async function checkOverdueDeadlines(cases) {
 
 /**
  * GET /api/pathology/queue
- * List pathology examination queue for Pathologist & Admin
+ * List pathology examination queue for Pathologist (global cross-branch) & Admin
  */
 export async function queue(req, res, next) {
   try {
     const q = String(req.query.q || '').trim();
     const status = req.query.status;
-    const branch = req.user.role !== 'Admin'
-      ? (req.user.branchName || 'Main')
-      : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : null);
 
+    // Pathologist is GLOBAL across all branches (Main and Otona combined)
+    // Admin can optionally filter by query branch if provided
     const filter = {};
-    if (branch) filter.branchName = branch;
+    if (req.user.role === 'Admin' && req.query.branchName && req.query.branchName !== 'All') {
+      filter.branchName = req.query.branchName;
+    } else if (req.user.role === 'Reception') {
+      filter.branchName = req.user.branchName || 'Main';
+      filter.registeredBy = req.user.id;
+    }
     if (status && status !== 'all') filter.status = status;
 
     let cases = await PathologyCase.find(filter)
       .populate({
         path: 'patient',
-        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registrationDate paymentStatus paymentMethod receiptNumber grandTotal'
+        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registeredBy registrationDate paymentStatus paymentMethod receiptNumber grandTotal'
       })
+      .populate('registeredBy', 'fullName username role branchName')
       .populate('laboratoryTest', 'name price subcategory description')
       .populate('pathologist', 'fullName username role')
       .populate('approvedBy', 'fullName username role')
@@ -101,17 +106,19 @@ export async function getCase(req, res, next) {
     const item = await PathologyCase.findById(req.params.id)
       .populate({
         path: 'patient',
-        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registrationDate paymentStatus paymentMethod receiptNumber grandTotal systolicBP diastolicBP'
+        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registeredBy registrationDate paymentStatus paymentMethod receiptNumber grandTotal systolicBP diastolicBP'
       })
+      .populate('registeredBy', 'fullName username role branchName')
       .populate('laboratoryTest', 'name price subcategory description')
       .populate('pathologist', 'fullName username role')
       .populate('approvedBy', 'fullName username role');
 
     if (!item) throw new AppError('Pathology case not found.', 404);
 
-    if (req.user.role !== 'Admin' && req.user.role !== 'Sub Admin') {
-      if (item.branchName !== (req.user.branchName || 'Main')) {
-        throw new AppError('Pathology case not found for your branch.', 404);
+    if (req.user.role === 'Reception') {
+      const regId = String(item.registeredBy?._id || item.registeredBy || item.patient?.registeredBy?._id || item.patient?.registeredBy || '');
+      if (regId !== String(req.user.id)) {
+        throw new AppError('You are not authorized to view pathology cases registered by another receptionist.', 403);
       }
     }
 
@@ -123,15 +130,15 @@ export async function getCase(req, res, next) {
 
 /**
  * PATCH /api/pathology/cases/:id/draft
- * Save draft report (Option A or Option B)
+ * Save draft report (Option A or Option B) - Supports both new drafts and editing existing reports
  */
 export async function saveDraft(req, res, next) {
   try {
-    const item = await PathologyCase.findById(req.params.id).populate('patient', 'name patientId');
+    const item = await PathologyCase.findById(req.params.id).populate('patient', 'name patientId registeredBy branchName');
     if (!item) throw new AppError('Pathology case not found.', 404);
 
-    if (req.user.role !== 'Admin' && item.branchName !== (req.user.branchName || 'Main')) {
-      throw new AppError('Unauthorized for this branch case.', 403);
+    if (req.user.role !== 'Admin' && req.user.role !== 'Pathologist') {
+      throw new AppError('Unauthorized.', 403);
     }
 
     const { reportType, reportContent, structuredReport, showFooter } = req.body;
@@ -140,21 +147,21 @@ export async function saveDraft(req, res, next) {
     if (reportContent !== undefined) item.reportContent = String(reportContent || '');
     if (structuredReport && typeof structuredReport === 'object') {
       item.structuredReport = {
-        clinicalHistory: String(structuredReport.clinicalHistory || ''),
-        specimen: String(structuredReport.specimen || ''),
-        procedure: String(structuredReport.procedure || ''),
-        grossDescription: String(structuredReport.grossDescription || ''),
-        microscopicDescription: String(structuredReport.microscopicDescription || ''),
-        cytologicalFindings: String(structuredReport.cytologicalFindings || ''),
-        rbcMorphology: String(structuredReport.rbcMorphology || ''),
-        wbcMorphology: String(structuredReport.wbcMorphology || ''),
-        plateletMorphology: String(structuredReport.plateletMorphology || ''),
-        peripheralBloodFindings: String(structuredReport.peripheralBloodFindings || ''),
-        impression: String(structuredReport.impression || ''),
-        diagnosis: String(structuredReport.diagnosis || ''),
-        comments: String(structuredReport.comments || ''),
-        recommendation: String(structuredReport.recommendation || ''),
-        pathologistNotes: String(structuredReport.pathologistNotes || '')
+        clinicalHistory: String(structuredReport.clinicalHistory !== undefined ? structuredReport.clinicalHistory : item.structuredReport?.clinicalHistory || ''),
+        specimen: String(structuredReport.specimen !== undefined ? structuredReport.specimen : item.structuredReport?.specimen || ''),
+        procedure: String(structuredReport.procedure !== undefined ? structuredReport.procedure : item.structuredReport?.procedure || ''),
+        grossDescription: String(structuredReport.grossDescription !== undefined ? structuredReport.grossDescription : item.structuredReport?.grossDescription || ''),
+        microscopicDescription: String(structuredReport.microscopicDescription !== undefined ? structuredReport.microscopicDescription : item.structuredReport?.microscopicDescription || ''),
+        cytologicalFindings: String(structuredReport.cytologicalFindings !== undefined ? structuredReport.cytologicalFindings : item.structuredReport?.cytologicalFindings || ''),
+        rbcMorphology: String(structuredReport.rbcMorphology !== undefined ? structuredReport.rbcMorphology : item.structuredReport?.rbcMorphology || ''),
+        wbcMorphology: String(structuredReport.wbcMorphology !== undefined ? structuredReport.wbcMorphology : item.structuredReport?.wbcMorphology || ''),
+        plateletMorphology: String(structuredReport.plateletMorphology !== undefined ? structuredReport.plateletMorphology : item.structuredReport?.plateletMorphology || ''),
+        peripheralBloodFindings: String(structuredReport.peripheralBloodFindings !== undefined ? structuredReport.peripheralBloodFindings : item.structuredReport?.peripheralBloodFindings || ''),
+        impression: String(structuredReport.impression !== undefined ? structuredReport.impression : item.structuredReport?.impression || ''),
+        diagnosis: String(structuredReport.diagnosis !== undefined ? structuredReport.diagnosis : item.structuredReport?.diagnosis || ''),
+        comments: String(structuredReport.comments !== undefined ? structuredReport.comments : item.structuredReport?.comments || ''),
+        recommendation: String(structuredReport.recommendation !== undefined ? structuredReport.recommendation : item.structuredReport?.recommendation || ''),
+        pathologistNotes: String(structuredReport.pathologistNotes !== undefined ? structuredReport.pathologistNotes : item.structuredReport?.pathologistNotes || '')
       };
     }
     if (showFooter !== undefined) item.showFooter = Boolean(showFooter);
@@ -184,19 +191,17 @@ export async function saveDraft(req, res, next) {
 
 /**
  * POST /api/pathology/cases/:id/approve
- * Direct Pathologist sign-off & confirmation (No intermediate Admin approval required)
+ * Direct Pathologist sign-off & confirmation (and editing approved report)
+ * Returns report exclusively to the original sending receptionist account
  */
 export async function approveCase(req, res, next) {
   try {
-    const item = await PathologyCase.findById(req.params.id).populate('patient', 'name patientId branchName');
+    const item = await PathologyCase.findById(req.params.id)
+      .populate('patient', 'name patientId branchName registeredBy');
     if (!item) throw new AppError('Pathology case not found.', 404);
 
     if (req.user.role !== 'Admin' && req.user.role !== 'Pathologist') {
       throw new AppError('Only authenticated Pathologists can confirm and approve Pathology reports.', 403);
-    }
-
-    if (req.user.role !== 'Admin' && item.branchName !== (req.user.branchName || 'Main')) {
-      throw new AppError('Unauthorized for this branch case.', 403);
     }
 
     const { reportType, reportContent, structuredReport, showFooter } = req.body;
@@ -205,21 +210,21 @@ export async function approveCase(req, res, next) {
     if (reportContent !== undefined) item.reportContent = String(reportContent || '');
     if (structuredReport && typeof structuredReport === 'object') {
       item.structuredReport = {
-        clinicalHistory: String(structuredReport.clinicalHistory || ''),
-        specimen: String(structuredReport.specimen || ''),
-        procedure: String(structuredReport.procedure || ''),
-        grossDescription: String(structuredReport.grossDescription || ''),
-        microscopicDescription: String(structuredReport.microscopicDescription || ''),
-        cytologicalFindings: String(structuredReport.cytologicalFindings || ''),
-        rbcMorphology: String(structuredReport.rbcMorphology || ''),
-        wbcMorphology: String(structuredReport.wbcMorphology || ''),
-        plateletMorphology: String(structuredReport.plateletMorphology || ''),
-        peripheralBloodFindings: String(structuredReport.peripheralBloodFindings || ''),
-        impression: String(structuredReport.impression || ''),
-        diagnosis: String(structuredReport.diagnosis || ''),
-        comments: String(structuredReport.comments || ''),
-        recommendation: String(structuredReport.recommendation || ''),
-        pathologistNotes: String(structuredReport.pathologistNotes || '')
+        clinicalHistory: String(structuredReport.clinicalHistory !== undefined ? structuredReport.clinicalHistory : item.structuredReport?.clinicalHistory || ''),
+        specimen: String(structuredReport.specimen !== undefined ? structuredReport.specimen : item.structuredReport?.specimen || ''),
+        procedure: String(structuredReport.procedure !== undefined ? structuredReport.procedure : item.structuredReport?.procedure || ''),
+        grossDescription: String(structuredReport.grossDescription !== undefined ? structuredReport.grossDescription : item.structuredReport?.grossDescription || ''),
+        microscopicDescription: String(structuredReport.microscopicDescription !== undefined ? structuredReport.microscopicDescription : item.structuredReport?.microscopicDescription || ''),
+        cytologicalFindings: String(structuredReport.cytologicalFindings !== undefined ? structuredReport.cytologicalFindings : item.structuredReport?.cytologicalFindings || ''),
+        rbcMorphology: String(structuredReport.rbcMorphology !== undefined ? structuredReport.rbcMorphology : item.structuredReport?.rbcMorphology || ''),
+        wbcMorphology: String(structuredReport.wbcMorphology !== undefined ? structuredReport.wbcMorphology : item.structuredReport?.wbcMorphology || ''),
+        plateletMorphology: String(structuredReport.plateletMorphology !== undefined ? structuredReport.plateletMorphology : item.structuredReport?.plateletMorphology || ''),
+        peripheralBloodFindings: String(structuredReport.peripheralBloodFindings !== undefined ? structuredReport.peripheralBloodFindings : item.structuredReport?.peripheralBloodFindings || ''),
+        impression: String(structuredReport.impression !== undefined ? structuredReport.impression : item.structuredReport?.impression || ''),
+        diagnosis: String(structuredReport.diagnosis !== undefined ? structuredReport.diagnosis : item.structuredReport?.diagnosis || ''),
+        comments: String(structuredReport.comments !== undefined ? structuredReport.comments : item.structuredReport?.comments || ''),
+        recommendation: String(structuredReport.recommendation !== undefined ? structuredReport.recommendation : item.structuredReport?.recommendation || ''),
+        pathologistNotes: String(structuredReport.pathologistNotes !== undefined ? structuredReport.pathologistNotes : item.structuredReport?.pathologistNotes || '')
       };
     }
     if (showFooter !== undefined) item.showFooter = Boolean(showFooter);
@@ -246,25 +251,32 @@ export async function approveCase(req, res, next) {
 
     await item.save();
 
-    // Notify Receptionist that report is ready for printing
-    const receptionists = await User.find({
-      role: 'Reception',
-      branchName: item.branchName,
-      status: 'Active'
-    }).select('_id');
+    // EXCLUSIVELY notify the original sending receptionist account
+    const originalReceptionistId = item.registeredBy || item.patient?.registeredBy;
+    const msg = `Pathology report (${item.testType}) for ${item.patient?.name || 'Patient'} is approved and ready for printing.`;
 
-    if (receptionists.length > 0) {
-      const msg = `Pathology report (${item.testType}) for ${item.patient?.name || 'Patient'} is ready for printing.`;
-      await Notification.insertMany(
-        receptionists.map(r => ({
+    if (originalReceptionistId) {
+      await Notification.create({
+        recipient: originalReceptionistId,
+        type: 'Pathology Report Ready',
+        message: msg,
+        entity: item._id,
+        entityType: 'PathologyCase'
+      });
+      emit('notifications:change', { action: 'new', recipient: originalReceptionistId });
+    } else {
+      // Fallback only if original receptionist is unrecorded: notify active receptionists of that branch
+      const receptionists = await User.find({ role: 'Reception', branchName: item.branchName, status: 'Active' }).select('_id');
+      if (receptionists.length > 0) {
+        await Notification.insertMany(receptionists.map(r => ({
           recipient: r._id,
           type: 'Pathology Report Ready',
           message: msg,
           entity: item._id,
           entityType: 'PathologyCase'
-        }))
-      );
-      emit('notifications:change', { action: 'new' });
+        })));
+        emit('notifications:change', { action: 'new' });
+      }
     }
 
     await recordActivity(
@@ -277,11 +289,11 @@ export async function approveCase(req, res, next) {
     );
 
     emit('pathology:change', { action: 'approved', caseId: item.id });
-    emit('reception:change', { action: 'report_ready' });
+    emit('reception:change', { action: 'report_ready', caseId: item.id });
 
     res.json({
       case: item,
-      message: `Pathology report for ${item.patient?.name || 'patient'} approved successfully and sent to Reception Desk for printing.`
+      message: `Pathology report for ${item.patient?.name || 'patient'} approved successfully and returned to original Receptionist.`
     });
   } catch (e) {
     next(e);
@@ -290,16 +302,19 @@ export async function approveCase(req, res, next) {
 
 /**
  * GET /api/pathology/catalog
- * Get Pathology category, subcategories & test list
  */
 export async function getCatalog(req, res, next) {
   try {
-    const category = await LaboratoryTestCategory.findOne({ name: /^PATHOLOGY$/i });
-    if (!category) {
-      return res.json({ category: null, tests: [] });
-    }
-    const tests = await LaboratoryTest.find({ category: category._id }).sort({ displayOrder: 1, name: 1 });
-    res.json({ category, tests });
+    const category = await LaboratoryTestCategory.findOne({ name: /^Pathology$/i });
+    if (!category) return res.json({ tests: [] });
+
+    const tests = await LaboratoryTest.find({ category: category._id })
+      .populate('category', 'name')
+      .populate('requiredSampleTypes', 'name')
+      .sort({ name: 1 })
+      .lean();
+
+    res.json({ tests });
   } catch (e) {
     next(e);
   }
@@ -307,36 +322,21 @@ export async function getCatalog(req, res, next) {
 
 /**
  * PUT /api/pathology/catalog/:id/price
- * Admin only: update pathology test price
  */
 export async function updateTestPrice(req, res, next) {
   try {
-    if (req.user.role !== 'Admin') {
-      throw new AppError('Access denied. Only Main Admin can modify Pathology test prices and configurations.', 403);
+    const { price } = req.body;
+    if (price === undefined || Number(price) < 0) {
+      throw new AppError('Valid price is required.', 422);
     }
-    const price = Number(req.body.price);
-    if (isNaN(price) || price < 0) {
-      throw new AppError('Valid price in ETB is required.', 422);
-    }
-    const test = await LaboratoryTest.findById(req.params.id);
-    if (!test) throw new AppError('Test not found.', 404);
-
-    const oldPrice = test.price;
-    test.price = price;
-    if (req.body.description !== undefined) test.description = String(req.body.description || '').trim();
-    if (req.body.status) test.status = req.body.status;
-    await test.save();
-
-    await recordActivity(
-      req.user.id,
-      `Updated ${test.name} price from ${oldPrice} ETB to ${price} ETB`,
-      'LaboratoryTest',
-      test.id,
-      test.name,
-      { role: req.user.role, ipAddress: req.ip }
+    const test = await LaboratoryTest.findByIdAndUpdate(
+      req.params.id,
+      { $set: { price: Number(price) } },
+      { new: true }
     );
+    if (!test) throw new AppError('Pathology test not found.', 404);
 
-    emit('catalog:change', { action: 'updated' });
+    await recordActivity(req.user.id, 'Updated pathology test price', 'LaboratoryTest', test.id, `${test.name} -> ${price} ETB`);
     res.json({ test, message: 'Price updated successfully.' });
   } catch (e) {
     next(e);
@@ -345,39 +345,33 @@ export async function updateTestPrice(req, res, next) {
 
 /**
  * POST /api/pathology/catalog
- * Admin only: Add new subcategory / test to Pathology
  */
 export async function createTest(req, res, next) {
   try {
-    if (req.user.role !== 'Admin') {
-      throw new AppError('Access denied. Only Main Admin can create Pathology tests.', 403);
+    let category = await LaboratoryTestCategory.findOne({ name: /^Pathology$/i });
+    if (!category) {
+      category = await LaboratoryTestCategory.create({
+        name: 'Pathology',
+        code: 'PATH',
+        description: 'Pathology & Cytopathology Examinations'
+      });
     }
-    const category = await LaboratoryTestCategory.findOne({ name: /^PATHOLOGY$/i });
-    if (!category) throw new AppError('Pathology category not found in catalog.', 404);
 
     const { name, subcategory, price, description } = req.body;
-    if (!name || !name.trim()) throw new AppError('Test name is required.', 422);
+    if (!name || !price) throw new AppError('Name and price are required.', 422);
 
     const test = await LaboratoryTest.create({
-      name: name.trim(),
-      subcategory: (subcategory || name).trim(),
+      name,
+      code: `PATH-${Date.now().toString(36).toUpperCase()}`,
       category: category._id,
-      price: Number(price || 0),
-      description: (description || '').trim(),
+      subcategory: subcategory || 'Biopsy',
+      price: Number(price),
+      description: description || '',
       status: 'Active'
     });
 
-    await recordActivity(
-      req.user.id,
-      `Created Pathology test ${test.name} (${test.price} ETB)`,
-      'LaboratoryTest',
-      test.id,
-      test.name,
-      { role: req.user.role, ipAddress: req.ip }
-    );
-
-    emit('catalog:change', { action: 'created' });
-    res.status(201).json({ test, message: 'Test created successfully.' });
+    await recordActivity(req.user.id, 'Created pathology test', 'LaboratoryTest', test.id, test.name);
+    res.status(201).json({ test, message: 'Pathology test created successfully.' });
   } catch (e) {
     next(e);
   }
@@ -385,27 +379,22 @@ export async function createTest(req, res, next) {
 
 /**
  * DELETE /api/pathology/catalog/:id
- * Admin only: Delete pathology test
  */
 export async function deleteTest(req, res, next) {
   try {
-    if (req.user.role !== 'Admin') {
-      throw new AppError('Access denied. Only Main Admin can delete Pathology tests.', 403);
+    const test = await LaboratoryTest.findById(req.params.id);
+    if (!test) throw new AppError('Pathology test not found.', 404);
+
+    const inUse = await PathologyCase.exists({ laboratoryTest: test._id });
+    if (inUse) {
+      test.status = 'Inactive';
+      await test.save();
+      return res.json({ message: 'Pathology test set to Inactive as it has associated case history.' });
     }
-    const test = await LaboratoryTest.findByIdAndDelete(req.params.id);
-    if (!test) throw new AppError('Test not found.', 404);
 
-    await recordActivity(
-      req.user.id,
-      `Deleted Pathology test ${test.name}`,
-      'LaboratoryTest',
-      test.id,
-      test.name,
-      { role: req.user.role, ipAddress: req.ip }
-    );
-
-    emit('catalog:change', { action: 'deleted' });
-    res.json({ message: 'Test deleted successfully.' });
+    await LaboratoryTest.findByIdAndDelete(test._id);
+    await recordActivity(req.user.id, 'Deleted pathology test', 'LaboratoryTest', test.id, test.name);
+    res.json({ message: 'Pathology test deleted successfully.' });
   } catch (e) {
     next(e);
   }

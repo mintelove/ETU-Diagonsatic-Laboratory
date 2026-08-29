@@ -11,25 +11,30 @@ import { emit } from '../services/sseService.js';
 
 /**
  * GET /api/radiology/queue
- * List radiology examination queue for Radiologist & Admin
+ * List radiology examination queue for Radiologist (global cross-branch) & Admin
  */
 export async function queue(req, res, next) {
   try {
     const q = String(req.query.q || '').trim();
     const status = req.query.status;
-    const branch = req.user.role !== 'Admin'
-      ? (req.user.branchName || 'Main')
-      : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : null);
-
+    
+    // Radiologist is GLOBAL across all branches (Main and Otona combined)
+    // Admin can optionally filter by query branch if provided
     const filter = {};
-    if (branch) filter.branchName = branch;
+    if (req.user.role === 'Admin' && req.query.branchName && req.query.branchName !== 'All') {
+      filter.branchName = req.query.branchName;
+    } else if (req.user.role === 'Reception') {
+      filter.branchName = req.user.branchName || 'Main';
+      filter.registeredBy = req.user.id;
+    }
     if (status && status !== 'all') filter.status = status;
 
     let cases = await RadiologyCase.find(filter)
       .populate({
         path: 'patient',
-        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registrationDate paymentStatus paymentMethod receiptNumber grandTotal'
+        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registeredBy registrationDate paymentStatus paymentMethod receiptNumber grandTotal'
       })
+      .populate('registeredBy', 'fullName username role branchName')
       .populate('laboratoryTest', 'name price subcategory description')
       .populate('radiologist', 'fullName username role')
       .populate('approvedBy', 'fullName username role')
@@ -66,17 +71,19 @@ export async function getCase(req, res, next) {
     const item = await RadiologyCase.findById(req.params.id)
       .populate({
         path: 'patient',
-        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registrationDate paymentStatus paymentMethod receiptNumber grandTotal systolicBP diastolicBP'
+        select: 'patientId barcode name age sex phone address referralHospital registrationType branchName registeredBy registrationDate paymentStatus paymentMethod receiptNumber grandTotal systolicBP diastolicBP'
       })
+      .populate('registeredBy', 'fullName username role branchName')
       .populate('laboratoryTest', 'name price subcategory description')
       .populate('radiologist', 'fullName username role')
       .populate('approvedBy', 'fullName username role');
 
     if (!item) throw new AppError('Radiology case not found.', 404);
 
-    if (req.user.role !== 'Admin' && req.user.role !== 'Sub Admin') {
-      if (item.branchName !== (req.user.branchName || 'Main')) {
-        throw new AppError('Radiology case not found for your branch.', 404);
+    if (req.user.role === 'Reception') {
+      const regId = String(item.registeredBy?._id || item.registeredBy || item.patient?.registeredBy?._id || item.patient?.registeredBy || '');
+      if (regId !== String(req.user.id)) {
+        throw new AppError('You are not authorized to view radiology cases registered by another receptionist.', 403);
       }
     }
 
@@ -88,15 +95,15 @@ export async function getCase(req, res, next) {
 
 /**
  * PATCH /api/radiology/cases/:id/draft
- * Save draft report (Option A or Option B)
+ * Save draft report (Option A or Option B) - Supports both new drafts and editing existing reports
  */
 export async function saveDraft(req, res, next) {
   try {
-    const item = await RadiologyCase.findById(req.params.id).populate('patient', 'name patientId');
+    const item = await RadiologyCase.findById(req.params.id).populate('patient', 'name patientId registeredBy branchName');
     if (!item) throw new AppError('Radiology case not found.', 404);
 
-    if (req.user.role !== 'Admin' && item.branchName !== (req.user.branchName || 'Main')) {
-      throw new AppError('Unauthorized for this branch case.', 403);
+    if (req.user.role !== 'Admin' && req.user.role !== 'Radiologist') {
+      throw new AppError('Unauthorized.', 403);
     }
 
     const { reportType, reportContent, structuredReport, showFooter } = req.body;
@@ -105,21 +112,21 @@ export async function saveDraft(req, res, next) {
     if (reportContent !== undefined) item.reportContent = String(reportContent || '');
     if (structuredReport && typeof structuredReport === 'object') {
       item.structuredReport = {
-        examination: String(structuredReport.examination || ''),
-        clinicalInformation: String(structuredReport.clinicalInformation || ''),
-        technique: String(structuredReport.technique || ''),
-        liver: String(structuredReport.liver || ''),
-        gallbladder: String(structuredReport.gallbladder || ''),
-        biliarySystem: String(structuredReport.biliarySystem || ''),
-        pancreas: String(structuredReport.pancreas || ''),
-        spleen: String(structuredReport.spleen || ''),
-        kidneys: String(structuredReport.kidneys || ''),
-        urinaryBladder: String(structuredReport.urinaryBladder || ''),
-        otherFindings: String(structuredReport.otherFindings || ''),
-        findings: String(structuredReport.findings || ''),
-        impression: String(structuredReport.impression || ''),
-        recommendation: String(structuredReport.recommendation || ''),
-        radiologistNotes: String(structuredReport.radiologistNotes || '')
+        examination: String(structuredReport.examination !== undefined ? structuredReport.examination : item.structuredReport?.examination || ''),
+        clinicalInformation: String(structuredReport.clinicalInformation !== undefined ? structuredReport.clinicalInformation : item.structuredReport?.clinicalInformation || ''),
+        technique: String(structuredReport.technique !== undefined ? structuredReport.technique : item.structuredReport?.technique || ''),
+        liver: String(structuredReport.liver !== undefined ? structuredReport.liver : item.structuredReport?.liver || ''),
+        gallbladder: String(structuredReport.gallbladder !== undefined ? structuredReport.gallbladder : item.structuredReport?.gallbladder || ''),
+        biliarySystem: String(structuredReport.biliarySystem !== undefined ? structuredReport.biliarySystem : item.structuredReport?.biliarySystem || ''),
+        pancreas: String(structuredReport.pancreas !== undefined ? structuredReport.pancreas : item.structuredReport?.pancreas || ''),
+        spleen: String(structuredReport.spleen !== undefined ? structuredReport.spleen : item.structuredReport?.spleen || ''),
+        kidneys: String(structuredReport.kidneys !== undefined ? structuredReport.kidneys : item.structuredReport?.kidneys || ''),
+        urinaryBladder: String(structuredReport.urinaryBladder !== undefined ? structuredReport.urinaryBladder : item.structuredReport?.urinaryBladder || ''),
+        otherFindings: String(structuredReport.otherFindings !== undefined ? structuredReport.otherFindings : item.structuredReport?.otherFindings || ''),
+        findings: String(structuredReport.findings !== undefined ? structuredReport.findings : item.structuredReport?.findings || ''),
+        impression: String(structuredReport.impression !== undefined ? structuredReport.impression : item.structuredReport?.impression || ''),
+        recommendation: String(structuredReport.recommendation !== undefined ? structuredReport.recommendation : item.structuredReport?.recommendation || ''),
+        radiologistNotes: String(structuredReport.radiologistNotes !== undefined ? structuredReport.radiologistNotes : item.structuredReport?.radiologistNotes || '')
       };
     }
     if (showFooter !== undefined) item.showFooter = Boolean(showFooter);
@@ -149,19 +156,17 @@ export async function saveDraft(req, res, next) {
 
 /**
  * POST /api/radiology/cases/:id/approve
- * Direct Radiologist sign-off & confirmation (No intermediate Admin approval required)
+ * Direct Radiologist sign-off & confirmation (and editing approved report)
+ * Returns report exclusively to the original sending receptionist account
  */
 export async function approveCase(req, res, next) {
   try {
-    const item = await RadiologyCase.findById(req.params.id).populate('patient', 'name patientId branchName');
+    const item = await RadiologyCase.findById(req.params.id)
+      .populate('patient', 'name patientId branchName registeredBy');
     if (!item) throw new AppError('Radiology case not found.', 404);
 
     if (req.user.role !== 'Admin' && req.user.role !== 'Radiologist') {
       throw new AppError('Only authenticated Radiologists can confirm and approve Radiology reports.', 403);
-    }
-
-    if (req.user.role !== 'Admin' && item.branchName !== (req.user.branchName || 'Main')) {
-      throw new AppError('Unauthorized for this branch case.', 403);
     }
 
     const { reportType, reportContent, structuredReport, showFooter } = req.body;
@@ -170,21 +175,21 @@ export async function approveCase(req, res, next) {
     if (reportContent !== undefined) item.reportContent = String(reportContent || '');
     if (structuredReport && typeof structuredReport === 'object') {
       item.structuredReport = {
-        examination: String(structuredReport.examination || ''),
-        clinicalInformation: String(structuredReport.clinicalInformation || ''),
-        technique: String(structuredReport.technique || ''),
-        liver: String(structuredReport.liver || ''),
-        gallbladder: String(structuredReport.gallbladder || ''),
-        biliarySystem: String(structuredReport.biliarySystem || ''),
-        pancreas: String(structuredReport.pancreas || ''),
-        spleen: String(structuredReport.spleen || ''),
-        kidneys: String(structuredReport.kidneys || ''),
-        urinaryBladder: String(structuredReport.urinaryBladder || ''),
-        otherFindings: String(structuredReport.otherFindings || ''),
-        findings: String(structuredReport.findings || ''),
-        impression: String(structuredReport.impression || ''),
-        recommendation: String(structuredReport.recommendation || ''),
-        radiologistNotes: String(structuredReport.radiologistNotes || '')
+        examination: String(structuredReport.examination !== undefined ? structuredReport.examination : item.structuredReport?.examination || ''),
+        clinicalInformation: String(structuredReport.clinicalInformation !== undefined ? structuredReport.clinicalInformation : item.structuredReport?.clinicalInformation || ''),
+        technique: String(structuredReport.technique !== undefined ? structuredReport.technique : item.structuredReport?.technique || ''),
+        liver: String(structuredReport.liver !== undefined ? structuredReport.liver : item.structuredReport?.liver || ''),
+        gallbladder: String(structuredReport.gallbladder !== undefined ? structuredReport.gallbladder : item.structuredReport?.gallbladder || ''),
+        biliarySystem: String(structuredReport.biliarySystem !== undefined ? structuredReport.biliarySystem : item.structuredReport?.biliarySystem || ''),
+        pancreas: String(structuredReport.pancreas !== undefined ? structuredReport.pancreas : item.structuredReport?.pancreas || ''),
+        spleen: String(structuredReport.spleen !== undefined ? structuredReport.spleen : item.structuredReport?.spleen || ''),
+        kidneys: String(structuredReport.kidneys !== undefined ? structuredReport.kidneys : item.structuredReport?.kidneys || ''),
+        urinaryBladder: String(structuredReport.urinaryBladder !== undefined ? structuredReport.urinaryBladder : item.structuredReport?.urinaryBladder || ''),
+        otherFindings: String(structuredReport.otherFindings !== undefined ? structuredReport.otherFindings : item.structuredReport?.otherFindings || ''),
+        findings: String(structuredReport.findings !== undefined ? structuredReport.findings : item.structuredReport?.findings || ''),
+        impression: String(structuredReport.impression !== undefined ? structuredReport.impression : item.structuredReport?.impression || ''),
+        recommendation: String(structuredReport.recommendation !== undefined ? structuredReport.recommendation : item.structuredReport?.recommendation || ''),
+        radiologistNotes: String(structuredReport.radiologistNotes !== undefined ? structuredReport.radiologistNotes : item.structuredReport?.radiologistNotes || '')
       };
     }
     if (showFooter !== undefined) item.showFooter = Boolean(showFooter);
@@ -211,26 +216,33 @@ export async function approveCase(req, res, next) {
 
     await item.save();
 
-    // Notify Receptionist that report is ready for printing
-    const receptionists = await User.find({
-      role: 'Reception',
-      branchName: item.branchName,
-      status: 'Active'
-    }).select('_id');
+    // EXCLUSIVELY notify the original sending receptionist account
+    const originalReceptionistId = item.registeredBy || item.patient?.registeredBy;
+    const examLabel = item.customExaminationName || item.ultrasoundSubtype ? `Ultrasound (${item.customExaminationName || item.ultrasoundSubtype})` : item.examinationType;
+    const msg = `Radiology report (${examLabel}) for ${item.patient?.name || 'Patient'} is approved and ready for printing.`;
 
-    if (receptionists.length > 0) {
-      const examLabel = item.customExaminationName || item.ultrasoundSubtype ? `Ultrasound (${item.customExaminationName || item.ultrasoundSubtype})` : item.examinationType;
-      const msg = `Radiology report (${examLabel}) for ${item.patient?.name || 'Patient'} is ready for printing.`;
-      await Notification.insertMany(
-        receptionists.map(r => ({
+    if (originalReceptionistId) {
+      await Notification.create({
+        recipient: originalReceptionistId,
+        type: 'Radiology Report Ready',
+        message: msg,
+        entity: item._id,
+        entityType: 'RadiologyCase'
+      });
+      emit('notifications:change', { action: 'new', recipient: originalReceptionistId });
+    } else {
+      // Fallback only if original receptionist is unrecorded: notify active receptionists of that branch
+      const receptionists = await User.find({ role: 'Reception', branchName: item.branchName, status: 'Active' }).select('_id');
+      if (receptionists.length > 0) {
+        await Notification.insertMany(receptionists.map(r => ({
           recipient: r._id,
           type: 'Radiology Report Ready',
           message: msg,
           entity: item._id,
           entityType: 'RadiologyCase'
-        }))
-      );
-      emit('notifications:change', { action: 'new' });
+        })));
+        emit('notifications:change', { action: 'new' });
+      }
     }
 
     await recordActivity(
@@ -243,11 +255,11 @@ export async function approveCase(req, res, next) {
     );
 
     emit('radiology:change', { action: 'approved', caseId: item.id });
-    emit('reception:change', { action: 'report_ready' });
+    emit('reception:change', { action: 'report_ready', caseId: item.id });
 
     res.json({
       case: item,
-      message: `Radiology report for ${item.patient?.name || 'patient'} approved successfully and sent to Reception Desk for printing.`
+      message: `Radiology report for ${item.patient?.name || 'patient'} approved successfully and returned to original Receptionist.`
     });
   } catch (e) {
     next(e);
@@ -256,16 +268,19 @@ export async function approveCase(req, res, next) {
 
 /**
  * GET /api/radiology/catalog
- * Get Radiology category, subcategories & test list
  */
 export async function getCatalog(req, res, next) {
   try {
-    const category = await LaboratoryTestCategory.findOne({ name: /^RADIOLOGY$/i });
-    if (!category) {
-      return res.json({ category: null, tests: [] });
-    }
-    const tests = await LaboratoryTest.find({ category: category._id }).sort({ displayOrder: 1, name: 1 });
-    res.json({ category, tests });
+    const category = await LaboratoryTestCategory.findOne({ name: /^Radiology & Imaging$/i });
+    if (!category) return res.json({ tests: [] });
+
+    const tests = await LaboratoryTest.find({ category: category._id })
+      .populate('category', 'name')
+      .populate('requiredSampleTypes', 'name')
+      .sort({ name: 1 })
+      .lean();
+
+    res.json({ tests });
   } catch (e) {
     next(e);
   }
@@ -273,36 +288,21 @@ export async function getCatalog(req, res, next) {
 
 /**
  * PUT /api/radiology/catalog/:id/price
- * Admin only: update radiology test price
  */
 export async function updateTestPrice(req, res, next) {
   try {
-    if (req.user.role !== 'Admin') {
-      throw new AppError('Access denied. Only Main Admin can modify Radiology test prices and configurations.', 403);
+    const { price } = req.body;
+    if (price === undefined || Number(price) < 0) {
+      throw new AppError('Valid price is required.', 422);
     }
-    const price = Number(req.body.price);
-    if (isNaN(price) || price < 0) {
-      throw new AppError('Valid price in ETB is required.', 422);
-    }
-    const test = await LaboratoryTest.findById(req.params.id);
-    if (!test) throw new AppError('Test not found.', 404);
-
-    const oldPrice = test.price;
-    test.price = price;
-    if (req.body.description !== undefined) test.description = String(req.body.description || '').trim();
-    if (req.body.status) test.status = req.body.status;
-    await test.save();
-
-    await recordActivity(
-      req.user.id,
-      `Updated ${test.name} price from ${oldPrice} ETB to ${price} ETB`,
-      'LaboratoryTest',
-      test.id,
-      test.name,
-      { role: req.user.role, ipAddress: req.ip }
+    const test = await LaboratoryTest.findByIdAndUpdate(
+      req.params.id,
+      { $set: { price: Number(price) } },
+      { new: true }
     );
+    if (!test) throw new AppError('Radiology test not found.', 404);
 
-    emit('catalog:change', { action: 'updated' });
+    await recordActivity(req.user.id, 'Updated radiology test price', 'LaboratoryTest', test.id, `${test.name} -> ${price} ETB`);
     res.json({ test, message: 'Price updated successfully.' });
   } catch (e) {
     next(e);
@@ -311,39 +311,33 @@ export async function updateTestPrice(req, res, next) {
 
 /**
  * POST /api/radiology/catalog
- * Admin only: Add new subcategory / test to Radiology
  */
 export async function createTest(req, res, next) {
   try {
-    if (req.user.role !== 'Admin') {
-      throw new AppError('Access denied. Only Main Admin can create Radiology tests.', 403);
+    let category = await LaboratoryTestCategory.findOne({ name: /^Radiology & Imaging$/i });
+    if (!category) {
+      category = await LaboratoryTestCategory.create({
+        name: 'Radiology & Imaging',
+        code: 'RAD',
+        description: 'Radiology & Diagnostic Imaging Examinations'
+      });
     }
-    const category = await LaboratoryTestCategory.findOne({ name: /^RADIOLOGY$/i });
-    if (!category) throw new AppError('Radiology category not found in catalog.', 404);
 
     const { name, subcategory, price, description } = req.body;
-    if (!name || !name.trim()) throw new AppError('Test name is required.', 422);
+    if (!name || !price) throw new AppError('Name and price are required.', 422);
 
     const test = await LaboratoryTest.create({
-      name: name.trim(),
-      subcategory: (subcategory || 'Ultrasound').trim(),
+      name,
+      code: `RAD-${Date.now().toString(36).toUpperCase()}`,
       category: category._id,
-      price: Number(price || 0),
-      description: (description || '').trim(),
+      subcategory: subcategory || 'Ultrasound',
+      price: Number(price),
+      description: description || '',
       status: 'Active'
     });
 
-    await recordActivity(
-      req.user.id,
-      `Created Radiology test ${test.name} (${test.price} ETB)`,
-      'LaboratoryTest',
-      test.id,
-      test.name,
-      { role: req.user.role, ipAddress: req.ip }
-    );
-
-    emit('catalog:change', { action: 'created' });
-    res.status(201).json({ test, message: 'Test created successfully.' });
+    await recordActivity(req.user.id, 'Created radiology test', 'LaboratoryTest', test.id, test.name);
+    res.status(201).json({ test, message: 'Radiology examination created successfully.' });
   } catch (e) {
     next(e);
   }
@@ -351,27 +345,22 @@ export async function createTest(req, res, next) {
 
 /**
  * DELETE /api/radiology/catalog/:id
- * Admin only: Delete radiology test
  */
 export async function deleteTest(req, res, next) {
   try {
-    if (req.user.role !== 'Admin') {
-      throw new AppError('Access denied. Only Main Admin can delete Radiology tests.', 403);
+    const test = await LaboratoryTest.findById(req.params.id);
+    if (!test) throw new AppError('Radiology test not found.', 404);
+
+    const inUse = await RadiologyCase.exists({ laboratoryTest: test._id });
+    if (inUse) {
+      test.status = 'Inactive';
+      await test.save();
+      return res.json({ message: 'Radiology examination set to Inactive as it has associated case history.' });
     }
-    const test = await LaboratoryTest.findByIdAndDelete(req.params.id);
-    if (!test) throw new AppError('Test not found.', 404);
 
-    await recordActivity(
-      req.user.id,
-      `Deleted Radiology test ${test.name}`,
-      'LaboratoryTest',
-      test.id,
-      test.name,
-      { role: req.user.role, ipAddress: req.ip }
-    );
-
-    emit('catalog:change', { action: 'deleted' });
-    res.json({ message: 'Test deleted successfully.' });
+    await LaboratoryTest.findByIdAndDelete(test._id);
+    await recordActivity(req.user.id, 'Deleted radiology test', 'LaboratoryTest', test.id, test.name);
+    res.json({ message: 'Radiology examination deleted successfully.' });
   } catch (e) {
     next(e);
   }

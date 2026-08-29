@@ -55,6 +55,7 @@ const radiologyCaseSchema = new mongoose.Schema({
     radiologistNotes: { type: String, default: '' }
   },
   
+  registeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   radiologist: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approverRole: { type: String, default: 'Radiologist' },
@@ -68,5 +69,6 @@ const radiologyCaseSchema = new mongoose.Schema({
 });
 
 radiologyCaseSchema.index({ branchName: 1, status: 1, createdDate: -1 });
+radiologyCaseSchema.index({ registeredBy: 1, status: 1 });
 
 export default mongoose.model('RadiologyCase', radiologyCaseSchema);

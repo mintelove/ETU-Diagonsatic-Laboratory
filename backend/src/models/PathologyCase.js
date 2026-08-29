@@ -48,6 +48,7 @@ const pathologyCaseSchema = new mongoose.Schema({
     pathologistNotes: { type: String, default: '' }
   },
   
+  registeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   pathologist: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approverRole: { type: String, default: 'Pathologist' },
@@ -61,6 +62,7 @@ const pathologyCaseSchema = new mongoose.Schema({
 });
 
 pathologyCaseSchema.index({ branchName: 1, status: 1, createdDate: -1 });
+pathologyCaseSchema.index({ registeredBy: 1, status: 1 });
 pathologyCaseSchema.index({ reportingDeadline: 1, status: 1 });
 
 export default mongoose.model('PathologyCase', pathologyCaseSchema);
