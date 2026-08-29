@@ -13,7 +13,7 @@ import './styles/variables.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/components/a4Report.css';
-import './styles/components/clinicalResultEntry.css';
+
 import './styles/pages/login.css';
 import './styles/pages/users.css';
 import './styles/pages/categories.css';
@@ -31,6 +31,7 @@ import './styles/pages/phase17.css';
 import './styles/theme.css';
 import './styles.css'; // Legacy/existing app page styles
 import './styles/responsive.css'; // Responsive layout additions
+import './styles/components/clinicalResultEntry.css'; // Clinical specialist pages — loaded LAST to override theme.css !important rules
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

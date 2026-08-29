@@ -1,7 +1,7 @@
 /**
  * ETU Diagnostic Laboratory — Radiologist Workspace
  *
- * Professional Medical LIS Interface for Radiologists to review assigned examinations
+ * Professional Medical LIS Card-Based Interface for Radiologists to review assigned examinations
  * (CT Scan, X-Ray, Ultrasound Abdominal / MSS / Doppler / Echo / Other),
  * enter reports via Option A (Specialist Rich Document / Word Import) or Option B (Structured Clinical Findings),
  * preview live A4 reports, toggle ETU branding, and approve reports.
@@ -171,14 +171,14 @@ export default function RadiologyPage() {
       
       // Validation check
       if (reportType === 'Option A' && (!htmlContent || !htmlContent.trim() || htmlContent === '<br>')) {
-        showToast('Please paste or write the radiology report content before confirming approval.', 'error');
+        showToast('Please enter or paste the radiology report content before approving.', 'error');
         setApproving(false);
         return;
       }
       if (reportType === 'Option B') {
         const hasField = Object.values(structured).some(v => v && String(v).trim());
         if (!hasField) {
-          showToast('Please fill in the structured findings before confirming approval.', 'error');
+          showToast('Please fill in the structured findings before approving.', 'error');
           setApproving(false);
           return;
         }
@@ -249,9 +249,9 @@ export default function RadiologyPage() {
             padding: '12px 24px',
             borderRadius: '8px',
             color: '#fff',
-            fontWeight: 600,
+            fontWeight: 700,
             zIndex: 2500,
-            background: toast.type === 'error' ? 'var(--color-error, #b71c1c)' : 'var(--color-success, #2e7d32)',
+            background: toast.type === 'error' ? '#DC2626' : '#16A34A',
             boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
             display: 'flex',
             gap: '8px',
@@ -263,167 +263,180 @@ export default function RadiologyPage() {
         </div>
       )}
 
-      {/* ── 1. COMPACT SPECIALIST WORKSPACE HEADER ───────────────────────── */}
-      <header className="clinical-dept-banner">
-        <div className="clinical-dept-title">
-          <span className="clinical-dept-icon">🩻</span>
-          <div>
-            <p className="clinical-dept-subtitle">ETU DIAGNOSTIC LABORATORY</p>
-            <h1>RADIOLOGY &amp; IMAGING RESULT ENTRY &amp; WORKSPACE</h1>
+      {/* ── 1. PAGE HEADER CARD ─────────────────────────────────────────── */}
+      <header className="clinical-page-header">
+        <div className="clinical-header-info">
+          <div className="clinical-header-icon-box">🩻</div>
+          <div className="clinical-header-text">
+            <p className="clinical-header-sub">ETU DIAGNOSTIC LABORATORY</p>
+            <h1>RADIOLOGY &amp; IMAGING WORKSPACE</h1>
           </div>
         </div>
-        <div className="clinical-specialist-badge">
-          <span>👨‍⚕️</span>
-          <span>Authenticated Specialist: <strong>Dr. {user?.fullName}</strong></span>
-          <span>· 📍 {user?.branchName || 'Main'}</span>
+        <div className="clinical-specialist-card-badge">
+          <div className="clinical-specialist-doctor">
+            <span>👨‍⚕️</span> Dr. {user?.fullName || 'Specialist'}
+          </div>
+          <div className="clinical-specialist-meta">
+            Authenticated Radiologist · Branch: <strong>{user?.branchName || 'Main'}</strong>
+          </div>
         </div>
       </header>
 
-      {/* ── 2. MEDICAL KPI SUMMARY CARDS ─────────────────────────────────── */}
-      <div className="clinical-stats-grid">
-        <article className="stat-card blue">
-          <div className="stat-card-header">
-            <small>TOTAL EXAMINATIONS</small>
-            <span>📊</span>
+      {/* ── 2. FOUR SUMMARY KPI CARDS ───────────────────────────────────── */}
+      <div className="clinical-kpi-grid">
+        <article className="clinical-kpi-card blue">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">TOTAL EXAMINATIONS</h3>
+            <div className="clinical-kpi-icon-pill">📊</div>
           </div>
-          <strong>{stats.total}</strong>
-          <span className="stat-desc">All imaging examinations</span>
+          <div className="clinical-kpi-number">{stats.total}</div>
+          <p className="clinical-kpi-desc">All imaging examinations</p>
         </article>
-        <article className="stat-card orange">
-          <div className="stat-card-header">
-            <small>WAITING EXAMINATION</small>
-            <span>⏳</span>
+
+        <article className="clinical-kpi-card orange">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">WAITING EXAMINATION</h3>
+            <div className="clinical-kpi-icon-pill">⏳</div>
           </div>
-          <strong>{stats.queued}</strong>
-          <span className="stat-desc">Awaiting radiology scan/review</span>
+          <div className="clinical-kpi-number">{stats.queued}</div>
+          <p className="clinical-kpi-desc">Awaiting radiology scan/review</p>
         </article>
-        <article className="stat-card purple">
-          <div className="stat-card-header">
-            <small>IN PROGRESS</small>
-            <span>🩻</span>
+
+        <article className="clinical-kpi-card purple">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">IN PROGRESS</h3>
+            <div className="clinical-kpi-icon-pill">🩻</div>
           </div>
-          <strong>{stats.inProgress}</strong>
-          <span className="stat-desc">Image analysis &amp; drafting</span>
+          <div className="clinical-kpi-number">{stats.inProgress}</div>
+          <p className="clinical-kpi-desc">Image analysis &amp; drafting</p>
         </article>
-        <article className="stat-card green">
-          <div className="stat-card-header">
-            <small>APPROVED REPORTS</small>
-            <span>✅</span>
+
+        <article className="clinical-kpi-card green">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">APPROVED REPORTS</h3>
+            <div className="clinical-kpi-icon-pill">✅</div>
           </div>
-          <strong>{stats.approved}</strong>
-          <span className="stat-desc">Ready for printing / released</span>
+          <div className="clinical-kpi-number">{stats.approved}</div>
+          <p className="clinical-kpi-desc">Ready for printing</p>
         </article>
       </div>
 
-      {/* ── 3. WORKLIST TITLE & FILTER TOOLBAR ────────────────────────────── */}
-      <div className="clinical-worklist-header">
-        <div className="clinical-worklist-title">
-          <span>📋</span> RADIOLOGY &amp; IMAGING WORKLIST
-        </div>
-      </div>
+      {/* ── 3. WORKLIST CARD & CONTROLS ─────────────────────────────────── */}
+      <div className="clinical-worklist-card">
+        <div className="clinical-worklist-top-bar">
+          <h2 className="clinical-worklist-heading">
+            <span>📋</span> RADIOLOGY WORKLIST
+          </h2>
 
-      <div className="users-toolbar">
-        <div className="search-box">
-          <span className="search-icon">🔍</span>
-          <input
-            type="text"
-            placeholder="Search patient ID, case number, patient name, or examination…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <div className="clinical-search-input-box">
+            <span>🔍</span>
+            <input
+              type="text"
+              placeholder="Search patient ID, name, case number, examination…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="clinical-segmented-filters">
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'Queued', label: 'Queued' },
+              { id: 'In Progress', label: 'In Progress' },
+              { id: 'Approved', label: 'Approved' }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                className={`clinical-filter-button ${statusFilter === f.id ? 'active' : ''}`}
+                onClick={() => setStatusFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="filter-group">
-          {['all', 'Queued', 'In Progress', 'Approved'].map(st => (
-            <button
-              key={st}
-              className={`filter-chip ${statusFilter === st ? 'active' : ''}`}
-              onClick={() => setStatusFilter(st)}
-            >
-              {st === 'all' ? 'All Examinations' : st}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── 4. EXAMINATIONS QUEUE TABLE ──────────────────────────────────── */}
-      <section className="table-card">
+        {/* ── 4. PATIENT WORKLIST CARDS ─────────────────────────────────── */}
         {loading ? (
-          <div style={{ padding: '2rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
-            <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>⏳</div>
-            Loading radiology examinations…
+          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+            <strong style={{ color: '#0F172A' }}>Loading radiology worklist…</strong>
           </div>
         ) : filteredCases.length === 0 ? (
-          <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '6px' }}>🩻</div>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: 'var(--color-on-surface, #1e293b)' }}>No Radiology Examinations Waiting</h3>
-            <p style={{ margin: 0, fontSize: '0.84rem' }}>
-              When Reception completes payment for CT Scan, X-Ray, or Ultrasound, examinations appear in this worklist automatically.
+          <div className="clinical-empty-card">
+            <div className="clinical-empty-icon">🩻</div>
+            <h3 className="clinical-empty-title">No Radiology Examinations Found</h3>
+            <p className="clinical-empty-text">
+              {search || statusFilter !== 'all'
+                ? 'No examinations match your search query or selected filter.'
+                : 'When Reception registers and bills CT Scan, X-Ray, or Ultrasound, examinations appear in this worklist automatically.'}
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'center', width: '40px' }}>#</th>
-                  <th style={{ textAlign: 'left' }}>Patient / Case</th>
-                  <th style={{ textAlign: 'left' }}>Modality &amp; Examination</th>
-                  <th style={{ textAlign: 'left' }}>Registration Date</th>
-                  <th style={{ textAlign: 'center' }}>Payment</th>
-                  <th style={{ textAlign: 'center' }}>Status</th>
-                  <th style={{ textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCases.map((c, i) => {
-                  const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
-                  const examName = c.customExaminationName || (c.ultrasoundSubtype ? `Ultrasound (${c.ultrasoundSubtype})` : c.examinationType);
+          <div className="clinical-patient-cards-list">
+            {filteredCases.map(c => {
+              const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
+              const examName = c.customExaminationName || (c.ultrasoundSubtype ? `Ultrasound — ${c.ultrasoundSubtype}` : c.examinationType);
+              const statusClass = isApproved ? 'ready' : c.status === 'In Progress' ? 'in-progress' : 'queued';
 
-                  return (
-                    <tr key={c._id}>
-                      <td style={{ textAlign: 'center', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>{i + 1}</td>
-                      <td>
-                        <div className="patient-cell-name">{c.patient?.name || '—'}</div>
-                        <div className="patient-cell-meta">{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</div>
-                      </td>
-                      <td>
-                        <span className="badge-modality">
-                          {examName}
-                        </span>
-                        <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
-                          {formatETB(c.price)}
-                        </div>
-                      </td>
-                      <td style={{ color: 'var(--color-on-surface, #475569)', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                        {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className="badge-status-paid">✓ Paid</span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className={isApproved ? 'badge-status-approved' : c.status === 'In Progress' ? 'badge-status-progress' : 'badge-status-queued'}>
-                          {c.status}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="btn-open-case"
-                          onClick={() => openCaseModal(c)}
-                        >
-                          <span>{isApproved ? '👁️' : '📝'}</span>
-                          <span>{isApproved ? 'View / Edit →' : 'Open Case →'}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              return (
+                <div key={c._id} className="clinical-patient-case-card">
+                  {/* Patient Info */}
+                  <div className="clinical-col-patient">
+                    <div className="clinical-patient-name">{c.patient?.name || 'Unknown Patient'}</div>
+                    <div className="clinical-patient-subtext">
+                      <span className="clinical-patient-id-badge">{c.patient?.patientId}</span>
+                      <span>· {c.patient?.age} yrs / {c.patient?.sex}</span>
+                      <span>· 📍 {c.branchName}</span>
+                    </div>
+                  </div>
+
+                  {/* Examination */}
+                  <div className="clinical-col-exam">
+                    <span className="clinical-exam-label">Examination</span>
+                    <span className="clinical-exam-badge">
+                      {examName}
+                    </span>
+                    <span className="clinical-exam-fee">{formatETB(c.price)}</span>
+                  </div>
+
+                  {/* Date */}
+                  <div className="clinical-col-date">
+                    <span className="clinical-exam-label">Registration Date</span>
+                    <span className="clinical-date-text">
+                      {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </span>
+                    <span style={{ fontSize: '0.76rem', color: '#64748B', fontWeight: 600 }}>
+                      {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+
+                  {/* Status */}
+                  <div className="clinical-col-status">
+                    <span className="clinical-exam-label">Status</span>
+                    <span className={`clinical-status-pill ${statusClass}`}>
+                      {isApproved ? 'Ready for Printing' : c.status}
+                    </span>
+                  </div>
+
+                  {/* Action */}
+                  <div>
+                    <button
+                      type="button"
+                      className="btn-clinical-open-case"
+                      onClick={() => openCaseModal(c)}
+                    >
+                      <span>{isApproved ? '👁️' : '📝'}</span>
+                      <span>{isApproved ? 'VIEW / EDIT' : 'OPEN CASE'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-      </section>
+      </div>
 
       {/* ── 5. PROFESSIONAL RESULT ENTRY MODAL ────────────────────────────── */}
       {selectedCase && (
@@ -435,15 +448,15 @@ export default function RadiologyPage() {
                 <h2>
                   <span>🩻</span> RADIOLOGY RESULT ENTRY — {selectedCase?.customExaminationName || selectedCase?.examinationType}
                 </h2>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: '2px', fontWeight: 600 }}>
                   Case Ref: <strong>{selectedCase?.caseNumber}</strong> · Branch: <strong>{selectedCase?.branchName}</strong>
                 </div>
               </div>
               <button className="close-button" onClick={closeCaseModal}>&times;</button>
             </header>
 
-            <div style={{ padding: '1.25rem' }}>
-              {/* ── CARD 1: PATIENT & CASE INFORMATION ── */}
+            <div style={{ padding: '1.5rem' }}>
+              {/* ── PATIENT & CASE INFORMATION CARD ── */}
               <section className="clinical-card">
                 <div className="clinical-card-header">
                   <span>🧑‍⚕️</span> Patient &amp; Case Information
@@ -466,12 +479,8 @@ export default function RadiologyPage() {
                     <strong>{selectedCase?.patient?.phone || '—'}</strong>
                   </div>
                   <div className="clinical-patient-field">
-                    <small>Patient Type</small>
-                    <strong>{selectedCase?.patient?.patientType || 'Self'}</strong>
-                  </div>
-                  <div className="clinical-patient-field">
                     <small>Modality / Examination</small>
-                    <strong style={{ color: 'var(--color-primary, #075c91)' }}>
+                    <strong style={{ color: '#0284C7' }}>
                       {selectedCase?.customExaminationName || (selectedCase?.ultrasoundSubtype ? `Ultrasound — ${selectedCase.ultrasoundSubtype}` : selectedCase?.examinationType)}
                     </strong>
                   </div>
@@ -481,12 +490,12 @@ export default function RadiologyPage() {
                   </div>
                   <div className="clinical-patient-field">
                     <small>Examination Fee</small>
-                    <strong style={{ color: '#16a34a' }}>{formatETB(selectedCase?.price)}</strong>
+                    <strong style={{ color: '#16A34A' }}>{formatETB(selectedCase?.price)}</strong>
                   </div>
                 </div>
               </section>
 
-              {/* ── CARD 2: ETU REPORT HEADER BRANDING PREVIEW ── */}
+              {/* ── ETU REPORT HEADER BRANDING PREVIEW ── */}
               <div className={`clinical-etu-header-preview ${showFooter ? '' : 'hidden-branding'}`}>
                 {showFooter ? (
                   <>
@@ -494,13 +503,13 @@ export default function RadiologyPage() {
                     <div className="clinical-etu-header-text">ETU DIAGNOSTIC LABORATORY · OFFICIAL RADIOLOGY &amp; IMAGING REPORT</div>
                   </>
                 ) : (
-                  <div style={{ color: 'var(--text-secondary, #64748b)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                  <div style={{ color: '#64748B', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0', fontWeight: 600 }}>
                     ETU Header & Footer Branding is currently <strong>Hidden</strong> for plain paper printing.
                   </div>
                 )}
               </div>
 
-              {/* ── CARD 3: OPTION A / OPTION B SWITCHER & BRANDING TOGGLE ── */}
+              {/* ── OPTION A / OPTION B SWITCHER & BRANDING TOGGLE ── */}
               <div className="clinical-tabs-bar">
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
@@ -533,8 +542,8 @@ export default function RadiologyPage() {
               {/* ── OPTION A: RICH COPY/PASTE DOCUMENT EDITOR ── */}
               {reportType === 'Option A' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)', fontSize: '0.84rem', color: 'var(--color-on-surface, #475569)' }}>
-                    <strong>💡 Option A Specialist Editor:</strong> Type, paste from Microsoft Word (preserves font styling, tables, headings, and images), paste ultrasound/CT images from clipboard (Ctrl+V), or import a <code>.docx</code> file directly.
+                  <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.84rem', color: '#475569', fontWeight: 600 }}>
+                    💡 <strong>Option A Specialist Editor:</strong> Type, paste from Microsoft Word (preserves font styling, tables, headings, and images), paste ultrasound/CT images from clipboard (Ctrl+V), or import a <code>.docx</code> file directly.
                   </div>
 
                   <RichReportEditor
@@ -585,8 +594,8 @@ export default function RadiologyPage() {
 
                   {/* Ultrasound Abdominal Specific Organs */}
                   {selectedCase?.examinationType === 'Ultrasound' && selectedCase?.ultrasoundSubtype === 'Abdominal' && (
-                    <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
-                      <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: 'var(--color-primary, #075c91)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div style={{ background: '#F8FAFC', padding: '14px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#0369A1', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 800 }}>
                         Organ-Specific Sonographic Findings
                       </h4>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
@@ -656,7 +665,7 @@ export default function RadiologyPage() {
                 </div>
               )}
 
-              {/* ── CARD 4: SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
+              {/* ── SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
               <div className="clinical-signoff-banner">
                 <div>
                   <span className="clinical-signoff-title">Approved By:</span> Dr. {user?.fullName || 'Radiologist'} · <em>Radiologist (Logged-in Specialist)</em>
@@ -666,7 +675,7 @@ export default function RadiologyPage() {
                 </div>
               </div>
 
-              {/* ── CARD 5: ACTIONS TOOLBAR ── */}
+              {/* ── ACTIONS TOOLBAR ── */}
               <div className="clinical-actions-toolbar">
                 <button type="button" className="btn-clinical-draft" onClick={closeCaseModal}>
                   Close
@@ -729,10 +738,10 @@ export default function RadiologyPage() {
               style={{
                 position: 'sticky',
                 top: 0,
-                background: 'var(--color-surface, #ffffff)',
+                background: '#ffffff',
                 zIndex: 30,
                 padding: '12px 20px',
-                borderBottom: '1px solid var(--color-outline-variant, #cbd5e1)',
+                borderBottom: '1px solid #cbd5e1',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -741,7 +750,7 @@ export default function RadiologyPage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <h2 style={{ fontSize: '1.15rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: '#0369A1', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>📄</span> Radiology A4 Report Preview
                 </h2>
                 <label className="clinical-branding-toggle">

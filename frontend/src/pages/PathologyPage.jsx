@@ -1,7 +1,7 @@
 /**
  * ETU Diagnostic Laboratory — Pathologist Workspace
  *
- * Professional Medical LIS Interface for Pathologists to review assigned cases,
+ * Professional Medical LIS Card-Based Interface for Pathologists to review assigned cases,
  * track 20-day (Biopsy) and 24-hour (FNAC / Peripheral Morphology) countdown deadlines,
  * enter reports via Option A (Specialist Rich Document / Word Import) or Option B (Structured Clinical Findings),
  * preview live A4 reports, toggle ETU branding, and approve reports.
@@ -38,7 +38,7 @@ function getCountdown(deadlineStr) {
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
   if (days > 0) {
-    return { text: `${days}d ${hours}h ${minutes}m remaining`, isOverdue: false };
+    return { text: `${days}d ${hours}h remaining`, isOverdue: false };
   }
   return { text: `${hours}h ${minutes}m remaining`, isOverdue: false };
 }
@@ -199,14 +199,14 @@ export default function PathologyPage() {
       
       // Validation check
       if (reportType === 'Option A' && (!htmlContent || !htmlContent.trim() || htmlContent === '<br>')) {
-        showToast('Please paste or write the pathology report content before confirming approval.', 'error');
+        showToast('Please enter or paste the pathology report content before approving.', 'error');
         setApproving(false);
         return;
       }
       if (reportType === 'Option B') {
         const hasField = Object.values(structured).some(v => v && String(v).trim());
         if (!hasField) {
-          showToast('Please fill in the structured report fields before confirming approval.', 'error');
+          showToast('Please fill in the structured report fields before approving.', 'error');
           setApproving(false);
           return;
         }
@@ -259,8 +259,7 @@ export default function PathologyPage() {
     const queued = cases.filter(c => c.status === 'Queued').length;
     const inProgress = cases.filter(c => c.status === 'In Progress').length;
     const approved = cases.filter(c => ['Approved', 'Ready for Printing'].includes(c.status)).length;
-    const overdue = cases.filter(c => ['Queued', 'In Progress'].includes(c.status) && new Date(c.reportingDeadline) < new Date()).length;
-    return { total, queued, inProgress, approved, overdue };
+    return { total, queued, inProgress, approved };
   }, [cases]);
 
   return (
@@ -276,9 +275,9 @@ export default function PathologyPage() {
             padding: '12px 24px',
             borderRadius: '8px',
             color: '#fff',
-            fontWeight: 600,
+            fontWeight: 700,
             zIndex: 2500,
-            background: toast.type === 'error' ? 'var(--color-error, #b71c1c)' : 'var(--color-success, #2e7d32)',
+            background: toast.type === 'error' ? '#DC2626' : '#16A34A',
             boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
             display: 'flex',
             gap: '8px',
@@ -290,190 +289,181 @@ export default function PathologyPage() {
         </div>
       )}
 
-      {/* ── 1. COMPACT SPECIALIST WORKSPACE HEADER ───────────────────────── */}
-      <header className="clinical-dept-banner">
-        <div className="clinical-dept-title">
-          <span className="clinical-dept-icon">🔬</span>
-          <div>
-            <p className="clinical-dept-subtitle">ETU DIAGNOSTIC LABORATORY</p>
-            <h1>PATHOLOGY RESULT ENTRY &amp; WORKSPACE</h1>
+      {/* ── 1. PAGE HEADER CARD ─────────────────────────────────────────── */}
+      <header className="clinical-page-header">
+        <div className="clinical-header-info">
+          <div className="clinical-header-icon-box">🔬</div>
+          <div className="clinical-header-text">
+            <p className="clinical-header-sub">ETU DIAGNOSTIC LABORATORY</p>
+            <h1>PATHOLOGY WORKSPACE</h1>
           </div>
         </div>
-        <div className="clinical-specialist-badge">
-          <span>👨‍⚕️</span>
-          <span>Authenticated Specialist: <strong>Dr. {user?.fullName}</strong></span>
-          <span>· 📍 {user?.branchName || 'Main'}</span>
+        <div className="clinical-specialist-card-badge">
+          <div className="clinical-specialist-doctor">
+            <span>👨‍⚕️</span> Dr. {user?.fullName || 'Specialist'}
+          </div>
+          <div className="clinical-specialist-meta">
+            Authenticated Pathologist · Branch: <strong>{user?.branchName || 'Main'}</strong>
+          </div>
         </div>
       </header>
 
-      {/* ── 2. MEDICAL KPI SUMMARY CARDS ─────────────────────────────────── */}
-      <div className="clinical-stats-grid">
-        <article className="stat-card blue">
-          <div className="stat-card-header">
-            <small>TOTAL CASES</small>
-            <span>📊</span>
+      {/* ── 2. FOUR SUMMARY KPI CARDS ───────────────────────────────────── */}
+      <div className="clinical-kpi-grid">
+        <article className="clinical-kpi-card blue">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">TOTAL CASES</h3>
+            <div className="clinical-kpi-icon-pill">📊</div>
           </div>
-          <strong>{stats.total}</strong>
-          <span className="stat-desc">All assigned cases</span>
+          <div className="clinical-kpi-number">{stats.total}</div>
+          <p className="clinical-kpi-desc">All pathology cases</p>
         </article>
-        <article className="stat-card orange">
-          <div className="stat-card-header">
-            <small>WAITING EXAMINATION</small>
-            <span>⏳</span>
+
+        <article className="clinical-kpi-card orange">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">WAITING EXAMINATION</h3>
+            <div className="clinical-kpi-icon-pill">⏳</div>
           </div>
-          <strong>{stats.queued}</strong>
-          <span className="stat-desc">Awaiting pathology review</span>
+          <div className="clinical-kpi-number">{stats.queued}</div>
+          <p className="clinical-kpi-desc">Awaiting pathology review</p>
         </article>
-        <article className="stat-card purple">
-          <div className="stat-card-header">
-            <small>IN PROGRESS</small>
-            <span>🔬</span>
+
+        <article className="clinical-kpi-card purple">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">IN PROGRESS</h3>
+            <div className="clinical-kpi-icon-pill">🔬</div>
           </div>
-          <strong>{stats.inProgress}</strong>
-          <span className="stat-desc">Under laboratory evaluation</span>
+          <div className="clinical-kpi-number">{stats.inProgress}</div>
+          <p className="clinical-kpi-desc">Laboratory analysis active</p>
         </article>
-        <article className="stat-card green">
-          <div className="stat-card-header">
-            <small>APPROVED REPORTS</small>
-            <span>✅</span>
+
+        <article className="clinical-kpi-card green">
+          <div className="clinical-kpi-header">
+            <h3 className="clinical-kpi-title">APPROVED REPORTS</h3>
+            <div className="clinical-kpi-icon-pill">✅</div>
           </div>
-          <strong>{stats.approved}</strong>
-          <span className="stat-desc">Ready for printing / released</span>
+          <div className="clinical-kpi-number">{stats.approved}</div>
+          <p className="clinical-kpi-desc">Ready for printing</p>
         </article>
-        {stats.overdue > 0 && (
-          <article className="stat-card red" style={{ borderColor: '#ef4444' }}>
-            <div className="stat-card-header">
-              <small style={{ color: '#b91c1c' }}>⚠️ OVERDUE DEADLINE</small>
-            </div>
-            <strong style={{ color: '#b91c1c' }}>{stats.overdue}</strong>
-            <span className="stat-desc" style={{ color: '#b91c1c' }}>Target TAT exceeded</span>
-          </article>
-        )}
       </div>
 
-      {/* ── 3. WORKLIST TITLE & FILTER TOOLBAR ────────────────────────────── */}
-      <div className="clinical-worklist-header">
-        <div className="clinical-worklist-title">
-          <span>📋</span> PATHOLOGY PATIENT WORKLIST
-        </div>
-      </div>
+      {/* ── 3. WORKLIST CARD & CONTROLS ─────────────────────────────────── */}
+      <div className="clinical-worklist-card">
+        <div className="clinical-worklist-top-bar">
+          <h2 className="clinical-worklist-heading">
+            <span>📋</span> PATHOLOGY WORKLIST
+          </h2>
 
-      <div className="users-toolbar">
-        <div className="search-box">
-          <span className="search-icon">🔍</span>
-          <input
-            type="text"
-            placeholder="Search patient ID, case number, patient name, or examination…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <div className="clinical-search-input-box">
+            <span>🔍</span>
+            <input
+              type="text"
+              placeholder="Search patient ID, name, case number, examination…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="clinical-segmented-filters">
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'Queued', label: 'Queued' },
+              { id: 'In Progress', label: 'In Progress' },
+              { id: 'Approved', label: 'Approved' }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                className={`clinical-filter-button ${statusFilter === f.id ? 'active' : ''}`}
+                onClick={() => setStatusFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="filter-group">
-          {['all', 'Queued', 'In Progress', 'Approved'].map(st => (
-            <button
-              key={st}
-              className={`filter-chip ${statusFilter === st ? 'active' : ''}`}
-              onClick={() => setStatusFilter(st)}
-            >
-              {st === 'all' ? 'All Cases' : st}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── 4. CASES QUEUE TABLE ─────────────────────────────────────────── */}
-      <section className="table-card">
+        {/* ── 4. PATIENT WORKLIST CARDS ─────────────────────────────────── */}
         {loading ? (
-          <div style={{ padding: '2rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
-            <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>⏳</div>
-            Loading pathology cases…
+          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: '#64748B' }}>
+            <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+            <strong style={{ color: '#0F172A' }}>Loading pathology worklist…</strong>
           </div>
         ) : filteredCases.length === 0 ? (
-          <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '6px' }}>🔬</div>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: 'var(--color-on-surface, #1e293b)' }}>No Pathology Cases Waiting</h3>
-            <p style={{ margin: 0, fontSize: '0.84rem' }}>
-              When Reception completes payment for Biopsy, FNAC, or Peripheral Morphology, cases appear in this worklist automatically.
+          <div className="clinical-empty-card">
+            <div className="clinical-empty-icon">🔬</div>
+            <h3 className="clinical-empty-title">No Pathology Cases Found</h3>
+            <p className="clinical-empty-text">
+              {search || statusFilter !== 'all'
+                ? 'No cases match your search query or selected filter.'
+                : 'When Reception registers and bills Biopsy, FNAC, or Peripheral Morphology, cases appear in this worklist automatically.'}
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'center', width: '40px' }}>#</th>
-                  <th style={{ textAlign: 'left' }}>Patient / Case</th>
-                  <th style={{ textAlign: 'left' }}>Examination &amp; Fee</th>
-                  <th style={{ textAlign: 'left' }}>Turnaround &amp; Countdown</th>
-                  <th style={{ textAlign: 'left' }}>Registration Date</th>
-                  <th style={{ textAlign: 'center' }}>Payment</th>
-                  <th style={{ textAlign: 'center' }}>Status</th>
-                  <th style={{ textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCases.map((c, i) => {
-                  const countdown = getCountdown(c.reportingDeadline);
-                  const isBiopsy = c.testType === 'Biopsy';
-                  const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
+          <div className="clinical-patient-cards-list">
+            {filteredCases.map(c => {
+              const countdown = getCountdown(c.reportingDeadline);
+              const isBiopsy = c.testType === 'Biopsy';
+              const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
+              const statusClass = isApproved ? 'ready' : c.status === 'In Progress' ? 'in-progress' : 'queued';
 
-                  return (
-                    <tr key={c._id}>
-                      <td style={{ textAlign: 'center', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>{i + 1}</td>
-                      <td>
-                        <div className="patient-cell-name">{c.patient?.name || '—'}</div>
-                        <div className="patient-cell-meta">{c.patient?.patientId} · {c.patient?.age} yrs / {c.patient?.sex} · 📍 {c.branchName}</div>
-                      </td>
-                      <td>
-                        <span className={`badge-modality ${isBiopsy ? 'badge-biopsy' : ''}`}>
-                          {c.testType}
-                        </span>
-                        <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
-                          {formatETB(c.price)}
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ fontSize: '11.5px', fontWeight: 600, color: isApproved ? '#166534' : countdown.isOverdue ? '#b91c1c' : '#0369a1' }}>
-                          {isApproved ? '✅ Completed' : (
-                            <>
-                              <span>⏱️ {isBiopsy ? '20-Day Target' : '24-Hour Target'}</span>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: countdown.isOverdue ? '#b91c1c' : 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
-                                {countdown.text}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ color: 'var(--color-on-surface, #475569)', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                        {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className="badge-status-paid">✓ Paid</span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className={isApproved ? 'badge-status-approved' : c.status === 'In Progress' ? 'badge-status-progress' : 'badge-status-queued'}>
-                          {c.status}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="btn-open-case"
-                          onClick={() => openCaseModal(c)}
-                        >
-                          <span>{isApproved ? '👁️' : '📝'}</span>
-                          <span>{isApproved ? 'View / Edit →' : 'Open Case →'}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              return (
+                <div key={c._id} className="clinical-patient-case-card">
+                  {/* Patient Info */}
+                  <div className="clinical-col-patient">
+                    <div className="clinical-patient-name">{c.patient?.name || 'Unknown Patient'}</div>
+                    <div className="clinical-patient-subtext">
+                      <span className="clinical-patient-id-badge">{c.patient?.patientId}</span>
+                      <span>· {c.patient?.age} yrs / {c.patient?.sex}</span>
+                      <span>· 📍 {c.branchName}</span>
+                    </div>
+                  </div>
+
+                  {/* Examination */}
+                  <div className="clinical-col-exam">
+                    <span className="clinical-exam-label">Examination</span>
+                    <span className={`clinical-exam-badge ${isBiopsy ? 'biopsy' : ''}`}>
+                      {c.testType}
+                    </span>
+                    <span className="clinical-exam-fee">{formatETB(c.price)}</span>
+                  </div>
+
+                  {/* Date & Turnaround */}
+                  <div className="clinical-col-date">
+                    <span className="clinical-exam-label">Date &amp; Turnaround</span>
+                    <span className="clinical-date-text">
+                      {c.patient?.registrationDate ? new Date(c.patient.registrationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </span>
+                    <span className={`clinical-countdown-text ${countdown.isOverdue ? 'overdue' : ''}`}>
+                      {isApproved ? '✅ Completed' : `⏱️ ${countdown.text}`}
+                    </span>
+                  </div>
+
+                  {/* Status */}
+                  <div className="clinical-col-status">
+                    <span className="clinical-exam-label">Status</span>
+                    <span className={`clinical-status-pill ${statusClass}`}>
+                      {isApproved ? 'Ready for Printing' : c.status}
+                    </span>
+                  </div>
+
+                  {/* Action */}
+                  <div>
+                    <button
+                      type="button"
+                      className="btn-clinical-open-case"
+                      onClick={() => openCaseModal(c)}
+                    >
+                      <span>{isApproved ? '👁️' : '📝'}</span>
+                      <span>{isApproved ? 'VIEW / EDIT' : 'OPEN CASE'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-      </section>
+      </div>
 
       {/* ── 5. PROFESSIONAL RESULT ENTRY MODAL ────────────────────────────── */}
       {selectedCase && (
@@ -485,15 +475,15 @@ export default function PathologyPage() {
                 <h2>
                   <span>🔬</span> PATHOLOGY RESULT ENTRY — {selectedCase?.testType}
                 </h2>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: '2px', fontWeight: 600 }}>
                   Case Ref: <strong>{selectedCase?.caseNumber}</strong> · Branch: <strong>{selectedCase?.branchName}</strong>
                 </div>
               </div>
               <button className="close-button" onClick={closeCaseModal}>&times;</button>
             </header>
 
-            <div style={{ padding: '1.25rem' }}>
-              {/* ── CARD 1: PATIENT & CASE INFORMATION ── */}
+            <div style={{ padding: '1.5rem' }}>
+              {/* ── PATIENT & CASE INFORMATION CARD ── */}
               <section className="clinical-card">
                 <div className="clinical-card-header">
                   <span>🧑‍⚕️</span> Patient &amp; Case Information
@@ -516,12 +506,8 @@ export default function PathologyPage() {
                     <strong>{selectedCase?.patient?.phone || '—'}</strong>
                   </div>
                   <div className="clinical-patient-field">
-                    <small>Patient Type</small>
-                    <strong>{selectedCase?.patient?.patientType || 'Self'}</strong>
-                  </div>
-                  <div className="clinical-patient-field">
                     <small>Examination Type</small>
-                    <strong style={{ color: 'var(--color-primary, #075c91)' }}>{selectedCase?.testType}</strong>
+                    <strong style={{ color: '#0284C7' }}>{selectedCase?.testType}</strong>
                   </div>
                   <div className="clinical-patient-field">
                     <small>Registration Date</small>
@@ -534,7 +520,7 @@ export default function PathologyPage() {
                 </div>
               </section>
 
-              {/* ── CARD 2: ETU REPORT HEADER BRANDING PREVIEW ── */}
+              {/* ── ETU REPORT HEADER BRANDING PREVIEW ── */}
               <div className={`clinical-etu-header-preview ${showFooter ? '' : 'hidden-branding'}`}>
                 {showFooter ? (
                   <>
@@ -542,13 +528,13 @@ export default function PathologyPage() {
                     <div className="clinical-etu-header-text">ETU DIAGNOSTIC LABORATORY · OFFICIAL PATHOLOGY REPORT</div>
                   </>
                 ) : (
-                  <div style={{ color: 'var(--text-secondary, #64748b)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                  <div style={{ color: '#64748B', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0', fontWeight: 600 }}>
                     ETU Header & Footer Branding is currently <strong>Hidden</strong> for plain paper printing.
                   </div>
                 )}
               </div>
 
-              {/* ── CARD 3: OPTION A / OPTION B SWITCHER & BRANDING TOGGLE ── */}
+              {/* ── OPTION A / OPTION B SWITCHER & BRANDING TOGGLE ── */}
               <div className="clinical-tabs-bar">
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
@@ -581,8 +567,8 @@ export default function PathologyPage() {
               {/* ── OPTION A: RICH COPY/PASTE DOCUMENT EDITOR ── */}
               {reportType === 'Option A' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ background: 'var(--color-surface-container, #f8fafc)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)', fontSize: '0.84rem', color: 'var(--color-on-surface, #475569)' }}>
-                    <strong>💡 Option A Specialist Editor:</strong> Type, paste from Microsoft Word (preserves font styling, tables, headings, and images), paste images from clipboard (Ctrl+V), or import a <code>.docx</code> file directly.
+                  <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.84rem', color: '#475569', fontWeight: 600 }}>
+                    💡 <strong>Option A Specialist Editor:</strong> Type, paste from Microsoft Word (preserves font styling, tables, headings, and images), paste images from clipboard (Ctrl+V), or import a <code>.docx</code> file directly.
                   </div>
 
                   <RichReportEditor
@@ -734,7 +720,7 @@ export default function PathologyPage() {
                 </div>
               )}
 
-              {/* ── CARD 4: SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
+              {/* ── SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
               <div className="clinical-signoff-banner">
                 <div>
                   <span className="clinical-signoff-title">Approved By:</span> Dr. {user?.fullName || 'Pathologist'} · <em>Pathologist (Logged-in Specialist)</em>
@@ -744,7 +730,7 @@ export default function PathologyPage() {
                 </div>
               </div>
 
-              {/* ── CARD 5: ACTIONS TOOLBAR ── */}
+              {/* ── ACTIONS TOOLBAR ── */}
               <div className="clinical-actions-toolbar">
                 <button type="button" className="btn-clinical-draft" onClick={closeCaseModal}>
                   Close
@@ -807,10 +793,10 @@ export default function PathologyPage() {
               style={{
                 position: 'sticky',
                 top: 0,
-                background: 'var(--color-surface, #ffffff)',
+                background: '#ffffff',
                 zIndex: 30,
                 padding: '12px 20px',
-                borderBottom: '1px solid var(--color-outline-variant, #cbd5e1)',
+                borderBottom: '1px solid #cbd5e1',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -819,7 +805,7 @@ export default function PathologyPage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <h2 style={{ fontSize: '1.15rem', color: 'var(--color-primary, #075c91)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: '#0369A1', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>📄</span> Pathology A4 Report Preview
                 </h2>
                 <label className="clinical-branding-toggle">
