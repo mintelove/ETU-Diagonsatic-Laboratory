@@ -69,18 +69,17 @@ export default function Logo({ size, className = '', style = {}, interval = 5000
 
   const isHeaderLogo = className.includes('main-header-logo-img');
   const showDots = isHeaderLogo;
-  const finalSize = size !== undefined ? size : (isHeaderLogo ? null : 36);
+  const finalSize = size !== undefined ? size : (isHeaderLogo ? null : 44);
 
-  // Wide header container (300×75): use 'contain' to show full banner image
-  // Square sidebar/mobile containers (48×48, 60×60): use 'cover' to fill with center-crop
-  const imgObjectFit = isHeaderLogo ? 'contain' : 'cover';
+  // All logos and banner slides: use 'contain' so images are never cut off or clipped
+  const imgObjectFit = 'contain';
 
   const containerStyle = {
     position: 'relative',
     overflow: 'hidden',
     display: 'inline-flex',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     ...(finalSize ? { width: `${finalSize}px`, height: `${finalSize}px`, maxHeight: `${finalSize}px`, maxWidth: `${finalSize}px`, flexShrink: 0 } : {}),
     ...style,
   };

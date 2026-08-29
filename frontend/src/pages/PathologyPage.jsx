@@ -335,8 +335,8 @@ export default function PathologyPage() {
       </div>
 
       {/* ── 3. SEARCH & FILTER TOOLBAR ───────────────────────────────────── */}
-      <div className="users-toolbar" style={{ marginBottom: '1.2rem', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-        <div className="search-box" style={{ flex: '1 1 280px' }}>
+      <div className="users-toolbar">
+        <div className="search-box">
           <span className="search-icon">🔍</span>
           <input
             type="text"
@@ -360,17 +360,17 @@ export default function PathologyPage() {
       </div>
 
       {/* ── 4. CASES QUEUE TABLE ─────────────────────────────────────────── */}
-      <section className="table-card" style={{ borderRadius: '12px', overflow: 'hidden' }}>
+      <section className="table-card">
         {loading ? (
-          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>⏳</div>
+          <div style={{ padding: '2rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
+            <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>⏳</div>
             Loading pathology cases…
           </div>
         ) : filteredCases.length === 0 ? (
-          <div style={{ padding: '3.5rem 2rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🔬</div>
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: 'var(--color-on-surface, #1e293b)' }}>No Pathology Cases Found</h3>
-            <p style={{ margin: 0, fontSize: '0.88rem' }}>
+          <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '6px' }}>🔬</div>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: 'var(--color-on-surface, #1e293b)' }}>No Pathology Cases Found</h3>
+            <p style={{ margin: 0, fontSize: '0.84rem' }}>
               When Reception completes payment for Biopsy, FNAC, or Peripheral Morphology, cases appear here automatically.
             </p>
           </div>

@@ -101,7 +101,7 @@ export default function AppLayout() {
 
       <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Logo size={60} style={{ borderRadius: '8px', background: '#fff', padding: '3px', flexShrink: 0 }} />
+          <Logo size={44} style={{ borderRadius: '8px', background: '#fff', padding: '3px', flexShrink: 0 }} />
           {!collapsed && (
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
               <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#d5f1fb', letterSpacing: '0.5px' }}>ETU</span>
