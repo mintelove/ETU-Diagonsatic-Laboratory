@@ -179,6 +179,7 @@ p, span, label, small {
 /* ── 3. CARDS & PANELS ───────────────────────────────────────────────────── */
 .card,
 .table-card,
+.dash-panel,
 .history-card,
 .summary-card,
 .category-card,
@@ -192,12 +193,31 @@ p, span, label, small {
 .about-card,
 .counselling-card,
 .stats-card,
+.wizard-step-panel,
+.bill-summary-card,
 .panel {
   background-color: var(--card-bg) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--card-border) !important;
   box-shadow: var(--shadow-sm);
   border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.table-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.table-title h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-heading, var(--text-primary)) !important;
 }
 
 /* ── 4. FORM CONTROLS & INPUTS ───────────────────────────────────────────── */
@@ -249,73 +269,201 @@ select option {
   color: var(--dropdown-color) !important;
 }
 
-/* ── 5. DATA TABLES ──────────────────────────────────────────────────────── */
+/* ── 5. DATA TABLES & WRAPPERS ───────────────────────────────────────────── */
+.sample-types-table-wrapper,
+.table-wrapper {
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 10px;
+  overflow-x: auto;
+  box-shadow: none;
+}
+
+.sample-types-table,
 table {
   width: 100%;
   border-collapse: collapse;
-  background-color: var(--table-bg);
+  background-color: var(--card-bg) !important;
 }
 
+.sample-types-table th,
+table th,
 th {
   background-color: var(--table-header-bg) !important;
   color: var(--table-header-color) !important;
   font-weight: 800 !important;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   letter-spacing: 0.05em;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-bottom: 1.5px solid var(--card-border) !important;
   vertical-align: middle;
+  text-align: left;
 }
 
+.sample-types-table td,
+table td,
 td {
   color: var(--text-primary) !important;
   border-bottom: 1px solid var(--card-border) !important;
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-size: 0.88rem;
   vertical-align: middle;
+  background-color: transparent !important;
 }
 
+.sample-types-table tr:hover td,
+table tr:hover td,
 tr:hover td {
   background-color: var(--table-row-hover) !important;
+}
+
+td strong,
+td b {
+  color: var(--text-primary) !important;
+  font-weight: 700;
+}
+
+td span {
+  color: var(--text-secondary);
+}
+
+td strong + span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted) !important;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+td code {
+  background-color: var(--color-surface-dim) !important;
+  color: var(--color-primary) !important;
+  border: 1px solid var(--card-border) !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: monospace;
 }
 
 /* ── 6. BUTTONS HIERARCHY ────────────────────────────────────────────────── */
 .primary,
 .btn-primary,
-button.primary {
+.primary-button,
+button.primary,
+button.primary-button {
   background-color: var(--button-primary-bg) !important;
   color: var(--button-primary-color) !important;
   border: 1px solid transparent !important;
   font-weight: 700;
   border-radius: 8px;
   cursor: pointer;
+  padding: 8px 14px;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .primary:hover:not(:disabled),
 .btn-primary:hover:not(:disabled),
-button.primary:hover:not(:disabled) {
+.primary-button:hover:not(:disabled),
+button.primary:hover:not(:disabled),
+button.primary-button:hover:not(:disabled) {
   background-color: var(--color-primary-hover) !important;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.30);
 }
 
 .secondary,
 .btn-secondary,
-button.secondary {
+.secondary-button,
+button.secondary,
+button.secondary-button,
+.export-buttons button {
   background-color: var(--button-secondary-bg) !important;
   color: var(--button-secondary-color) !important;
   border: 1px solid var(--card-border) !important;
   font-weight: 700;
   border-radius: 8px;
   cursor: pointer;
+  padding: 8px 14px;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .secondary:hover:not(:disabled),
 .btn-secondary:hover:not(:disabled),
-button.secondary:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled),
+button.secondary:hover:not(:disabled),
+button.secondary-button:hover:not(:disabled),
+.export-buttons button:hover:not(:disabled) {
   border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.export-buttons button {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  border-radius: 6px;
+}
+
+.empty,
+p.empty {
+  color: var(--text-muted) !important;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.activity {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+
+.activity strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.activity span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.activity small {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.pm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: var(--color-surface-dim) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--card-border) !important;
 }
 
 .reception-tabs button {

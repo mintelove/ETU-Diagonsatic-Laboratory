@@ -987,7 +987,7 @@ export default function ReceptionPage() {
                 <span>📝</span> Approved Diagnostics Reports
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--card-border)' }}>
                   <input
                     type="checkbox"
                     checked={showReportFooter}
@@ -1028,7 +1028,7 @@ export default function ReceptionPage() {
                             <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isPath ? '#fef3c7' : isRad ? '#e0f2fe' : '#e0e7ff', color: isPath ? '#92400e' : isRad ? '#0369a1' : '#3730a3' }}>
                               {dept}
                             </span>
-                            <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: '#1e293b' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: 'var(--text-primary)' }}>
                               {examLabel}
                             </div>
                           </td>
@@ -1036,7 +1036,7 @@ export default function ReceptionPage() {
                             {r.results?.length ? (
                               r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
                             ) : r.reportContent ? (
-                              <span style={{ color: '#0369a1', fontStyle: 'italic' }}>Detailed Specialist Report</span>
+                              <span style={{ color: 'var(--color-primary)', fontStyle: 'italic' }}>Detailed Specialist Report</span>
                             ) : r.structuredReport?.diagnosis ? (
                               <span>{r.structuredReport.diagnosis}</span>
                             ) : r.structuredReport?.impression ? (
@@ -1045,7 +1045,7 @@ export default function ReceptionPage() {
                           </td>
                           <td>
                             <strong>{r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—'))}</strong>
-                            <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
                           </td>
                           <td>
                             <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
