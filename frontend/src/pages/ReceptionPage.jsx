@@ -2094,20 +2094,8 @@ export default function ReceptionPage() {
                 </header>
 
                 {/* A4 Document Canvas */}
-                <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center' }}>
-                  <div
-                    style={{
-                      width: '100%',
-                      maxWidth: '794px',
-                      background: '#ffffff',
-                      padding: '32px 36px',
-                      borderRadius: '4px',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                      color: '#0f172a'
-                    }}
-                  >
-                    <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
-                  </div>
+                <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
+                  <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
                 </div>
               </div>
             </ModalPortal>

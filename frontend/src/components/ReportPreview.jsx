@@ -93,105 +93,154 @@ export function ReportPreview({ report, showFooter = true }) {
     ? `Pathology Examination Report — ${report.testType || 'Biopsy'}`
     : isRadiology
     ? `Radiology & Imaging Report — ${report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging')}`
-    : 'Laboratory Test Report';
+    : 'Official Laboratory Test Report';
+
+  const preparedByName = report.technician?.fullName || report.submittedBy?.fullName || 'Clinical Specialist';
+  const approvedByName = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || 'Pending Specialist Approval';
+  const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : 'Approver / Laboratory Technologist');
 
   return (
-    <section className="table-card" style={{ margin: 0, padding: '0', background: 'transparent', boxShadow: 'none' }}>
+    <article className="a4-document-page">
+      {/* ── Official ETU Header or Clean Medical Subtitle ────────────────── */}
       {showFooter ? (
-        <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '2px solid var(--color-outline-variant, #e2e8f0)', paddingBottom: '12px' }}>
-          <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '85px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 8px', display: 'block' }} />
-          <h2 style={{ margin: '2px 0 0', color: 'var(--color-primary, #075c91)', fontSize: '1.35rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ETU Diagnostic Laboratory</h2>
-          <p className="eyebrow" style={{ margin: '4px 0 0', color: '#0369a1', fontWeight: 700, letterSpacing: '0.8px' }}>{reportSubTitle}</p>
-        </div>
+        <header className="a4-header">
+          <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" className="logo-img" />
+          <h1>ETU Diagnostic Laboratory</h1>
+          <p className="sub">{reportSubTitle}</p>
+        </header>
       ) : (
-        <div style={{ marginBottom: '14px', borderBottom: '2px solid #075c91', paddingBottom: '8px' }}>
-          <h3 style={{ margin: 0, color: '#075c91', fontSize: '1.15rem', textTransform: 'uppercase' }}>{reportSubTitle}</h3>
-        </div>
+        <header className="a4-header-clean">
+          <h2>{reportSubTitle}</h2>
+        </header>
       )}
 
-      {/* Patient & Report Metadata Grid */}
-      <div className="form-grid" style={{ gap: '10px 20px', marginBottom: '16px', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-        <p style={{ margin: 0 }}><strong>Patient Name:</strong> {p.name || '—'}</p>
-        <p style={{ margin: 0 }}><strong>Patient ID:</strong> {p.patientId || '—'}</p>
-        <p style={{ margin: 0 }}><strong>Barcode:</strong> {p.barcode || p.patientId || '—'}</p>
-        <p style={{ margin: 0 }}><strong>Age / Sex:</strong> {p.age || '—'} / {p.sex || '—'}</p>
-        <p style={{ margin: 0 }}><strong>Examination / Specimen:</strong> {report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr}</p>
-        <p style={{ margin: 0 }}><strong>Registration Date:</strong> {new Date(p.registrationDate || p.createdDate || report.createdDate).toLocaleString()}</p>
-        <p style={{ margin: 0 }}><strong>Branch:</strong> 📍 {report.branchName || p.branchName || 'Main'}</p>
-        <p style={{ margin: 0 }}><strong>Phone:</strong> {p.phone || '—'}</p>
-        {(p.systolicBP || p.diastolicBP) && (
-          <p style={{ margin: 0 }}><strong>Blood Pressure:</strong> {p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</p>
-        )}
-        {p.referralHospital && (
-          <>
-            <p style={{ margin: 0 }}><strong>Referring Hospital:</strong> {p.referralHospital}</p>
-            <p style={{ margin: 0 }}><strong>Hospital Address:</strong> {p.address || '—'}</p>
-          </>
-        )}
-      </div>
+      {/* ── Patient & Examination Information ─────────────────────────── */}
+      <section className="a4-section" style={{ marginTop: '10px' }}>
+        <h2>Patient & Case Information</h2>
+        <div className="a4-patient-grid">
+          <div><b>Patient Name:</b> <span>{p.name || '—'}</span></div>
+          <div><b>Patient ID:</b> <span>{p.patientId || '—'}</span></div>
+          <div><b>Age / Sex:</b> <span>{p.age || '—'} / {p.sex || '—'}</span></div>
+          <div><b>Phone:</b> <span>{p.phone || '—'}</span></div>
+          <div><b>Examination Type:</b> <span>{report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr}</span></div>
+          <div><b>Registration Date:</b> <span>{new Date(p.registrationDate || p.createdDate || report.createdDate || Date.now()).toLocaleString()}</span></div>
+          <div><b>Report Date:</b> <span>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</span></div>
+          <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
+          {(p.systolicBP || p.diastolicBP) && (
+            <div><b>Blood Pressure:</b> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
+          )}
+          {p.referralHospital && (
+            <>
+              <div><b>Referral Hospital:</b> <span>{p.referralHospital}</span></div>
+              <div><b>Hospital Address:</b> <span>{p.address || '—'}</span></div>
+            </>
+          )}
+        </div>
+      </section>
 
-
-
-      {/* Test Parameters & Results Table — grouped by main category */}
+      {/* ── Main Examination & Report Findings ─────────────────────────── */}
       {(() => {
-        const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
-        const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
-
+        // 1. Pathology Report
         if (isPathology) {
           if (report.reportType === 'Option A' || (!report.reportType && report.reportContent)) {
             return (
-              <div style={{ margin: '14px 0', padding: '16px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#075c91', textTransform: 'uppercase' }}>Pathology Examination Report ({report.testType || 'Biopsy'})</h4>
-                <div className="rich-report-body" dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }} />
-              </div>
+              <section className="a4-section">
+                <h2>Pathology Examination Report</h2>
+                <div
+                  className="a4-rich-body"
+                  dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }}
+                />
+              </section>
             );
           }
           const s = report.structuredReport || {};
           return (
-            <div style={{ margin: '14px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <h4 style={{ margin: '0 0 4px 0', color: '#075c91', textTransform: 'uppercase' }}>Structured Pathology Findings ({report.testType || 'Biopsy'})</h4>
-              {s.clinicalHistory && <div><b style={{ color: '#075c91' }}>Clinical History:</b> <div>{s.clinicalHistory}</div></div>}
-              {s.specimen && <div><b style={{ color: '#075c91' }}>Specimen / Site:</b> <div>{s.specimen}</div></div>}
-              {s.grossDescription && <div><b style={{ color: '#075c91' }}>Gross Description:</b> <div>{s.grossDescription}</div></div>}
-              {s.microscopicDescription && <div><b style={{ color: '#075c91' }}>Microscopic Findings:</b> <div>{s.microscopicDescription}</div></div>}
-              {s.cytologicalFindings && <div><b style={{ color: '#075c91' }}>Cytological Findings:</b> <div>{s.cytologicalFindings}</div></div>}
-              {s.diagnosis && <div style={{ background: '#f0f7fa', padding: '10px 14px', borderLeft: '4px solid #075c91', borderRadius: '4px' }}><b style={{ color: '#075c91' }}>Pathological Diagnosis:</b> <div style={{ fontWeight: 'bold' }}>{s.diagnosis}</div></div>}
-              {s.comments && <div><b style={{ color: '#075c91' }}>Comments:</b> <div>{s.comments}</div></div>}
-              {s.recommendation && <div><b style={{ color: '#075c91' }}>Recommendations:</b> <div>{s.recommendation}</div></div>}
-            </div>
+            <section className="a4-section">
+              <h2>Structured Pathology Findings</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {s.clinicalHistory && <div><b style={{ color: '#075c91' }}>Clinical History:</b> <div>{s.clinicalHistory}</div></div>}
+                {s.specimen && <div><b style={{ color: '#075c91' }}>Specimen / Site:</b> <div>{s.specimen}</div></div>}
+                {s.grossDescription && <div><b style={{ color: '#075c91' }}>Gross Description:</b> <div>{s.grossDescription}</div></div>}
+                {s.microscopicDescription && <div><b style={{ color: '#075c91' }}>Microscopic Findings:</b> <div>{s.microscopicDescription}</div></div>}
+                {s.cytologicalFindings && <div><b style={{ color: '#075c91' }}>Cytological Findings:</b> <div>{s.cytologicalFindings}</div></div>}
+                {(s.rbcMorphology || s.wbcMorphology || s.plateletMorphology) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div><b style={{ color: '#075c91', fontSize: '11.5px' }}>RBC Morphology:</b> <div style={{ fontSize: '12.5px' }}>{s.rbcMorphology}</div></div>
+                    <div><b style={{ color: '#075c91', fontSize: '11.5px' }}>WBC Morphology:</b> <div style={{ fontSize: '12.5px' }}>{s.wbcMorphology}</div></div>
+                    <div><b style={{ color: '#075c91', fontSize: '11.5px' }}>Platelet Morphology:</b> <div style={{ fontSize: '12.5px' }}>{s.plateletMorphology}</div></div>
+                  </div>
+                )}
+                {s.diagnosis && (
+                  <div style={{ background: '#f0f7fa', padding: '10px 14px', borderLeft: '4px solid #075c91', borderRadius: '4px' }}>
+                    <b style={{ color: '#075c91', fontSize: '12.5px', textTransform: 'uppercase' }}>Pathological Diagnosis:</b>
+                    <div style={{ fontWeight: 'bold', fontSize: '13.5px', color: '#0f172a', marginTop: '3px' }}>{s.diagnosis}</div>
+                  </div>
+                )}
+                {s.comments && <div><b style={{ color: '#075c91' }}>Comments:</b> <div>{s.comments}</div></div>}
+                {s.recommendation && <div><b style={{ color: '#075c91' }}>Recommendations:</b> <div>{s.recommendation}</div></div>}
+              </div>
+            </section>
           );
         }
 
+        // 2. Radiology Report
         if (isRadiology) {
           const examLabel = report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging');
           if (report.reportType === 'Option A' || (!report.reportType && report.reportContent)) {
             return (
-              <div style={{ margin: '14px 0', padding: '16px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#075c91', textTransform: 'uppercase' }}>Radiology Examination Report ({examLabel})</h4>
-                <div className="rich-report-body" dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }} />
-              </div>
+              <section className="a4-section">
+                <h2>Radiology & Medical Imaging Report</h2>
+                <div
+                  className="a4-rich-body"
+                  dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }}
+                />
+              </section>
             );
           }
           const s = report.structuredReport || {};
           return (
-            <div style={{ margin: '14px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <h4 style={{ margin: '0 0 4px 0', color: '#075c91', textTransform: 'uppercase' }}>Structured Radiology Findings ({examLabel})</h4>
-              {s.clinicalInformation && <div><b style={{ color: '#075c91' }}>Clinical Information:</b> <div>{s.clinicalInformation}</div></div>}
-              {s.technique && <div><b style={{ color: '#075c91' }}>Technique:</b> <div>{s.technique}</div></div>}
-              {s.findings && <div><b style={{ color: '#075c91' }}>Imaging Findings:</b> <div>{s.findings}</div></div>}
-              {s.impression && <div style={{ background: '#f0f7fa', padding: '10px 14px', borderLeft: '4px solid #075c91', borderRadius: '4px' }}><b style={{ color: '#075c91' }}>Impression:</b> <div style={{ fontWeight: 'bold' }}>{s.impression}</div></div>}
-              {s.recommendation && <div><b style={{ color: '#075c91' }}>Recommendations:</b> <div>{s.recommendation}</div></div>}
-            </div>
+            <section className="a4-section">
+              <h2>Structured Imaging Findings</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {s.clinicalInformation && <div><b style={{ color: '#075c91' }}>Clinical Information / Indications:</b> <div>{s.clinicalInformation}</div></div>}
+                {s.technique && <div><b style={{ color: '#075c91' }}>Technique / Protocol:</b> <div>{s.technique}</div></div>}
+                {(s.liver || s.gallbladder || s.pancreas || s.spleen || s.kidneys || s.urinaryBladder) && (
+                  <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <b style={{ color: '#075c91', fontSize: '12px', textTransform: 'uppercase' }}>Sonographic Organ Findings:</b>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px 16px', marginTop: '6px', fontSize: '12.5px' }}>
+                      {s.liver && <div><b>Liver:</b> {s.liver}</div>}
+                      {s.gallbladder && <div><b>Gallbladder & Biliary:</b> {s.gallbladder}</div>}
+                      {s.pancreas && <div><b>Pancreas:</b> {s.pancreas}</div>}
+                      {s.spleen && <div><b>Spleen:</b> {s.spleen}</div>}
+                      {s.kidneys && <div><b>Kidneys:</b> {s.kidneys}</div>}
+                      {s.urinaryBladder && <div><b>Urinary Bladder:</b> {s.urinaryBladder}</div>}
+                    </div>
+                  </div>
+                )}
+                {s.findings && <div><b style={{ color: '#075c91' }}>General Findings:</b> <div>{s.findings}</div></div>}
+                {s.impression && (
+                  <div style={{ background: '#f0f7fa', padding: '10px 14px', borderLeft: '4px solid #075c91', borderRadius: '4px' }}>
+                    <b style={{ color: '#075c91', fontSize: '12.5px', textTransform: 'uppercase' }}>Radiological Impression / Conclusion:</b>
+                    <div style={{ fontWeight: 'bold', fontSize: '13.5px', color: '#0f172a', marginTop: '3px' }}>{s.impression}</div>
+                  </div>
+                )}
+                {s.recommendation && <div><b style={{ color: '#075c91' }}>Recommendations:</b> <div>{s.recommendation}</div></div>}
+              </div>
+            </section>
           );
         }
 
+        // 3. Standard Laboratory Results
         const results = report.results || [];
         if (!results.length) {
           return (
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px' }}>
-              <thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th style={{ textAlign: 'center' }}>Flag</th></tr></thead>
-              <tbody><tr><td colSpan="5" style={{ fontStyle: 'italic', textAlign: 'center' }}>No test results recorded for this report.</td></tr></tbody>
-            </table>
+            <section className="a4-section">
+              <h2>Laboratory Results</h2>
+              <table className="a4-table">
+                <thead><tr><th>Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th style={{ textAlign: 'center' }}>Flag</th></tr></thead>
+                <tbody><tr><td colSpan="5" style={{ fontStyle: 'italic', textAlign: 'center' }}>No test results recorded for this report.</td></tr></tbody>
+              </table>
+            </section>
           );
         }
 
@@ -232,7 +281,6 @@ export function ReportPreview({ report, showFooter = true }) {
           subMap.get(subKey).push(row);
         });
 
-        // Sort groups to match MAIN_CATEGORY_ORDER
         const sortedGroups = Array.from(groups.entries()).sort(([catA], [catB]) => {
           const idxA = MAIN_CATEGORY_ORDER.indexOf(catA);
           const idxB = MAIN_CATEGORY_ORDER.indexOf(catB);
@@ -245,163 +293,118 @@ export function ReportPreview({ report, showFooter = true }) {
         const testInterpretations = Array.isArray(report.testInterpretations) ? report.testInterpretations : [];
         const findTestInterps = (catName) => {
           const norm = normalizeCategoryName(catName);
-          const match = testInterpretations.find(t =>
-            normalizeCategoryName(t.testName) === norm
-          );
+          const match = testInterpretations.find(t => normalizeCategoryName(t.testName) === norm);
           return match?.interpretations || [];
         };
 
-        return sortedGroups.map(([catName, subMap]) => {
-          const testInterps = findTestInterps(catName);
+        return (
+          <section className="a4-section">
+            <h2>Laboratory Results</h2>
+            {sortedGroups.map(([catName, subMap]) => {
+              const testInterps = findTestInterps(catName);
 
-          return (
-            <div key={catName} style={{ marginBottom: '22px' }}>
-              <h4 style={{
-                margin: '0 0 10px 0',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, var(--color-primary, #075c91) 0%, #0ea5e9 100%)',
-                color: '#ffffff',
-                fontSize: '0.85rem',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>
-                {catName}
-              </h4>
+              return (
+                <div key={catName} style={{ marginBottom: '16px' }}>
+                  <h3 style={{ margin: '0 0 6px 0', padding: '5px 10px', background: '#075c91', color: '#ffffff', borderRadius: '4px', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    {catName}
+                  </h3>
 
-              {Array.from(subMap.entries()).map(([subKey, rows]) => {
-                return (
-                  <div key={subKey} style={{ marginBottom: '14px' }}>
-                    {subKey !== 'GENERAL' && (
-                      <h5 style={{
-                        margin: '0 0 6px 0',
-                        padding: '4px 10px',
-                        background: '#e0f2fe',
-                        color: '#0369a1',
-                        borderRadius: '6px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        display: 'inline-block'
-                      }}>
-                        {subKey}
-                      </h5>
-                    )}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
-                      <thead>
-                        <tr>
-                          <th>Parameter</th>
-                          <th>Result</th>
-                          <th>SI Unit</th>
-                          <th>Reference Range</th>
-                          <th style={{ textAlign: 'center' }}>Flag</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row, i) => (
-                          <tr key={`${row.sampleName}-${i}`}>
-                            <td>
-                              <strong>{row.sampleName}</strong>
-                              {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant)', fontSize: '0.78rem' }}>{row.remarks}</small>}
-                            </td>
-                            <td><strong>{row.result}</strong></td>
-                            <td>{row.unit || '—'}</td>
-                            <td>{row.referenceValue || '—'}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={p.sex} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-
-              {/* Render Clinical Interpretation for this Laboratory Test */}
-              {testInterps.length > 0 && (
-                <div style={{ marginTop: '10px', padding: '12px 16px', background: 'var(--color-surface-container, #f8fafc)', borderLeft: '4px solid var(--color-primary, #075c91)', borderRadius: '8px', border: '1px solid var(--color-outline-variant, #e2e8f0)' }}>
-                  <strong style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary, #075c91)', marginBottom: '8px', letterSpacing: '0.04em' }}>
-                    🩺 Clinical Interpretation
-                  </strong>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {testInterps.map((item, idx) => (
-                      <div key={idx} style={{ padding: '8px 12px', background: 'var(--card-bg, #ffffff)', borderRadius: '6px', border: '1px solid var(--card-border, #e2e8f0)' }}>
-                        <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-on-surface, #1e293b)', marginBottom: '2px' }}>{item.title}</strong>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--color-on-surface-variant, #516a75)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{item.interpretation}</span>
+                  {Array.from(subMap.entries()).map(([subKey, rows]) => {
+                    return (
+                      <div key={subKey} style={{ marginBottom: '8px' }}>
+                        {subKey !== 'GENERAL' && (
+                          <h4 style={{ margin: '4px 0', padding: '2px 8px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontSize: '11px', textTransform: 'uppercase', display: 'inline-block' }}>
+                            {subKey}
+                          </h4>
+                        )}
+                        <table className="a4-table">
+                          <thead>
+                            <tr>
+                              <th>Parameter</th>
+                              <th>Result</th>
+                              <th>SI Unit</th>
+                              <th>Reference Range</th>
+                              <th style={{ textAlign: 'center' }}>Flag</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row, i) => (
+                              <tr key={`${row.sampleName}-${i}`}>
+                                <td>
+                                  <strong>{row.sampleName}</strong>
+                                  {row.remarks && <small style={{ display: 'block', color: '#64748b', fontSize: '10.5px' }}>{row.remarks}</small>}
+                                </td>
+                                <td><strong>{row.result}</strong></td>
+                                <td>{row.unit || '—'}</td>
+                                <td>{row.referenceValue || '—'}</td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <FlagBadge flag={row.flag} result={row.result} referenceValue={row.referenceValue} sex={p.sex} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
+
+                  {/* Render Clinical Interpretation */}
+                  {testInterps.length > 0 && (
+                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#f8fafc', borderLeft: '3.5px solid #075c91', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                      <strong style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#075c91', marginBottom: '4px' }}>
+                        🩺 Clinical Interpretation
+                      </strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {testInterps.map((item, idx) => (
+                          <div key={idx} style={{ fontSize: '11.5px', color: '#1e293b' }}>
+                            <strong>{item.title}:</strong> <span>{item.interpretation}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        });
+              );
+            })}
+          </section>
+        );
       })()}
 
-      {/* Public Sharing Banner */}
-      {isApproved ? (
-        <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--color-surface-container-high, #e0f2fe)', border: '1px solid var(--color-outline-variant, #bae6fd)', borderRadius: '10px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+      {/* ── Authorization & Sign-off Section ─────────────────────────── */}
+      <section className="a4-section">
+        <h2>Authorization & Sign-off</h2>
+        <div className="a4-signoff-grid">
           <div>
-            <strong style={{ fontSize: '0.85rem', color: '#0369a1', display: 'block' }}>🌐 Public Report Sharing Link</strong>
-            <span style={{ fontSize: '0.78rem', color: '#334155', wordBreak: 'break-all' }}>
-              {currentToken
-                ? buildPublicReportUrl(currentToken)
-                : 'Generating public share link…'}
-            </span>
+            <b>Authorized Specialist:</b>
+            <strong>{preparedByName}</strong>
           </div>
-          {currentToken && (
-            <button
-              type="button"
-              className="secondary"
-              style={{ fontSize: '0.8rem', padding: '6px 14px' }}
-              onClick={() => {
-                const shareUrl = buildPublicReportUrl(currentToken);
-                navigator.clipboard.writeText(shareUrl);
-                alert('Public report sharing URL copied to clipboard!\n\n' + shareUrl);
-              }}
-            >
-              📋 Copy Public Report Link
-            </button>
-          )}
+          <div>
+            <b>Approved By:</b>
+            <strong>Dr. {approvedByName}</strong>
+            <span style={{ fontSize: '10.5px', color: '#64748b' }}>({approverRoleTitle})</span>
+          </div>
+          <div>
+            <b>Approval Date:</b>
+            <strong>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</strong>
+          </div>
         </div>
-      ) : (
-        <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--color-surface-container, #f8fafc)', border: '1px solid var(--color-outline-variant, #e2e8f0)', borderRadius: '10px' }}>
-          <strong style={{ fontSize: '0.85rem', color: 'var(--color-on-surface-variant, #64748b)', display: 'block' }}>🌐 Public Report Sharing</strong>
-          <span style={{ fontSize: '0.78rem', color: 'var(--color-on-surface-variant, #64748b)' }}>
-            Public sharing will become available after final approval.
-          </span>
-        </div>
-      )}
+      </section>
 
-      {/* Authorization & Sign-off Section */}
-      <div style={{ marginTop: '18px', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: '#075c91' }}>
-          Authorization & Sign-off
-        </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px 16px', fontSize: '0.85rem' }}>
-          <div><strong>Authorized Specialist:</strong> {report.technician?.fullName || report.submittedBy?.fullName || 'Clinical Specialist'}</div>
-          <div><strong>Approved By:</strong> Dr. {report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || 'Pending Specialist Approval'} ({isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : 'Approver'})</div>
-          <div><strong>Approval Date:</strong> {new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</div>
-        </div>
-      </div>
-
-      {/* Remarks / Comments */}
+      {/* Remarks */}
       {report.comments && (
-        <p style={{ margin: '8px 0 0 0', fontSize: '0.88rem' }}>
-          <strong>Collector Comments:</strong> {report.comments}
+        <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#475569' }}>
+          <strong>General Comments:</strong> {report.comments}
         </p>
       )}
 
+      {/* ── Official Footer Branding (Controlled by showFooter) ───────── */}
       {showFooter && (
-        <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#64748b' }}>
+        <footer className="a4-footer">
           <span>Prepared & Verified Diagnostically</span>
-          <span style={{ fontWeight: 700, color: '#075c91' }}>ETU Diagnostic Laboratory</span>
-        </div>
+          <span style={{ fontWeight: 800, color: '#075c91', letterSpacing: '0.4px' }}>ETU DIAGNOSTIC LABORATORY</span>
+        </footer>
       )}
-    </section>
+    </article>
   );
 }
 

@@ -221,10 +221,9 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   }
 
   const footerSection = showFooter ? `
-    <footer class="footer">
-      <span>Prepared / Authorized by<br><b>${preparedByName}</b></span>
-      <span>Approved by<br><b>Dr. ${approvedByName}</b> (${safe(approverRoleTitle)})</span>
-      <span>ETU Diagnostic Laboratory</span>
+    <footer class="footer" style="margin-top: 22px; padding-top: 10px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px;">
+      <span>Prepared & Verified Diagnostically</span>
+      <span style="font-weight: 800; color: #075c91; letter-spacing: 0.4px;">ETU DIAGNOSTIC LABORATORY</span>
     </footer>
   ` : '';
 
@@ -234,40 +233,43 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   <meta charset="utf-8">
   <title>ETU Diagnostic Laboratory Report</title>
   <style>
-    @page { size: A4; margin: 12mm; }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: #eaf1f5; color: #203640; font: 13.5px Arial, sans-serif; }
-    .toolbar { padding: 10px; text-align: center; background: #063d5b; }
-    .toolbar button { padding: 7px 14px; border: 0; border-radius: 5px; margin: 0 4px; font-weight: bold; cursor: pointer; }
-    .toolbar .primary { background: #17a2b8; color: white; }
-    .page { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 14mm; background: white; box-shadow: 0 2px 14px rgba(0,0,0,0.15); }
-    .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 3px solid #087ca8; padding-bottom: 12px; }
-    .logo { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 15px; background: linear-gradient(135deg, #075c91, #10a4c7); color: #fff; font-size: 22px; font-weight: 800; margin-bottom: 8px; }
-    .header h1 { margin: 6px 0 0; color: #075c91; font-size: 24px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .header p.sub { margin: 4px 0 0 0; font-size: 13px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 1px; }
-    .section { margin-top: 18px; page-break-inside: avoid; break-inside: avoid; }
-    .section h2 { margin: 0 0 10px; padding: 7px 11px; background: #e8f5fa; color: #075c91; border-left: 4px solid #0b95b7; font-size: 12.5px; text-transform: uppercase; letter-spacing: .5px; }
-    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; font-size: 12.5px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
+    body { margin: 0; background: #e2e8f0; color: #0f172a; font: 13px Arial, Helvetica, sans-serif; line-height: 1.55; }
+    .toolbar { padding: 10px; text-align: center; background: #075c91; position: sticky; top: 0; z-index: 100; }
+    .toolbar button { padding: 7px 16px; border: 0; border-radius: 5px; margin: 0 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    .toolbar .primary { background: #0b95b7; color: white; }
+    .page { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 16mm; background: white; box-shadow: 0 4px 25px rgba(0,0,0,0.15); border-radius: 2px; }
+    .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2.5px solid #087ca8; padding-bottom: 12px; margin-bottom: 14px; }
+    .header h1 { margin: 2px 0 0; color: #075c91; font-size: 22px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; }
+    .header p.sub { margin: 3px 0 0; font-size: 12.5px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.8px; }
+    .section { margin-top: 14px; page-break-inside: avoid; break-inside: avoid; }
+    .section h2 { margin: 0 0 8px; padding: 6px 10px; background: #e8f5fa; color: #075c91; border-left: 4px solid #0b95b7; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
+    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 20px; font-size: 12.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
     .patient div { display: flex; gap: 8px; }
-    .patient b { min-width: 115px; color: #475569; }
+    .patient b { min-width: 125px; color: #475569; }
     .result-cat-block { margin-bottom: 16px; page-break-inside: avoid; break-inside: avoid; }
-    .result-cat-header { margin: 0 0 6px 0; padding: 6px 12px; background: #075c91; color: #ffffff; border-radius: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
-    table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+    .result-cat-header { margin: 0 0 6px 0; padding: 5px 10px; background: #075c91; color: #ffffff; border-radius: 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; page-break-inside: auto; }
     tr { page-break-inside: avoid; break-inside: avoid; }
-    th { background: #075c91; color: white; text-align: left; padding: 8px 10px; font-size: 12px; text-transform: uppercase; }
-    td { padding: 8px 10px; border-bottom: 1px solid #d6e2e7; font-size: 12.5px; }
+    th { background: #075c91; color: white; text-align: left; padding: 7px 10px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; font-size: 12.5px; }
     tbody tr:nth-child(even) { background: #f8fafc; }
-    td small { display: block; color: #657d87; margin-top: 4px; font-size: 11px; }
-    .rich-report-body { word-break: break-word; line-height: 1.6; }
+    td small { display: block; color: #64748b; margin-top: 2px; font-size: 10.5px; }
+    .rich-report-body { padding: 12px 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; line-height: 1.6; color: #0f172a; word-break: break-word; }
     .rich-report-body img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 4px; page-break-inside: avoid; break-inside: avoid; }
     .rich-report-body table { width: 100%; border-collapse: collapse; margin: 10px 0; page-break-inside: avoid; break-inside: avoid; }
     .rich-report-body table th, .rich-report-body table td { border: 1px solid #cbd5e1; padding: 6px 10px; }
-    .footer { margin-top: 25px; padding-top: 10px; border-top: 1px solid #c9d9df; display: flex; justify-content: space-between; color: #59727c; font-size: 11px; page-break-inside: avoid; break-inside: avoid; }
-    .footer b { color: #203640; }
+    .signoff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; font-size: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
+    .signoff-grid div { display: flex; flex-direction: column; gap: 2px; }
+    .signoff-grid b { color: #475569; }
+    .signoff-grid strong { color: #0f172a; }
+    .footer { margin-top: 22px; padding-top: 10px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px; page-break-inside: avoid; break-inside: avoid; }
     @media print {
-      body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .toolbar { display: none; }
-      .page { margin: 0; width: 100%; min-height: auto; padding: 10mm 12mm; box-shadow: none; }
+      body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .toolbar { display: none !important; }
+      .page { margin: 0 !important; width: 100% !important; max-width: 100% !important; min-height: auto !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
+      .section, .patient, .rich-report-body img, .rich-report-body table, .signoff-grid, .footer { page-break-inside: avoid !important; break-inside: avoid !important; }
     }
   </style>
 </head>
@@ -311,10 +313,10 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 
     <section class="section">
       <h2>Authorization & Sign-off</h2>
-      <div class="patient">
-        <div><b>Authorized Specialist</b>${preparedByName}</div>
-        <div><b>Approved By</b>Dr. ${approvedByName} (${safe(approverRoleTitle)})</div>
-        <div><b>Approval Date</b>${safe(reportDateStr)}</div>
+      <div class="signoff-grid">
+        <div><b>Authorized Specialist:</b> <strong>${preparedByName}</strong></div>
+        <div><b>Approved By:</b> <strong>Dr. ${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
+        <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
       </div>
     </section>
 
