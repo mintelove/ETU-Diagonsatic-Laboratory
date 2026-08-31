@@ -1352,7 +1352,7 @@ export default function ReceptionPage() {
 
                 {registrationMode === 'internal-medicine' ? (
                   /* ── DEDICATED INTERNAL MEDICINE REGISTRATION FORM ── */
-                  <form onSubmit={handleProceedToTestSelection}>
+                  <form onSubmit={handleProceedToTestSelection} className="imed-reg-form">
                     <div className="imed-reg-info-banner">
                       <div>
                         <strong>🩺 Internal Medicine Speciality Examination Form</strong>
