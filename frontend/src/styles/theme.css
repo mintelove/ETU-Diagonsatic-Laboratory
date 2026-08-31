@@ -269,6 +269,25 @@ select option {
   color: var(--dropdown-color) !important;
 }
 
+/* ── Internal Medicine Form Date Picker Indicator in Dark Theme ── */
+:root[data-theme='dark'] .imed-reg-form input[type="date"],
+:root[data-theme='dark'] .imed-workspace input[type="date"],
+:root[data-theme='dark'] .imed-card input[type="date"],
+:root[data-theme='dark'] .imed-text-input[type="date"] {
+  color-scheme: dark !important;
+}
+
+:root[data-theme='dark'] .imed-reg-form input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme='dark'] .imed-workspace input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme='dark'] .imed-card input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme='dark'] .imed-text-input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: invert(1) !important;
+}
+
 /* ── 5. DATA TABLES & WRAPPERS ───────────────────────────────────────────── */
 .sample-types-table-wrapper,
 .table-wrapper {

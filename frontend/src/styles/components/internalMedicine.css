@@ -963,16 +963,18 @@
 :root[data-theme='dark'] .imed-reg-form input[type="date"],
 :root[data-theme='dark'] .imed-card input[type="date"],
 :root[data-theme='dark'] .imed-text-input[type="date"] {
-  color-scheme: dark;
+  color-scheme: dark !important;
 }
 
 :root[data-theme='dark'] .imed-workspace input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme='dark'] .imed-reg-form input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme='dark'] .imed-card input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme='dark'] .imed-text-input[type="date"]::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  filter: invert(0.9) brightness(1.2);
-  opacity: 0.95;
+  cursor: pointer !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: invert(1) !important;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
