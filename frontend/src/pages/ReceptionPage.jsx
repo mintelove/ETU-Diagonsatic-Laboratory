@@ -482,6 +482,12 @@ export default function ReceptionPage() {
   const [patientJobTitle, setPatientJobTitle] = useState('');
   const [patientPhoto, setPatientPhoto] = useState('');
 
+  const internalMedicineTest = useMemo(() => {
+    return samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
+  }, [samples]);
+
+  const internalMedicinePrice = internalMedicineTest?.price !== undefined && internalMedicineTest?.price !== null ? internalMedicineTest.price : 1500;
+
   const calculateAgeFromDob = (dobStr) => {
     if (!dobStr) return '';
     const dob = new Date(dobStr);
@@ -686,8 +692,8 @@ export default function ReceptionPage() {
         setToast({ message: 'Please fill in all required patient examination details.', type: 'error' });
         return;
       }
-      // Auto-assign the Internal Medicine test (1,500 ETB)
-      const medTest = samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
+      // Auto-assign the Internal Medicine test from dynamic admin pricing
+      const medTest = internalMedicineTest || samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
       if (medTest) {
         setSelectedSampleIds([medTest._id]);
       }
@@ -1340,12 +1346,12 @@ export default function ReceptionPage() {
                       type="button"
                       onClick={() => {
                         setRegistrationMode('internal-medicine');
-                        const medTest = samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
+                        const medTest = internalMedicineTest || samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
                         if (medTest) setSelectedSampleIds([medTest._id]);
                       }}
                       className={`reception-reg-mode-tab ${registrationMode === 'internal-medicine' ? 'active-imed' : ''}`}
                     >
-                      🩺 Internal Medicine Speciality Form (1,500 ETB)
+                      🩺 Internal Medicine Speciality Form ({formatETB(internalMedicinePrice)})
                     </button>
                   </div>
                 </div>
@@ -1357,11 +1363,11 @@ export default function ReceptionPage() {
                       <div>
                         <strong>🩺 Internal Medicine Speciality Examination Form</strong>
                         <p>
-                          Standardized pre-employment / medical examination registration (Fixed Fee: 1,500 ETB).
+                          Standardized pre-employment / medical examination registration (Fixed Fee: {formatETB(internalMedicinePrice)}).
                         </p>
                       </div>
                       <span className="imed-price-pill">
-                        1,500 ETB
+                        {formatETB(internalMedicinePrice)}
                       </span>
                     </div>
 
@@ -1573,7 +1579,7 @@ export default function ReceptionPage() {
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
                       <button type="submit" disabled={busy} className="primary-button" style={{ background: '#0284c7', borderColor: '#0284c7' }}>
-                        Proceed to Payment (1,500 ETB) →
+                        Proceed to Payment ({formatETB(internalMedicinePrice)}) →
                       </button>
                     </div>
                   </form>
