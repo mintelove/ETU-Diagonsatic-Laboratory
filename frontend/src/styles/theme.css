@@ -273,6 +273,7 @@ select option {
 :root[data-theme='dark'] .imed-reg-form input[type="date"],
 :root[data-theme='dark'] .imed-workspace input[type="date"],
 :root[data-theme='dark'] .imed-card input[type="date"],
+:root[data-theme='dark'] .imed-date-input,
 :root[data-theme='dark'] .imed-text-input[type="date"] {
   color-scheme: dark !important;
 }
@@ -280,12 +281,13 @@ select option {
 :root[data-theme='dark'] .imed-reg-form input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme='dark'] .imed-workspace input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme='dark'] .imed-card input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme='dark'] .imed-date-input::-webkit-calendar-picker-indicator,
 :root[data-theme='dark'] .imed-text-input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer !important;
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
-  filter: invert(1) !important;
+  filter: brightness(1.2) !important;
 }
 
 /* ── 5. DATA TABLES & WRAPPERS ───────────────────────────────────────────── */

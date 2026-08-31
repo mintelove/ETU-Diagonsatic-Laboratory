@@ -1396,6 +1396,7 @@ export default function ReceptionPage() {
                           <input
                             type="date"
                             required
+                            className="imed-date-input"
                             value={patientDateOfBirth}
                             onChange={e => {
                               const dobVal = e.target.value;
@@ -1436,6 +1437,7 @@ export default function ReceptionPage() {
                           <input
                             type="date"
                             required
+                            className="imed-date-input"
                             value={patientPassportIssueDate}
                             onChange={e => setPatientPassportIssueDate(e.target.value)}
                           />

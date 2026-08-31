@@ -703,7 +703,7 @@ export default function InternalMedicineEditor({
               <label style={{ fontSize: '0.78rem', fontWeight: 600 }}>Date:</label>
               <input
                 type="date"
-                className="imed-text-input"
+                className="imed-text-input imed-date-input"
                 value={declaration.signatureDate}
                 onChange={e => setDeclaration(d => ({ ...d, signatureDate: e.target.value }))}
               />
