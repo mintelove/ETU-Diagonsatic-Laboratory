@@ -28,7 +28,9 @@ export async function catalog(req, res, next) {
 
 export async function draft(req, res, next) {
   try {
-    const report = await LabReport.findOne({ patient: req.params.patientId, technician: req.user.id, status: { $in: ['Draft', 'Rejected'] } });
+    const report = await LabReport.findOne({ patient: req.params.patientId, technician: req.user.id, status: { $in: ['Draft', 'Rejected'] } })
+      .populate({ path: 'patient', select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy', populate: [{ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
+      .populate('technician', 'fullName');
     res.json({ report });
   } catch (error) { next(error); }
 }
@@ -36,7 +38,7 @@ export async function draft(req, res, next) {
 export async function generate(req, res, next) {
   try {
     const report = await LabReport.findOne({ patient: req.params.patientId, technician: req.user.id, status: 'Draft' })
-      .populate({ path: 'patient', select: 'patientId barcode name age sex phone laboratoryTests sampleTypes', populate: [{ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
+      .populate({ path: 'patient', select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes', populate: [{ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
       .populate('technician', 'fullName');
     if (!report) throw new AppError('Save a draft before generating the laboratory report.', 422);
     res.json({ report });

@@ -1,0 +1,1008 @@
+/**
+ * Internal Medicine Speciality Examination Form Styles
+ * Provides:
+ * 1. Fast, responsive Sample Collector Result-Entry Interface
+ * 2. Theme-aware Light/Dark WCAG High-Contrast Styling
+ * 3. Receptionist Registration Mode Toggle & Info Banner
+ * 4. Pixel-accurate A4 Document & Print Layout matching the official form
+ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. RECEPTIONIST — REGISTRATION MODE TABS & INFO BANNER
+   ══════════════════════════════════════════════════════════════════════════ */
+.reception-reg-mode-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.reception-reg-mode-tab {
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1.5px solid var(--color-outline-variant, #cbd5e1);
+  background: var(--color-surface-container, #f1f5f9);
+  color: var(--color-on-surface, #0f172a);
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reception-reg-mode-tab:hover {
+  border-color: var(--color-primary, #0284c7);
+  color: var(--color-primary, #0284c7);
+}
+
+.reception-reg-mode-tab.active-standard {
+  background: var(--color-primary, #0284c7) !important;
+  border-color: var(--color-primary, #0284c7) !important;
+  color: #ffffff !important;
+}
+
+.reception-reg-mode-tab.active-imed {
+  background: #0284c7 !important;
+  border-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .reception-reg-mode-tab {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+:root[data-theme='dark'] .reception-reg-mode-tab:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+:root[data-theme='dark'] .reception-reg-mode-tab.active-standard,
+:root[data-theme='dark'] .reception-reg-mode-tab.active-imed {
+  background: #0284c7 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+/* Info Banner in Reception Registration Step 1 */
+.imed-reg-info-banner {
+  background: #f0f9ff;
+  border: 1.5px solid #0284c7;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.imed-reg-info-banner strong {
+  color: #0369a1;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: block;
+}
+
+.imed-reg-info-banner p {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.imed-reg-info-banner .imed-price-pill {
+  background: #0284c7;
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+:root[data-theme='dark'] .imed-reg-info-banner {
+  background: #0c2340;
+  border-color: #38bdf8;
+}
+
+:root[data-theme='dark'] .imed-reg-info-banner strong {
+  color: #38bdf8;
+}
+
+:root[data-theme='dark'] .imed-reg-info-banner p {
+  color: #94a3b8;
+}
+
+:root[data-theme='dark'] .imed-reg-info-banner .imed-price-pill {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. SAMPLE COLLECTOR RESULT-ENTRY WORKSPACE
+   ══════════════════════════════════════════════════════════════════════════ */
+.imed-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 auto;
+  padding: 4px 0 24px;
+  box-sizing: border-box !important;
+}
+
+.imed-workspace *,
+.imed-workspace *::before,
+.imed-workspace *::after {
+  box-sizing: border-box !important;
+}
+
+/* Explicitly override any generic table min-width (like .collection-page table min-width: 720px) */
+.collection-page .collector-report table,
+.collection-page .reception-form table,
+.collector-report .imed-workspace table,
+.imed-workspace table,
+.imed-workspace .imed-entry-table,
+.imed-workspace .imed-patient-grid,
+.imed-workspace .imed-vitals-grid {
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+
+.imed-header-banner {
+  background: linear-gradient(135deg, #075c91 0%, #0369a1 100%);
+  color: #ffffff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 4px 12px rgba(7, 92, 145, 0.15);
+}
+
+.imed-header-banner h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff !important;
+  word-break: break-word;
+}
+
+.imed-header-banner p {
+  margin: 3px 0 0;
+  font-size: 0.82rem;
+  color: #e0f2fe !important;
+  opacity: 0.95;
+}
+
+.imed-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Card Containers */
+.imed-card {
+  background: var(--card-bg, #ffffff);
+  border: 1.5px solid var(--card-border, #cbd5e1);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
+}
+
+.imed-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 2px solid var(--color-outline-variant, #e2e8f0);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.imed-badge-num {
+  background: #075c91;
+  color: #ffffff;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.imed-card-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-on-surface, #0f172a);
+  font-weight: 700;
+}
+
+.imed-card-title small {
+  margin-left: auto;
+  font-size: 0.76rem;
+  color: var(--color-on-surface-variant, #64748b);
+  font-weight: 600;
+}
+
+/* Patient Info Card (Read Only summary) */
+.imed-patient-summary {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+  .imed-patient-summary {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.imed-patient-photo-thumb {
+  width: 85px;
+  height: 105px;
+  border: 2px solid #075c91;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f1f5f9;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box !important;
+}
+
+.imed-patient-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imed-patient-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 14px;
+  font-size: 0.85rem;
+  flex: 1;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.imed-patient-grid div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0 !important;
+}
+
+.imed-patient-grid label {
+  font-size: 0.72rem;
+  color: var(--color-on-surface-variant, #64748b);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+.imed-patient-grid strong {
+  color: var(--color-on-surface, #0f172a);
+  font-weight: 700;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.imed-patient-grid span {
+  color: var(--color-on-surface, #334155);
+  overflow-wrap: break-word;
+}
+
+.imed-patient-grid code {
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* Two-column layout for Clinical Exam & Lab Investigations */
+.imed-two-col-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 1080px) {
+  .imed-two-col-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Fast Data Entry Rows */
+.imed-entry-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  box-sizing: border-box !important;
+}
+
+.imed-entry-table tr {
+  border-bottom: 1px solid var(--color-outline-variant, #e2e8f0);
+}
+
+.imed-entry-table td {
+  padding: 6px 4px;
+  vertical-align: middle;
+  box-sizing: border-box !important;
+}
+
+.imed-entry-table td.item-label {
+  font-weight: 600;
+  font-size: 0.83rem;
+  color: var(--color-on-surface, #1e293b);
+  width: 42% !important;
+  min-width: 0 !important;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  padding-right: 6px;
+}
+
+.imed-entry-table td.item-control {
+  width: 58% !important;
+  min-width: 0 !important;
+}
+
+.imed-quick-select {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.imed-select-box {
+  flex: 1 1 auto;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1.5px solid var(--color-outline-variant, #cbd5e1);
+  background: var(--input-bg, #ffffff);
+  color: var(--input-color, #0f172a);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box !important;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.imed-select-box:focus {
+  border-color: #075c91;
+}
+
+.imed-text-input {
+  flex: 1 1 auto;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--color-outline-variant, #cbd5e1);
+  background: var(--input-bg, #ffffff);
+  color: var(--input-color, #0f172a);
+  outline: none;
+  box-sizing: border-box !important;
+}
+
+.imed-text-input:focus {
+  border-color: #075c91;
+}
+
+/* Vital Signs Fast Inputs Grid */
+.imed-vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.imed-vital-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0 !important;
+}
+
+.imed-vital-item label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-on-surface, #1e293b);
+  overflow-wrap: break-word;
+}
+
+.imed-vital-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.imed-vital-inputs input {
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1.5px solid var(--color-outline-variant, #cbd5e1);
+  border-radius: 6px;
+  background: var(--input-bg, #ffffff);
+  color: var(--input-color, #0f172a);
+  width: 100%;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.imed-vital-inputs input:focus {
+  border-color: #075c91;
+  outline: none;
+}
+
+.imed-vital-inputs span.unit {
+  font-size: 0.76rem;
+  color: var(--color-on-surface-variant, #64748b);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Result Section Fast Selector */
+.imed-result-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.imed-result-btn {
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 2px solid #cbd5e1;
+  background: var(--color-surface, #f8fafc);
+  color: var(--color-on-surface, #334155);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box !important;
+}
+
+.imed-result-btn:hover {
+  border-color: #075c91;
+}
+
+.imed-result-btn.selected-fit {
+  background: #166534 !important;
+  border-color: #166534 !important;
+  color: #ffffff !important;
+}
+
+.imed-result-btn.selected-unfit {
+  background: #991b1b !important;
+  border-color: #991b1b !important;
+  color: #ffffff !important;
+}
+
+.imed-result-btn.selected-cond {
+  background: #d97706 !important;
+  border-color: #d97706 !important;
+  color: #ffffff !important;
+}
+
+/* Declaration Quote Box */
+.imed-decl-quote {
+  background: var(--color-primary-container, #f0f9ff);
+  border-left: 4px solid #075c91;
+  padding: 8px 12px;
+  font-style: italic;
+  font-size: 0.83rem;
+  color: #075c91;
+  border-radius: 4px;
+  margin: 0 0 10px 0;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.imed-decl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.imed-decl-grid div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0 !important;
+}
+
+/* Sticky Bottom Action Bar */
+.imed-bottom-bar {
+  margin-top: 8px;
+  padding: 12px 18px;
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  border: 1.5px solid var(--card-border, #cbd5e1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. DARK THEME SPECIFIC OVERRIDES (HIGH CONTRAST & WCAG ACCESSIBILITY)
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='dark'] .imed-card {
+  background: #131e32 !important;
+  border-color: #24344d !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+:root[data-theme='dark'] .imed-card-title {
+  border-bottom-color: #24344d !important;
+}
+
+:root[data-theme='dark'] .imed-card-title h3 {
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .imed-card-title small {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .imed-badge-num {
+  background: #38bdf8 !important;
+  color: #0f172a !important;
+}
+
+:root[data-theme='dark'] .imed-patient-photo-thumb {
+  border-color: #38bdf8 !important;
+  background: #1e293b !important;
+}
+
+:root[data-theme='dark'] .imed-patient-grid label {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .imed-patient-grid strong {
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .imed-patient-grid span {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='dark'] .imed-entry-table tr {
+  border-bottom-color: #1e293b !important;
+}
+
+:root[data-theme='dark'] .imed-entry-table td.item-label {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme='dark'] .imed-select-box,
+:root[data-theme='dark'] .imed-text-input,
+:root[data-theme='dark'] .imed-vital-inputs input {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .imed-select-box:focus,
+:root[data-theme='dark'] .imed-text-input:focus,
+:root[data-theme='dark'] .imed-vital-inputs input:focus {
+  border-color: #38bdf8 !important;
+}
+
+:root[data-theme='dark'] .imed-vital-item label {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme='dark'] .imed-vital-inputs span.unit {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .imed-result-btn {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+:root[data-theme='dark'] .imed-result-btn:hover {
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+:root[data-theme='dark'] .imed-decl-quote {
+  background: #0c2340 !important;
+  border-left-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+:root[data-theme='dark'] .imed-bottom-bar {
+  background: #131e32 !important;
+  border-color: #24344d !important;
+  color: #f8fafc !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. FINAL A4 PRINTED REPORT & EXACT PREVIEW
+   ══════════════════════════════════════════════════════════════════════════ */
+.imed-a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  padding: 10mm 12mm;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 11.5px;
+  line-height: 1.35;
+  margin: 0 auto;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+  position: relative;
+}
+
+/* Formal Header */
+.imed-a4-header {
+  text-align: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #000000;
+}
+
+.imed-a4-header img.imed-logo {
+  max-height: 65px;
+  width: auto;
+  display: block;
+  margin: 0 auto 4px;
+  object-fit: contain;
+}
+
+.imed-a4-header h1 {
+  margin: 0;
+  font-size: 18px;
+  color: #075c91;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.imed-a4-header h2 {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #000000;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Formal Patient Information Table with Borders */
+.imed-a4-patient-section {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.imed-a4-patient-section table {
+  flex: 1;
+  min-width: 0;
+}
+
+.imed-a4-table-bordered {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #000000;
+  font-size: 10.5px;
+  table-layout: fixed;
+  box-sizing: border-box;
+}
+
+.imed-a4-table-bordered td,
+.imed-a4-table-bordered th {
+  border: 1px solid #000000;
+  padding: 3px 5px;
+  vertical-align: middle;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.imed-a4-table-bordered th {
+  background: #f0f4f8;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-align: left;
+  font-size: 10.5px;
+}
+
+.imed-a4-patient-photo-box {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  height: 105px;
+  border: 1.5px solid #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.imed-a4-patient-photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 2-Column Section: Clinical Exam (44%) & Laboratory Investigations (56%) */
+.imed-a4-two-tables {
+  display: grid;
+  grid-template-columns: minmax(0, 44%) minmax(0, 56%);
+  gap: 8px;
+  margin-bottom: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.imed-a4-two-tables > div {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.imed-a4-table-header {
+  background: #e2e8f0 !important;
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 3.5px 4px !important;
+  letter-spacing: 0.4px;
+}
+
+/* Vital Signs Box */
+.imed-a4-vitals-box {
+  border: 1.5px solid #000000;
+  margin-bottom: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.imed-a4-vitals-header {
+  background: #e2e8f0;
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-bottom: 1px solid #000000;
+  letter-spacing: 0.4px;
+}
+
+.imed-a4-vitals-table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  box-sizing: border-box;
+}
+
+.imed-a4-vitals-table td {
+  border: 1px solid #000000;
+  padding: 3px 6px;
+  font-size: 10.5px;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+
+/* Result Box */
+.imed-a4-result-box {
+  border: 1.5px solid #000000;
+  margin-bottom: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.imed-a4-result-header {
+  background: #e2e8f0;
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-bottom: 1px solid #000000;
+  letter-spacing: 0.4px;
+}
+
+.imed-a4-result-body {
+  padding: 5px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.imed-a4-result-value {
+  font-size: 12.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* Declaration Box */
+.imed-a4-decl-box {
+  border: 1.5px solid #000000;
+  margin-bottom: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.imed-a4-decl-header {
+  background: #e2e8f0;
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-bottom: 1px solid #000000;
+  letter-spacing: 0.4px;
+}
+
+.imed-a4-decl-body {
+  padding: 5px 8px;
+  font-size: 10.5px;
+  box-sizing: border-box;
+}
+
+.imed-a4-decl-text {
+  margin: 0 0 4px 0;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.imed-a4-decl-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 8px;
+  padding-top: 3px;
+  border-top: 1px dashed #718096;
+}
+
+/* Official Footer */
+.imed-a4-footer {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #000000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9.5px;
+  color: #333333;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. PRINT RULES
+   ══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 5mm 7mm;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box !important;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print, .toolbar, button {
+    display: none !important;
+  }
+
+  .imed-a4-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .imed-a4-header,
+  .imed-a4-patient-section,
+  .imed-a4-two-tables,
+  .imed-a4-vitals-box,
+  .imed-a4-result-box,
+  .imed-a4-decl-box,
+  .imed-a4-footer {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

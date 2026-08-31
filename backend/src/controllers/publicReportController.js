@@ -23,7 +23,7 @@ export async function viewPublicReport(req, res, next) {
     })
       .populate({
         path: 'patient',
-        select: 'patientId barcode name age sex phone address referralHospital laboratoryTests sampleTypes',
+        select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType referralHospital laboratoryTests sampleTypes',
         populate: [
           { path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } },
           { path: 'sampleTypes', select: 'name' }
@@ -152,7 +152,7 @@ export async function downloadPublicPdf(req, res, next) {
     const fullReport = await LabReport.findById(report._id)
       .populate({
         path: 'patient',
-        select: 'patientId name age sex phone address referralHospital laboratoryTests sampleTypes',
+        select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType referralHospital laboratoryTests sampleTypes',
         populate: [
           { path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } },
           { path: 'sampleTypes', select: 'name price' }

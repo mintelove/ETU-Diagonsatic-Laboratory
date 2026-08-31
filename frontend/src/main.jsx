@@ -13,6 +13,7 @@ import './styles/variables.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/components/a4Report.css';
+import './styles/components/internalMedicine.css';
 
 import './styles/pages/login.css';
 import './styles/pages/users.css';

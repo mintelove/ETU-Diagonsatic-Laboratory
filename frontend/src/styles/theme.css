@@ -727,7 +727,281 @@ p.empty {
   border-color: rgba(248, 113, 113, 0.35) !important;
 }
 
-/* ── 10. PRINT OVERRIDES ─────────────────────────────────────────────────── */
+/* ── 10. A4 REPORT & PREVIEW ISOLATION (STRICT DOCUMENT LIGHT THEME) ────────── */
+/* Ensure report preview always renders as a pure, high-contrast white document
+   regardless of whether application is in Dark Theme or Light Theme. */
+
+:root[data-theme='dark'] .a4-document-page,
+:root[data-theme='light'] .a4-document-page,
+.a4-document-page {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  color-scheme: light !important;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.25) !important;
+}
+
+:root[data-theme='dark'] .a4-document-page *,
+:root[data-theme='light'] .a4-document-page *,
+.a4-document-page * {
+  color-scheme: light !important;
+}
+
+/* Reset table styling inside A4 document */
+:root[data-theme='dark'] .a4-document-page table,
+:root[data-theme='light'] .a4-document-page table,
+.a4-document-page table {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  border-collapse: collapse !important;
+}
+
+:root[data-theme='dark'] .a4-document-page th,
+:root[data-theme='light'] .a4-document-page th,
+.a4-document-page th {
+  background-color: #F0F4F8 !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page td,
+:root[data-theme='light'] .a4-document-page td,
+.a4-document-page td {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+/* Disable dark-mode hover color on report rows */
+:root[data-theme='dark'] .a4-document-page tr:hover td,
+:root[data-theme='dark'] .a4-document-page table tr:hover td,
+:root[data-theme='light'] .a4-document-page tr:hover td,
+:root[data-theme='light'] .a4-document-page table tr:hover td,
+.a4-document-page tr:hover td,
+.a4-document-page table tr:hover td {
+  background-color: inherit !important;
+}
+
+/* Typography inside A4 document */
+:root[data-theme='dark'] .a4-document-page h1,
+:root[data-theme='dark'] .a4-document-page .a4-header h1,
+.a4-document-page h1,
+.a4-document-page .a4-header h1 {
+  color: #075C91 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page h2,
+:root[data-theme='dark'] .a4-document-page .a4-header-clean h2,
+.a4-document-page h2,
+.a4-document-page .a4-header-clean h2 {
+  color: #075C91 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page h3,
+.a4-document-page h3 {
+  color: #0F172A !important;
+}
+
+:root[data-theme='dark'] .a4-document-page p,
+.a4-document-page p {
+  color: #1E293B !important;
+}
+
+:root[data-theme='dark'] .a4-document-page p.sub,
+.a4-document-page p.sub {
+  color: #0369A1 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page strong,
+:root[data-theme='dark'] .a4-document-page b,
+.a4-document-page strong,
+.a4-document-page b {
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page code,
+.a4-document-page code {
+  color: #0F172A !important;
+  background: transparent !important;
+}
+
+:root[data-theme='dark'] .a4-document-page label,
+.a4-document-page label {
+  color: #334155 !important;
+}
+
+/* Internal Medicine specific overrides */
+:root[data-theme='dark'] .a4-document-page .imed-a4-table-bordered,
+.a4-document-page .imed-a4-table-bordered {
+  border: 1.5px solid #000000 !important;
+  background-color: #FFFFFF !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-table-bordered td,
+.a4-document-page .imed-a4-table-bordered td {
+  border: 1px solid #000000 !important;
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-table-bordered th,
+.a4-document-page .imed-a4-table-bordered th {
+  border: 1px solid #000000 !important;
+  background-color: #F0F4F8 !important;
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-table-header,
+.a4-document-page .imed-a4-table-header {
+  background-color: #E2E8F0 !important;
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-patient-photo-box,
+.a4-document-page .imed-a4-patient-photo-box {
+  border: 1.5px solid #000000 !important;
+  background-color: #FAFAFA !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-patient-photo-box div,
+.a4-document-page .imed-a4-patient-photo-box div {
+  color: #64748B !important;
+  background-color: #F8FAFC !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-patient-photo-box img,
+.a4-document-page .imed-a4-patient-photo-box img {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-vitals-box,
+:root[data-theme='dark'] .a4-document-page .imed-a4-result-box,
+:root[data-theme='dark'] .a4-document-page .imed-a4-decl-box,
+.a4-document-page .imed-a4-vitals-box,
+.a4-document-page .imed-a4-result-box,
+.a4-document-page .imed-a4-decl-box {
+  border: 1.5px solid #000000 !important;
+  background-color: #FFFFFF !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-vitals-header,
+:root[data-theme='dark'] .a4-document-page .imed-a4-result-header,
+:root[data-theme='dark'] .a4-document-page .imed-a4-decl-header,
+.a4-document-page .imed-a4-vitals-header,
+.a4-document-page .imed-a4-result-header,
+.a4-document-page .imed-a4-decl-header {
+  background-color: #E2E8F0 !important;
+  color: #000000 !important;
+  border-bottom: 1px solid #000000 !important;
+  font-weight: 800 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-vitals-table td,
+.a4-document-page .imed-a4-vitals-table td {
+  border: 1px solid #000000 !important;
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-vitals-table b,
+:root[data-theme='dark'] .a4-document-page .imed-a4-vitals-table strong,
+.a4-document-page .imed-a4-vitals-table b,
+.a4-document-page .imed-a4-vitals-table strong {
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-result-body,
+:root[data-theme='dark'] .a4-document-page .imed-a4-decl-body,
+.a4-document-page .imed-a4-result-body,
+.a4-document-page .imed-a4-decl-body {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-result-value,
+.a4-document-page .imed-a4-result-value {
+  font-weight: 800 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-decl-text,
+.a4-document-page .imed-a4-decl-text {
+  color: #1E293B !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-decl-grid b,
+.a4-document-page .imed-a4-decl-grid b {
+  color: #475569 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-decl-grid strong,
+.a4-document-page .imed-a4-decl-grid strong {
+  color: #000000 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .imed-a4-footer,
+:root[data-theme='dark'] .a4-document-page .a4-footer,
+.a4-document-page .imed-a4-footer,
+.a4-document-page .a4-footer {
+  color: #475569 !important;
+  border-top: 1px solid #CBD5E1 !important;
+}
+
+/* Standard Laboratory Tables inside A4 */
+:root[data-theme='dark'] .a4-document-page .a4-table th,
+.a4-document-page .a4-table th {
+  background-color: #075C91 !important;
+  color: #FFFFFF !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .a4-table td,
+.a4-document-page .a4-table td {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .a4-table tbody tr:nth-child(even) td,
+.a4-document-page .a4-table tbody tr:nth-child(even) td {
+  background-color: #F8FAFC !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .a4-section h2,
+.a4-document-page .a4-section h2 {
+  background-color: #E8F5FA !important;
+  color: #075C91 !important;
+  border-left: 4px solid #0B95B7 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .a4-patient-grid,
+:root[data-theme='dark'] .a4-document-page .a4-signoff-grid,
+.a4-document-page .a4-patient-grid,
+.a4-document-page .a4-signoff-grid {
+  background-color: #F8FAFC !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .a4-patient-grid b,
+:root[data-theme='dark'] .a4-document-page .a4-signoff-grid b,
+.a4-document-page .a4-patient-grid b,
+.a4-document-page .a4-signoff-grid b {
+  color: #475569 !important;
+}
+
+:root[data-theme='dark'] .a4-document-page .a4-rich-body,
+.a4-document-page .a4-rich-body {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+:root[data-theme='dark'] .a4-document-page img,
+.a4-document-page img {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+/* ── 11. PRINT OVERRIDES ─────────────────────────────────────────────────── */
 @media print {
   html, body {
     background: #FFFFFF !important;

@@ -109,6 +109,44 @@ export async function seedDepartmentCatalogs() {
     }
   }
 
+  // ── 3. Seed INTERNAL MEDICINE SPECIALITY EXAMINATION FORM ─────────────────────
+  let medCat = await LaboratoryTestCategory.findOne({ name: /^Internal Medicine Speciality Examination Form$/i });
+  if (!medCat) {
+    medCat = await LaboratoryTestCategory.create({
+      name: 'Internal Medicine Speciality Examination Form',
+      description: 'Internal Medicine Speciality Comprehensive Medical Examination',
+      displayOrder: 13,
+      status: 'Active',
+      hidden: false
+    });
+    console.log('Created Internal Medicine Speciality Examination Form category.');
+  } else {
+    medCat.name = 'Internal Medicine Speciality Examination Form';
+    medCat.status = 'Active';
+    medCat.hidden = false;
+    medCat.displayOrder = 13;
+    await medCat.save();
+  }
+
+  let medTest = await LaboratoryTest.findOne({ name: /^Internal Medicine Speciality Examination Form$/i, category: medCat._id });
+  if (!medTest) {
+    await LaboratoryTest.create({
+      name: 'Internal Medicine Speciality Examination Form',
+      category: medCat._id,
+      subcategory: '',
+      price: 1500,
+      description: 'Internal Medicine Speciality Comprehensive Examination Form',
+      status: 'Active',
+      displayOrder: 1
+    });
+    console.log('Created Internal Medicine Speciality Examination Form test (1,500 ETB)');
+  } else {
+    medTest.status = 'Active';
+    medTest.category = medCat._id;
+    if (medTest.price === undefined || medTest.price === null) medTest.price = 1500;
+    await medTest.save();
+  }
+
   console.log('Department catalogs verified & seeded successfully.');
   if (isDirect) {
     await mongoose.disconnect();

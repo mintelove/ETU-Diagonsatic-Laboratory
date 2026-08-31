@@ -504,6 +504,47 @@
   .lab-v2-cat-card, .lab-v2-test-card, .lab-v2-checkbox, .lab-v2-cat-chevron { animation: none !important; transition: none !important; }
 }
 
+/* ──── DARK MODE LABORATORY CATEGORY SELECTION CONTRAST ──── */
+:root[data-theme='dark'] .lab-v2-cat-card {
+  background: #131e32 !important;
+  border-color: #24344d !important;
+}
+:root[data-theme='dark'] .lab-v2-cat-header {
+  color: #f8fafc !important;
+}
+:root[data-theme='dark'] .lab-v2-cat-name {
+  color: #f8fafc !important;
+}
+:root[data-theme='dark'] .lab-v2-cat-meta {
+  color: #94a3b8 !important;
+}
+:root[data-theme='dark'] .lab-v2-cat-card:hover {
+  border-color: var(--cat-accent, #38bdf8) !important;
+}
+:root[data-theme='dark'] .lab-v2-cat-toolbar {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root[data-theme='dark'] .lab-v2-cat-search {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root[data-theme='dark'] .lab-v2-test-card {
+  background: #131e32 !important;
+  border-color: #24344d !important;
+}
+:root[data-theme='dark'] .lab-v2-test-info strong {
+  color: #f8fafc !important;
+}
+:root[data-theme='dark'] .lab-v2-test-info small {
+  color: #94a3b8 !important;
+}
+:root[data-theme='dark'] .lab-v2-checkbox {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+
 /* Legacy selector preserved for backward compatibility */
 
 

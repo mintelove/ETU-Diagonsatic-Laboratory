@@ -190,7 +190,7 @@ async function seed(force = false) {
     await seedReferralTests();
     await seedDepartmentCatalogs();
 
-    const validNames = [...mainCategories, 'REFERRAL', 'REFERRAL TESTS', 'PATHOLOGY', 'RADIOLOGY'];
+    const validNames = [...mainCategories, 'REFERRAL', 'REFERRAL TESTS', 'PATHOLOGY', 'RADIOLOGY', 'Internal Medicine Speciality Examination Form'];
     const validCatDocs = await LaboratoryTestCategory.find({ name: { $in: validNames } });
     const validCatIds = validCatDocs.map(c => String(c._id));
 

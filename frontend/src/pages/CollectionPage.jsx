@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useLocation } from 'react-router-dom';
 import LaboratoryResultEditor from '../components/LaboratoryResultEditor.jsx';
+import InternalMedicineEditor from '../components/InternalMedicineEditor.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 const emptyReport = {
@@ -228,8 +229,11 @@ export default function CollectionPage() {
   useEffect(() => {
     const resume = location.state?.resume;
     if (resume) {
-      setSelected(resume.patient);
+      const patientObj = (resume.patient && typeof resume.patient === 'object') ? resume.patient : {};
+      setSelected(patientObj);
       setReport({
+        ...resume,
+        patient: patientObj,
         equipment: resume.equipment || [],
         results: resume.results || [],
         comments: resume.comments || '',
@@ -291,8 +295,10 @@ export default function CollectionPage() {
           }
         } catch (e) {}
       }
-      setSelected(row.patient);
-      setReport(finalReport);
+      const draftPatient = (draft.report?.patient && typeof draft.report.patient === 'object') ? draft.report.patient : {};
+      const mergedPatient = { ...(row.patient || {}), ...draftPatient };
+      setSelected(mergedPatient);
+      setReport({ ...finalReport, patient: mergedPatient });
       setGenerated(null);
       setTab('report');
       setMessage(draft.report || savedLocal ? 'Unfinished collection restored.' : 'Collection started.');
@@ -564,8 +570,34 @@ export default function CollectionPage() {
     </div>
   </div>
 
-  <OrderedTests patient={selected} catalog={catalog} allocationByTest={allocationByTest} />
-  <LaboratoryResultEditor patient={selected} catalog={paramCatalog} labTestCatalog={catalog} reportData={report} onChange={setReport} onSaveDraft={() => save(false)} onGeneratePreview={generate} onSubmitApproval={() => setConfirmSubmit(true)} busy={busy} isSavingDraft={isSavingDraft} isGeneratingPreview={isGeneratingPreview} isSubmitting={isSubmitting} equipmentData={equipment} onPickEquipment={pickEquipment} otherOpen={otherOpen} setOtherOpen={setOtherOpen} onCatalogRefresh={refreshParamCatalog} otherEquipmentForm={<div className="other-equipment-form"><h3>Other Equipment</h3><div className="form-grid">{[['name', 'Equipment Name'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['department', 'Department']].map(([key, label]) => <label key={key}>{label}<input value={other[key]} onChange={e => setOther({ ...other, [key]: e.target.value })} /></label>)}<label className="wide">Remarks<textarea value={other.remarks} onChange={e => setOther({ ...other, remarks: e.target.value })} /></label></div><div className="form-actions"><button type="button" className="secondary" onClick={() => setOtherOpen(false)}>Cancel</button><button type="button" className="primary" onClick={addOther}>Add equipment</button></div></div>} />
+  {Boolean(selected?.examinationFormType === 'Internal Medicine Speciality Examination Form' ||
+    (Array.isArray(selected?.laboratoryTests) && selected.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t))) ||
+    report?.isInternalMedicineForm) ? (
+    <InternalMedicineEditor
+      patient={selected}
+      report={report}
+      onSave={(savedReport) => {
+        setReport(savedReport);
+        setMessage('Draft saved successfully.');
+        load();
+      }}
+      onSubmit={(submittedReport) => {
+        setSelected(null);
+        setTab('queue');
+        setMessage('Internal Medicine Medical Report submitted for approval!');
+        load();
+      }}
+      onCancel={() => {
+        setSelected(null);
+        setTab('queue');
+      }}
+    />
+  ) : (
+    <>
+      <OrderedTests patient={selected} catalog={catalog} allocationByTest={allocationByTest} />
+      <LaboratoryResultEditor patient={selected} catalog={paramCatalog} labTestCatalog={catalog} reportData={report} onChange={setReport} onSaveDraft={() => save(false)} onGeneratePreview={generate} onSubmitApproval={() => setConfirmSubmit(true)} busy={busy} isSavingDraft={isSavingDraft} isGeneratingPreview={isGeneratingPreview} isSubmitting={isSubmitting} equipmentData={equipment} onPickEquipment={pickEquipment} otherOpen={otherOpen} setOtherOpen={setOtherOpen} onCatalogRefresh={refreshParamCatalog} otherEquipmentForm={<div className="other-equipment-form"><h3>Other Equipment</h3><div className="form-grid">{[['name', 'Equipment Name'], ['manufacturer', 'Manufacturer'], ['model', 'Model'], ['department', 'Department']].map(([key, label]) => <label key={key}>{label}<input value={other[key]} onChange={e => setOther({ ...other, [key]: e.target.value })} /></label>)}<label className="wide">Remarks<textarea value={other.remarks} onChange={e => setOther({ ...other, remarks: e.target.value })} /></label></div><div className="form-actions"><button type="button" className="secondary" onClick={() => setOtherOpen(false)}>Cancel</button><button type="button" className="primary" onClick={addOther}>Add equipment</button></div></div>} />
+    </>
+  )}
 </>}</section>}
 {tab === 'stock' && <section className="table-card"><h2>Available consumables</h2><table><thead><tr><th>Item</th><th>Code</th><th>Remaining</th><th>Status</th></tr></thead><tbody>{stock.map(item => <tr key={item._id}><td>{item.itemName}</td><td>{item.itemCode}</td><td>{item.remainingQuantity} {item.unit}</td><td>{item.remainingQuantity <= item.minimumThreshold ? 'Low stock' : 'Available'}</td></tr>)}</tbody></table></section>}
 <ModalPortal isOpen={confirmSubmit} onClose={() => setConfirmSubmit(false)}>

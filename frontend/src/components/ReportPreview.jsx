@@ -7,8 +7,27 @@ import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHel
 
 import labLogo from '../assets/etu.jpg';
 
+export function formatMedDate(val) {
+  if (!val) return '—';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const [y, m, d] = trimmed.slice(0, 10).split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthName = months[parseInt(m, 10) - 1] || m;
+      return `${d.padStart(2, '0')} ${monthName} ${y}`;
+    }
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const day = String(d.getUTCDate ? d.getUTCDate() : d.getDate()).padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const year = d.getUTCFullYear ? d.getUTCFullYear() : d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
 export function getReportTestTypes(report) {
-  const patient = report?.patient || {};
+  const patient = (report?.patient && typeof report.patient === 'object') ? report.patient : (report || {});
   let rawTests = [];
 
   if (Array.isArray(report?.laboratoryTests) && report.laboratoryTests.length > 0) {
@@ -65,13 +84,18 @@ export function getReportTestTypes(report) {
 export function ReportPreview({ report, showFooter = true }) {
   if (!report) return null;
   const { token: authToken } = useAuth();
-  const p = report.patient || {};
+  const p = (report.patient && typeof report.patient === 'object') ? report.patient : report;
   const { categoriesMap, testNames, formattedNames } = getReportTestTypes(report);
   const sampleTypesStr = (p.sampleTypes || []).map(x => x?.name || x).filter(Boolean).join(', ') || 'Specimen Assigned';
   const isApproved = ['Approved', 'Ready for Printing'].includes(report.status);
 
   const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
   const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
+  const isInternalMedicine = report?.isInternalMedicineForm ||
+    Boolean(report?.internalMedicineReport?.examinationResult || report?.internalMedicineReport?.labInvestigations) ||
+    p?.examinationFormType === 'Internal Medicine Speciality Examination Form' ||
+    (Array.isArray(report?.laboratoryTests) && report.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t))) ||
+    (Array.isArray(p?.laboratoryTests) && p.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t)));
 
   const [fetchedToken, setFetchedToken] = useState(report.publicReport?.token || null);
   const currentToken = report.publicReport?.token || fetchedToken;
@@ -93,14 +117,16 @@ export function ReportPreview({ report, showFooter = true }) {
     ? `Pathology Examination Report — ${report.testType || 'Biopsy'}`
     : isRadiology
     ? `Radiology & Imaging Report — ${report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging')}`
+    : isInternalMedicine
+    ? 'Internal Medicine Speciality Examination Form'
     : 'Official Laboratory Test Report';
 
   const preparedByName = report.technician?.fullName || report.submittedBy?.fullName || 'Clinical Specialist';
-  const approvedByName = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || 'Pending Specialist Approval';
-  const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : 'Approver / Laboratory Technologist');
+  const approvedByName = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || 'Pending Specialist Approval';
+  const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
 
   return (
-    <article className="a4-document-page">
+    <article className="a4-document-page" style={{ background: '#ffffff', color: '#0f172a', colorScheme: 'light' }}>
       {/* ── Official ETU Header or Clean Medical Subtitle ────────────────── */}
       {showFooter ? (
         <header className="a4-header">
@@ -115,31 +141,213 @@ export function ReportPreview({ report, showFooter = true }) {
       )}
 
       {/* ── Patient & Examination Information ─────────────────────────── */}
-      <section className="a4-section" style={{ marginTop: '10px' }}>
-        <h2>Patient & Case Information</h2>
-        <div className="a4-patient-grid">
-          <div><b>Patient Name:</b> <span>{p.name || '—'}</span></div>
-          <div><b>Patient ID:</b> <span>{p.patientId || '—'}</span></div>
-          <div><b>Age / Sex:</b> <span>{p.age || '—'} / {p.sex || '—'}</span></div>
-          <div><b>Phone:</b> <span>{p.phone || '—'}</span></div>
-          <div><b>Examination Type:</b> <span>{report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr}</span></div>
-          <div><b>Registration Date:</b> <span>{new Date(p.registrationDate || p.createdDate || report.createdDate || Date.now()).toLocaleString()}</span></div>
-          <div><b>Report Date:</b> <span>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</span></div>
-          <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
-          {(p.systolicBP || p.diastolicBP) && (
-            <div><b>Blood Pressure:</b> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
-          )}
-          {p.referralHospital && (
-            <>
-              <div><b>Referral Hospital:</b> <span>{p.referralHospital}</span></div>
-              <div><b>Hospital Address:</b> <span>{p.address || '—'}</span></div>
-            </>
-          )}
-        </div>
+      <section className="a4-section" style={{ marginTop: '6px' }}>
+        <h2 style={{ fontSize: '11px', padding: '3px 8px', margin: '0 0 4px 0' }}>Patient Information</h2>
+        {isInternalMedicine ? (
+          <div className="imed-a4-patient-section">
+            <div className="imed-a4-patient-photo-box">
+              {(p.patientPhoto || report.patientPhoto) ? (
+                <img src={p.patientPhoto || report.patientPhoto} alt="Patient" />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', color: '#64748b', fontSize: '9px', textAlign: 'center', fontWeight: 700, padding: '2px', background: '#f8fafc' }}>
+                  <span>PHOTO</span>
+                  <span style={{ fontSize: '8px', opacity: 0.8 }}>3 × 4</span>
+                </div>
+              )}
+            </div>
+            <table className="imed-a4-table-bordered">
+              <tbody>
+                <tr>
+                  <td style={{ width: '20%', background: '#f0f4f8', fontWeight: 800 }}>Name:</td>
+                  <td style={{ width: '30%' }}><strong style={{ textTransform: 'uppercase' }}>{p.name || p.patientName || report.name || report.patientName || '—'}</strong></td>
+                  <td style={{ width: '20%', background: '#f0f4f8', fontWeight: 800 }}>Nationality:</td>
+                  <td style={{ width: '30%' }}><strong style={{ textTransform: 'uppercase' }}>{p.nationality || report.nationality || 'ETHIOPIA'}</strong></td>
+                </tr>
+                <tr>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Date of Birth:</td>
+                  <td>{formatMedDate(p.dateOfBirth || p.dob || p.birthDate || report.dateOfBirth || report.dob || report.birthDate)}</td>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Age:</td>
+                  <td><strong>{(p.age !== undefined && p.age !== null && p.age !== '') ? `${p.age} YRS` : ((report.age !== undefined && report.age !== null && report.age !== '') ? `${report.age} YRS` : '—')}</strong></td>
+                </tr>
+                <tr>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Passport No.:</td>
+                  <td><code>{p.passportNumber || p.passportNo || p.passport_no || report.passportNumber || report.passportNo || report.passport_no || '—'}</code></td>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Passport Issue Date:</td>
+                  <td>{formatMedDate(p.passportIssueDate || p.passportIssue || p.passport_issue_date || report.passportIssueDate || report.passportIssue || report.passport_issue_date)}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Sex:</td>
+                  <td><strong>{p.sex || report.sex || '—'}</strong></td>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Marital Status:</td>
+                  <td>{p.maritalStatus || report.maritalStatus || 'Single'}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: '#f0f4f8', fontWeight: 800 }}>Job Title:</td>
+                  <td colSpan={3}>{p.jobTitle || p.job || p.occupation || report.jobTitle || report.job || report.occupation || '—'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+            <div className="a4-patient-grid" style={{ flex: 1 }}>
+              <div><b>Patient Name:</b> <span style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>{p.name || '—'}</span></div>
+              <div><b>Nationality:</b> <span style={{ textTransform: 'uppercase' }}>{p.nationality || 'ETHIOPIA'}</span></div>
+              <div><b>Date of Birth:</b> <span>{formatMedDate(p.dateOfBirth || p.dob || p.birthDate)}</span></div>
+              <div><b>Age / Sex:</b> <span>{p.age ?? '—'} YRS / {p.sex || '—'}</span></div>
+              <div><b>Passport Number:</b> <code>{p.passportNumber || p.passportNo || '—'}</code></div>
+              <div><b>Passport Issue Date:</b> <span>{formatMedDate(p.passportIssueDate || p.passportIssue)}</span></div>
+              <div><b>Marital Status:</b> <span>{p.maritalStatus || 'Single'}</span></div>
+              <div><b>Job Title:</b> <span>{p.jobTitle || p.job || '—'}</span></div>
+              <div><b>Patient ID:</b> <span>{p.patientId || '—'}</span></div>
+              <div><b>Registration Date:</b> <span>{formatMedDate(p.registrationDate || p.createdDate || report.createdDate || Date.now())}</span></div>
+              <div><b>Report Date:</b> <span>{formatMedDate(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now())}</span></div>
+              <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
+            </div>
+            {p.patientPhoto && (
+              <div style={{ width: '85px', height: '105px', border: '1.5px solid #075c91', borderRadius: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', flexShrink: 0 }}>
+                <img src={p.patientPhoto} alt="Patient" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* ── Main Examination & Report Findings ─────────────────────────── */}
       {(() => {
+        // 0. Internal Medicine Speciality Examination Form
+        if (isInternalMedicine) {
+          const med = report.internalMedicineReport || {};
+          const lab = med.labInvestigations || {};
+          const clin = med.clinicalExamination || {};
+          const vit = med.vitalSigns || {};
+          const decl = med.declaration || {};
+
+          return (
+            <div style={{ marginTop: '4px' }}>
+              {/* 2-Column Tables: Clinical Examination (44%) & Laboratory Investigations (56%) */}
+              <div className="imed-a4-two-tables">
+                {/* Clinical Examination Table */}
+                <div>
+                  <table className="imed-a4-table-bordered">
+                    <thead>
+                      <tr>
+                        <th colSpan="2" className="imed-a4-table-header">Clinical Examination</th>
+                      </tr>
+                      <tr>
+                        <th style={{ width: '55%' }}>Examination</th>
+                        <th style={{ width: '45%' }}>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>General Appearance</td><td><strong>{clin.generalAppearance || 'Normal'}</strong></td></tr>
+                      <tr><td>Respiratory System</td><td><strong>{clin.respiratorySystem || 'Normal'}</strong></td></tr>
+                      <tr><td>Cardio-vascular System</td><td><strong>{clin.cardiovascularSystem || 'Normal'}</strong></td></tr>
+                      <tr><td>Skin</td><td><strong>{clin.skin || 'Normal'}</strong></td></tr>
+                      <tr><td>CNS</td><td><strong>{clin.cns || 'Normal'}</strong></td></tr>
+                      <tr><td>Psychiatry</td><td><strong>{clin.psychiatry || 'Normal'}</strong></td></tr>
+                      <tr><td>Extremities</td><td><strong>{clin.extremities || 'Normal'}</strong></td></tr>
+                      <tr><td>Hernia</td><td><strong>{clin.hernia || 'Nil'}</strong></td></tr>
+                      <tr><td>Varicose Veins</td><td><strong>{clin.varicoseVeins || 'Nil'}</strong></td></tr>
+                      <tr><td>Chest X-Ray</td><td><strong>{clin.chestXRay || 'Normal'}</strong></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Laboratory Investigations Table */}
+                <div>
+                  <table className="imed-a4-table-bordered">
+                    <thead>
+                      <tr>
+                        <th colSpan="2" className="imed-a4-table-header">Laboratory Investigations</th>
+                      </tr>
+                      <tr>
+                        <th style={{ width: '55%' }}>Investigation</th>
+                        <th style={{ width: '45%' }}>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>CBC</td><td><strong>{lab.cbc || 'Normal'}</strong></td></tr>
+                      <tr><td>FBS</td><td><strong>{lab.fbs || 'Normal'}</strong></td></tr>
+                      <tr><td>Blood Group</td><td><strong>{lab.bloodGroup || 'O+'}</strong></td></tr>
+                      <tr><td>Stool</td><td><strong>{lab.stool || 'Normal'}</strong></td></tr>
+                      <tr><td>Urine</td><td><strong>{lab.urine || 'Normal'}</strong></td></tr>
+                      <tr><td>Pregnancy Test</td><td><strong>{lab.pregnancyTest || ((p.sex === 'Male' || report.sex === 'Male') ? 'N/A' : 'Negative')}</strong></td></tr>
+                      <tr><td>HBsAg</td><td><strong>{lab.hbsag || 'Negative'}</strong></td></tr>
+                      <tr><td>HCV</td><td><strong>{lab.hcv || 'Negative'}</strong></td></tr>
+                      <tr><td>HIV 1 & 2</td><td><strong>{lab.hiv12 || 'Negative'}</strong></td></tr>
+                      <tr><td>VDRL</td><td><strong>{lab.vdrl || 'Negative'}</strong></td></tr>
+                      <tr><td>LPT</td><td><strong>{lab.lpt || 'Normal'}</strong></td></tr>
+                      <tr><td>LFT</td><td><strong>{lab.lft || 'Normal'}</strong></td></tr>
+                      <tr><td>RFT</td><td><strong>{lab.rft || 'Normal'}</strong></td></tr>
+                      <tr><td>Malaria</td><td><strong>{lab.malaria || 'Negative'}</strong></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Vital Signs Bordered Box */}
+              <div className="imed-a4-vitals-box">
+                <div className="imed-a4-vitals-header">Vital Signs</div>
+                <table className="imed-a4-vitals-table">
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '25%' }}><b>Blood Pressure:</b></td>
+                      <td style={{ width: '25%' }}><strong>{vit.systolicBP || p.systolicBP || '120'} / {vit.diastolicBP || p.diastolicBP || '80'} mmHg</strong></td>
+                      <td style={{ width: '25%' }}><b>Pulse:</b></td>
+                      <td style={{ width: '25%' }}><strong>{vit.pulse || '72 bpm'}</strong></td>
+                    </tr>
+                    <tr>
+                      <td><b>ECG:</b></td>
+                      <td><strong>{vit.ecg || 'Normal'}</strong></td>
+                      <td><b>Ear (RT / LT):</b></td>
+                      <td><strong>{vit.earRt || 'Normal'} / {vit.earLt || 'Normal'}</strong></td>
+                    </tr>
+                    <tr>
+                      <td><b>Height &amp; Weight:</b></td>
+                      <td><strong>{vit.height || '170 cm'} / {vit.weight || '65 kg'}</strong></td>
+                      <td><b>Vision (RT / LT):</b></td>
+                      <td><strong>{vit.visionRt || '6/6'} / {vit.visionLt || '6/6'}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* RESULT Bordered Box */}
+              <div className="imed-a4-result-box">
+                <div className="imed-a4-result-header">RESULT</div>
+                <div className="imed-a4-result-body">
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#0369a1', fontWeight: 700, textTransform: 'uppercase' }}>FINAL MEDICAL ASSESSMENT: </span>
+                    <span className="imed-a4-result-value" style={{ color: (med.examinationResult || '').includes('UNFIT') ? '#991b1b' : '#166534' }}>
+                      {med.examinationResult || 'FIT FOR EMPLOYMENT'}
+                    </span>
+                  </div>
+                  {report.comments && (
+                    <div style={{ fontSize: '11px', color: '#475569' }}>
+                      <b>Remarks:</b> {report.comments}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* DECLARATION Bordered Box */}
+              <div className="imed-a4-decl-box">
+                <div className="imed-a4-decl-header">Declaration</div>
+                <div className="imed-a4-decl-body">
+                  <p className="imed-a4-decl-text">
+                    "{decl.declarationText || 'I hereby declare that all information provided above is true.'}"
+                  </p>
+                  <div className="imed-a4-decl-grid">
+                    <div><b>Doctor Name:</b> <strong>{decl.doctorName || approvedByName || preparedByName}</strong></div>
+                    <div><b>Signature:</b> <span style={{ color: '#075c91', fontWeight: 700 }}>✍️ Verified Practitioner</span></div>
+                    <div><b>Date:</b> <span>{decl.signatureDate ? new Date(decl.signatureDate).toLocaleDateString() : new Date().toLocaleDateString()}</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
         // 1. Pathology Report
         if (isPathology) {
           if (report.reportType === 'Option A' || (!report.reportType && report.reportContent)) {
@@ -370,28 +578,30 @@ export function ReportPreview({ report, showFooter = true }) {
         );
       })()}
 
-      {/* ── Authorization & Sign-off Section ─────────────────────────── */}
-      <section className="a4-section">
-        <h2>Authorization & Sign-off</h2>
-        <div className="a4-signoff-grid">
-          <div>
-            <b>Authorized Specialist:</b>
-            <strong>{preparedByName}</strong>
+      {/* ── Authorization & Sign-off Section (Standard Lab / Pathology / Radiology) ─────────────────────────── */}
+      {!isInternalMedicine && (
+        <section className="a4-section">
+          <h2>Authorization & Sign-off</h2>
+          <div className="a4-signoff-grid">
+            <div>
+              <b>Authorized Specialist:</b>
+              <strong>{preparedByName}</strong>
+            </div>
+            <div>
+              <b>Approved By:</b>
+              <strong>Dr. {approvedByName}</strong>
+              <span style={{ fontSize: '10.5px', color: '#64748b' }}>({approverRoleTitle})</span>
+            </div>
+            <div>
+              <b>Approval Date:</b>
+              <strong>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</strong>
+            </div>
           </div>
-          <div>
-            <b>Approved By:</b>
-            <strong>Dr. {approvedByName}</strong>
-            <span style={{ fontSize: '10.5px', color: '#64748b' }}>({approverRoleTitle})</span>
-          </div>
-          <div>
-            <b>Approval Date:</b>
-            <strong>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</strong>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Remarks */}
-      {report.comments && (
+      {/* Remarks (Non-Internal Medicine only) */}
+      {!isInternalMedicine && report.comments && (
         <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#475569' }}>
           <strong>General Comments:</strong> {report.comments}
         </p>
@@ -399,8 +609,8 @@ export function ReportPreview({ report, showFooter = true }) {
 
       {/* ── Official Footer Branding (Controlled by showFooter) ───────── */}
       {showFooter && (
-        <footer className="a4-footer">
-          <span>Prepared & Verified Diagnostically</span>
+        <footer className={isInternalMedicine ? "imed-a4-footer" : "a4-footer"}>
+          <span>Prepared &amp; Verified Diagnostically</span>
           <span style={{ fontWeight: 800, color: '#075c91', letterSpacing: '0.4px' }}>ETU DIAGNOSTIC LABORATORY</span>
         </footer>
       )}

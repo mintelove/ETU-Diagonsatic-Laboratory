@@ -13,8 +13,9 @@
   min-height: 297mm;
   box-sizing: border-box;
   padding: 12mm 14mm;
-  background: #ffffff;
-  color: #0f172a;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  color-scheme: light !important;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 13px;
   line-height: 1.5;
@@ -22,6 +23,10 @@
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15);
   border-radius: 2px;
   position: relative;
+}
+
+.a4-document-page * {
+  color-scheme: light !important;
 }
 
 /* Header */

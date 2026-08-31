@@ -33,7 +33,8 @@ const CATEGORY_THEMES = {
   'STOOL':                                    { icon: '🔎', gradient: 'linear-gradient(135deg, #b45309 0%, #92400e 100%)', accent: '#b45309', light: 'rgba(180,83,9,0.08)' },
   'URINE AND BODY FLUID':                     { icon: '💧', gradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', accent: '#0284c7', light: 'rgba(2,132,199,0.08)' },
   'REFERRAL':                                 { icon: '🏥', gradient: 'linear-gradient(135deg, #6b7280 0%, #374151 100%)', accent: '#6b7280', light: 'rgba(107,114,128,0.08)' },
-  'MICROBIOLOGY':                             { icon: '🧫', gradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', accent: '#16a34a', light: 'rgba(22,163,74,0.08)' },
+  'INTERNAL MEDICINE':                        { icon: '🩺', gradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', accent: '#0284c7', light: 'rgba(2,132,199,0.08)' },
+  'EXAMINATION FORM':                         { icon: '📋', gradient: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)', accent: '#0f766e', light: 'rgba(15,118,110,0.08)' },
   '_DEFAULT':                                 { icon: '🧪', gradient: 'linear-gradient(135deg, #475569 0%, #334155 100%)', accent: '#475569', light: 'rgba(71,85,105,0.08)' }
 };
 function getCatTheme(catName) {
@@ -471,6 +472,43 @@ export default function ReceptionPage() {
   const [systolicBP, setSystolicBP] = useState('');
   const [diastolicBP, setDiastolicBP] = useState('');
 
+  // Internal Medicine Dedicated Registration Fields
+  const [registrationMode, setRegistrationMode] = useState('standard'); // 'standard' | 'internal-medicine'
+  const [patientNationality, setPatientNationality] = useState('ETHIOPIA');
+  const [patientDateOfBirth, setPatientDateOfBirth] = useState('');
+  const [patientPassportNumber, setPatientPassportNumber] = useState('');
+  const [patientPassportIssueDate, setPatientPassportIssueDate] = useState('');
+  const [patientMaritalStatus, setPatientMaritalStatus] = useState('Single');
+  const [patientJobTitle, setPatientJobTitle] = useState('');
+  const [patientPhoto, setPatientPhoto] = useState('');
+
+  const calculateAgeFromDob = (dobStr) => {
+    if (!dobStr) return '';
+    const dob = new Date(dobStr);
+    if (isNaN(dob.getTime())) return '';
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : 0;
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setToast({ message: 'Patient photo must be less than 2MB.', type: 'error' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPatientPhoto(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Startup payload excludes reports and counselling; those load only when opened.
   const loadData = useCallback(async (signal) => {
     try {
@@ -643,6 +681,20 @@ export default function ReceptionPage() {
 
   const handleProceedToTestSelection = (e) => {
     if (e) e.preventDefault();
+    if (registrationMode === 'internal-medicine') {
+      if (!patientName.trim() || !patientNationality.trim() || !patientDateOfBirth || !patientAge || !patientPassportNumber.trim() || !patientPassportIssueDate || !patientSex || !patientMaritalStatus || !patientJobTitle.trim() || !patientPhone.trim()) {
+        setToast({ message: 'Please fill in all required patient examination details.', type: 'error' });
+        return;
+      }
+      // Auto-assign the Internal Medicine test (1,500 ETB)
+      const medTest = samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
+      if (medTest) {
+        setSelectedSampleIds([medTest._id]);
+      }
+      setWizardStep(3);
+      return;
+    }
+
     if (!patientName.trim() || !patientAge || !patientSex || !patientPhone.trim()) {
       setToast({ message: 'Please fill in all required patient details.', type: 'error' });
       return;
@@ -686,11 +738,19 @@ export default function ReceptionPage() {
     setBusy(true);
     try {
       const payload = {
-        name: patientName.trim(),
+        name: patientName.trim().toUpperCase(),
         age: Number(patientAge),
         sex: patientSex,
         phone: patientPhone.trim(),
         address: patientAddress.trim(),
+        nationality: patientNationality.trim().toUpperCase(),
+        dateOfBirth: patientDateOfBirth || null,
+        passportNumber: patientPassportNumber.trim().toUpperCase(),
+        passportIssueDate: patientPassportIssueDate || null,
+        maritalStatus: patientMaritalStatus,
+        jobTitle: patientJobTitle.trim(),
+        patientPhoto: patientPhoto || '',
+        examinationFormType: registrationMode === 'internal-medicine' ? 'Internal Medicine Speciality Examination Form' : '',
         registrationType: 'Self Aware',
         referralHospital: '',
         laboratoryTests: [],
@@ -752,12 +812,26 @@ export default function ReceptionPage() {
     setBusy(true);
     try {
       const finalHospital = referralHospital === 'Other' ? otherHospital : referralHospital;
+      const isInternalMedSelected = registrationMode === 'internal-medicine' || selectedSampleIds.some(id => {
+        const s = samples.find(x => String(x._id) === String(id));
+        return s && (/internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
+      });
+      const finalFormType = isInternalMedSelected ? 'Internal Medicine Speciality Examination Form' : '';
+
       const payload = {
-        name: patientName.trim(),
+        name: patientName.trim().toUpperCase(),
         age: Number(patientAge),
         sex: patientSex,
         phone: patientPhone.trim(),
         address: patientAddress.trim(),
+        nationality: patientNationality.trim().toUpperCase(),
+        dateOfBirth: patientDateOfBirth || null,
+        passportNumber: patientPassportNumber.trim().toUpperCase(),
+        passportIssueDate: patientPassportIssueDate || null,
+        maritalStatus: patientMaritalStatus,
+        jobTitle: patientJobTitle.trim(),
+        patientPhoto: patientPhoto || '',
+        examinationFormType: finalFormType,
         registrationType,
         referralHospital: registrationType === 'Referral' ? finalHospital : '',
         laboratoryTests: selectedSampleIds,
@@ -848,6 +922,14 @@ export default function ReceptionPage() {
     setDiastolicBP('');
     setCustomRadiologyExamName('');
     setSelectedWaitingPaymentPatient(null);
+    setRegistrationMode('standard');
+    setPatientNationality('ETHIOPIA');
+    setPatientDateOfBirth('');
+    setPatientPassportNumber('');
+    setPatientPassportIssueDate('');
+    setPatientMaritalStatus('Single');
+    setPatientJobTitle('');
+    setPatientPhoto('');
   };
 
   const handleOpenWaitingPayment = (patient) => {
@@ -977,17 +1059,146 @@ export default function ReceptionPage() {
           ))}
       </div>
 
-      {/* ═══ VIEW 1 & VIEW 4: RECEPTION DASHBOARD & APPROVED REPORTS ═══ */}
-      {(view === 'dashboard' || view === 'reports') && (
-        <>
-          {/* ── 1. TOP-LEVEL SECTION: APPROVED DIAGNOSTICS REPORTS ── */}
-          <section className="table-card" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="table-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📝</span> Approved Diagnostics Reports
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--card-border)' }}>
+      {/* ═══ VIEW 4: APPROVED REPORTS (Only under Approved Reports tab) ═══ */}
+      {view === 'reports' && (
+        <section className="table-card" style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="table-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📝</span> Approved Diagnostics Reports
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--card-border)' }}>
+                <input
+                  type="checkbox"
+                  checked={showReportFooter}
+                  onChange={e => setShowReportFooter(e.target.checked)}
+                />
+                Show Logo & Footer
+              </label>
+              <div className="export-buttons">
+                <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
+                <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
+              </div>
+            </div>
+          </div>
+          {reports.length ? (
+            <div className="sample-types-table-wrapper">
+              <table className="sample-types-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Department & Examination</th>
+                    <th>Report Summary</th>
+                    <th>Approved By</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map(r => {
+                    const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
+                    const isPath = dept === 'Pathology';
+                    const isRad = dept === 'Radiology';
+                    const examLabel = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || (r.results?.map(x => x.sampleName).slice(0, 2).join(', ')) || 'Laboratory Tests';
+
+                    return (
+                      <tr key={r._id}>
+                        <td><strong>{r.patient?.name}</strong><span>{r.patient?.patientId}</span></td>
+                        <td>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isPath ? '#fef3c7' : isRad ? '#e0f2fe' : '#e0e7ff', color: isPath ? '#92400e' : isRad ? '#0369a1' : '#3730a3' }}>
+                            {dept}
+                          </span>
+                          <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: 'var(--text-primary)' }}>
+                            {examLabel}
+                          </div>
+                        </td>
+                        <td>
+                          {r.results?.length ? (
+                            r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
+                          ) : r.reportContent ? (
+                            <span style={{ color: 'var(--color-primary)', fontStyle: 'italic' }}>Detailed Specialist Report</span>
+                          ) : r.structuredReport?.diagnosis ? (
+                            <span>{r.structuredReport.diagnosis}</span>
+                          ) : r.structuredReport?.impression ? (
+                            <span>{r.structuredReport.impression}</span>
+                          ) : 'Complete Clinical Report'}
+                        </td>
+                        <td>
+                          <strong>{r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—'))}</strong>
+                          <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
+                        </td>
+                        <td>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
+                            {r.status || 'Ready for Printing'}
+                          </span>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: 600 }}
+                              onClick={() => setSelectedReportForPreview(r)}
+                            >
+                              👁️ Preview
+                            </button>
+                            <button
+                              type="button"
+                              className="primary-button"
+                              disabled={busy}
+                              style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 600 }}
+                              onClick={() => handlePrintA4Report(r._id)}
+                            >
+                              {busy ? 'Printing…' : '🖨️ Print A4'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
+        </section>
+      )}
+
+      {/* ── A4 Report Preview Modal ────────────────────────────── */}
+      {selectedReportForPreview && (
+        <ModalPortal isOpen={!!selectedReportForPreview} onClose={() => setSelectedReportForPreview(null)}>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '860px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '0',
+              background: '#e2e8f0',
+              borderRadius: '10px'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <header
+              className="modal-header"
+              style={{
+                position: 'sticky',
+                top: 0,
+                background: '#fff',
+                zIndex: 10,
+                padding: '12px 20px',
+                borderBottom: '1px solid #cbd5e1',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: '#075c91', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📄</span> A4 Report Preview
+                </h2>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                   <input
                     type="checkbox"
                     checked={showReportFooter}
@@ -995,163 +1206,31 @@ export default function ReceptionPage() {
                   />
                   Show Logo & Footer
                 </label>
-                <div className="export-buttons">
-                  <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
-                  <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
-                </div>
               </div>
-            </div>
-            {reports.length ? (
-              <div className="sample-types-table-wrapper">
-                <table className="sample-types-table">
-                  <thead>
-                    <tr>
-                      <th>Patient</th>
-                      <th>Department & Examination</th>
-                      <th>Report Summary</th>
-                      <th>Approved By</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reports.map(r => {
-                      const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
-                      const isPath = dept === 'Pathology';
-                      const isRad = dept === 'Radiology';
-                      const examLabel = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || (r.results?.map(x => x.sampleName).slice(0, 2).join(', ')) || 'Laboratory Tests';
-
-                      return (
-                        <tr key={r._id}>
-                          <td><strong>{r.patient?.name}</strong><span>{r.patient?.patientId}</span></td>
-                          <td>
-                            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isPath ? '#fef3c7' : isRad ? '#e0f2fe' : '#e0e7ff', color: isPath ? '#92400e' : isRad ? '#0369a1' : '#3730a3' }}>
-                              {dept}
-                            </span>
-                            <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '2px', color: 'var(--text-primary)' }}>
-                              {examLabel}
-                            </div>
-                          </td>
-                          <td>
-                            {r.results?.length ? (
-                              r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
-                            ) : r.reportContent ? (
-                              <span style={{ color: 'var(--color-primary)', fontStyle: 'italic' }}>Detailed Specialist Report</span>
-                            ) : r.structuredReport?.diagnosis ? (
-                              <span>{r.structuredReport.diagnosis}</span>
-                            ) : r.structuredReport?.impression ? (
-                              <span>{r.structuredReport.impression}</span>
-                            ) : 'Complete Clinical Report'}
-                          </td>
-                          <td>
-                            <strong>{r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—'))}</strong>
-                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span>
-                          </td>
-                          <td>
-                            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 600 }}>
-                              {r.status || 'Ready for Printing'}
-                            </span>
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: 600 }}
-                                onClick={() => setSelectedReportForPreview(r)}
-                              >
-                                👁️ Preview
-                              </button>
-                              <button
-                                type="button"
-                                className="primary-button"
-                                disabled={busy}
-                                style={{ padding: '5px 12px', fontSize: '11.5px', fontWeight: 600 }}
-                                onClick={() => handlePrintA4Report(r._id)}
-                              >
-                                {busy ? 'Printing…' : '🖨️ Print A4'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
-          </section>
-
-          {/* ── A4 Report Preview Modal ────────────────────────────── */}
-          {selectedReportForPreview && (
-            <ModalPortal isOpen={!!selectedReportForPreview} onClose={() => setSelectedReportForPreview(null)}>
-              <div
-                className="modal-content"
-                style={{
-                  maxWidth: '860px',
-                  maxHeight: '92vh',
-                  overflowY: 'auto',
-                  padding: '0',
-                  background: '#e2e8f0',
-                  borderRadius: '10px'
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                <header
-                  className="modal-header"
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    background: '#fff',
-                    zIndex: 10,
-                    padding: '12px 20px',
-                    borderBottom: '1px solid #cbd5e1',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '10px'
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={busy}
+                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
+                  onClick={() => {
+                    if (selectedReportForPreview) {
+                      handlePrintA4Report(selectedReportForPreview._id);
+                    }
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <h2 style={{ fontSize: '1.15rem', color: '#075c91', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>📄</span> A4 Report Preview
-                    </h2>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                      <input
-                        type="checkbox"
-                        checked={showReportFooter}
-                        onChange={e => setShowReportFooter(e.target.checked)}
-                      />
-                      Show Logo & Footer
-                    </label>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                      type="button"
-                      className="primary-button"
-                      disabled={busy}
-                      style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
-                      onClick={() => {
-                        if (selectedReportForPreview) {
-                          handlePrintA4Report(selectedReportForPreview._id);
-                        }
-                      }}
-                    >
-                      {busy ? 'Printing…' : '🖨️ Print A4 Report'}
-                    </button>
-                    <button className="close-button" onClick={() => setSelectedReportForPreview(null)}>&times;</button>
-                  </div>
-                </header>
-
-                {/* A4 Document Canvas */}
-                <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
-                  <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
-                </div>
+                  {busy ? 'Printing…' : '🖨️ Print A4 Report'}
+                </button>
+                <button className="close-button" onClick={() => setSelectedReportForPreview(null)}>&times;</button>
               </div>
-            </ModalPortal>
-          )}
-        </>
+            </header>
+
+            {/* A4 Document Canvas */}
+            <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
+              <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {/* ── 2. RECEPTION STATS & RECENT ACTIVITY (Dashboard only) ── */}
@@ -1247,147 +1326,463 @@ export default function ReceptionPage() {
             {/* STEP 1: PATIENT REGISTRATION */}
             {wizardStep === 1 && (
               <div className="wizard-step-panel">
-                <h2>Step 1 — Patient Registration</h2>
-                <form onSubmit={registrationType === 'Self Aware' ? handleSelfAwareSubmit : handleProceedToTestSelection}>
-                  <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-                    <div className="form-group">
-                      <label>Patient Type</label>
-                      <select value={registrationType} onChange={e => setRegistrationType(e.target.value)}>
-                        <option value="Self">Self</option>
-                        <option value="Referral">Referral</option>
-                        <option value="Self Aware">Self Aware</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Patient Name <span style={{ color: 'var(--color-error)' }}>*</span></label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Full Name"
-                        value={patientName}
-                        onChange={e => setPatientName(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label>Age <span style={{ color: 'var(--color-error)' }}>*</span></label>
-                      <input
-                        type="number"
-                        required
-                        min="0"
-                        max="130"
-                        placeholder="Age"
-                        value={patientAge}
-                        onChange={e => setPatientAge(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label>Sex <span style={{ color: 'var(--color-error)' }}>*</span></label>
-                      <select required value={patientSex} onChange={e => setPatientSex(e.target.value)}>
-                        <option value="">Select Sex</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Phone Number <span style={{ color: 'var(--color-error)' }}>*</span></label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Phone Number"
-                        value={patientPhone}
-                        onChange={e => setPatientPhone(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label>Address (Optional)</label>
-                      <input
-                        type="text"
-                        placeholder="Address"
-                        value={patientAddress}
-                        onChange={e => setPatientAddress(e.target.value)}
-                      />
-                    </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <h2 style={{ margin: 0 }}>Step 1 — Patient Registration</h2>
+                  <div className="reception-reg-mode-bar">
+                    <button
+                      type="button"
+                      onClick={() => setRegistrationMode('standard')}
+                      className={`reception-reg-mode-tab ${registrationMode === 'standard' ? 'active-standard' : ''}`}
+                    >
+                      🧪 General Laboratory
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegistrationMode('internal-medicine');
+                        const medTest = samples.find(s => /internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
+                        if (medTest) setSelectedSampleIds([medTest._id]);
+                      }}
+                      className={`reception-reg-mode-tab ${registrationMode === 'internal-medicine' ? 'active-imed' : ''}`}
+                    >
+                      🩺 Internal Medicine Speciality Form (1,500 ETB)
+                    </button>
                   </div>
+                </div>
 
-                  {/* ═══ VITAL SIGNS (OPTIONAL) ═══ */}
-                  <div style={{
-                    background: 'var(--color-surface-container, #f8fafc)',
-                    border: '1px solid var(--color-outline-variant, #e2e8f0)',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    marginTop: '14px',
-                    marginBottom: '14px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '1rem' }}>🫀</span>
-                      <strong style={{ fontSize: '0.85rem', color: 'var(--color-primary, #075c91)' }}>Vital Signs (Optional)</strong>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Systolic BP (mmHg)</label>
-                        <input
-                          type="number"
-                          min="50"
-                          max="300"
-                          placeholder="e.g. 120"
-                          value={systolicBP}
-                          onChange={e => setSystolicBP(e.target.value)}
-                        />
+                {registrationMode === 'internal-medicine' ? (
+                  /* ── DEDICATED INTERNAL MEDICINE REGISTRATION FORM ── */
+                  <form onSubmit={handleProceedToTestSelection}>
+                    <div className="imed-reg-info-banner">
+                      <div>
+                        <strong>🩺 Internal Medicine Speciality Examination Form</strong>
+                        <p>
+                          Standardized pre-employment / medical examination registration (Fixed Fee: 1,500 ETB).
+                        </p>
                       </div>
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Diastolic BP (mmHg)</label>
-                        <input
-                          type="number"
-                          min="30"
-                          max="200"
-                          placeholder="e.g. 80"
-                          value={diastolicBP}
-                          onChange={e => setDiastolicBP(e.target.value)}
-                        />
-                      </div>
+                      <span className="imed-price-pill">
+                        1,500 ETB
+                      </span>
                     </div>
-                  </div>
 
-                  {registrationType === 'Referral' && (
-                    <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
-                      <label>Referral Hospital</label>
-                      <select required value={referralHospital} onChange={e => setReferralHospital(e.target.value)}>
-                        <option value="">Select hospital</option>
-                        {hospitals.map(h => (
-                          <option key={h._id} value={h.name}>{h.name}</option>
-                        ))}
-                        <option value="Other">Other</option>
-                      </select>
-                      {referralHospital === 'Other' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '16px', marginBottom: '16px' }}>
+                      <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                        <div className="form-group">
+                          <label>Patient Full Name (CAPITAL LETTERS) <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. MEDHANIT YISHAK KALITO"
+                            value={patientName}
+                            onChange={e => setPatientName(e.target.value.toUpperCase())}
+                            style={{ textTransform: 'uppercase', fontWeight: 600 }}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Nationality (CAPITAL LETTERS) <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. ETHIOPIA"
+                            value={patientNationality}
+                            onChange={e => setPatientNationality(e.target.value.toUpperCase())}
+                            style={{ textTransform: 'uppercase', fontWeight: 600 }}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Date of Birth (Calendar) <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="date"
+                            required
+                            value={patientDateOfBirth}
+                            onChange={e => {
+                              const dobVal = e.target.value;
+                              setPatientDateOfBirth(dobVal);
+                              const computedAge = calculateAgeFromDob(dobVal);
+                              if (computedAge !== '') setPatientAge(String(computedAge));
+                            }}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Age (Years) <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            max="130"
+                            placeholder="Auto-calculated from DOB"
+                            value={patientAge}
+                            onChange={e => setPatientAge(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Passport Number <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. EQ2677316"
+                            value={patientPassportNumber}
+                            onChange={e => setPatientPassportNumber(e.target.value.toUpperCase())}
+                            style={{ textTransform: 'uppercase' }}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Passport Issue Date (Calendar) <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="date"
+                            required
+                            value={patientPassportIssueDate}
+                            onChange={e => setPatientPassportIssueDate(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Sex <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <select required value={patientSex} onChange={e => setPatientSex(e.target.value)}>
+                            <option value="">Select Sex</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Marital Status <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <select required value={patientMaritalStatus} onChange={e => setPatientMaritalStatus(e.target.value)}>
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Divorced">Divorced</option>
+                            <option value="Widowed">Widowed</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Job Title / Occupation <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Housekeeper, Driver, Engineer"
+                            value={patientJobTitle}
+                            onChange={e => setPatientJobTitle(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Phone Number <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. 0911223344"
+                            value={patientPhone}
+                            onChange={e => setPatientPhone(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Photo Upload Box */}
+                      <div className="form-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <label style={{ fontSize: '0.8rem', textAlign: 'center', marginBottom: '6px' }}>Patient Photo</label>
+                        <div
+                          style={{
+                            width: '100px',
+                            height: '120px',
+                            border: '2px dashed #0284c7',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#f8fafc',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => document.getElementById('internal-med-photo-input')?.click()}
+                        >
+                          {patientPhoto ? (
+                            <img src={patientPhoto} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ textAlign: 'center', padding: '6px', color: '#64748b' }}>
+                              <span style={{ fontSize: '1.5rem' }}>📷</span>
+                              <span style={{ fontSize: '10px', display: 'block', marginTop: '4px' }}>Upload Photo</span>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          id="internal-med-photo-input"
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={handlePhotoUpload}
+                        />
+                        {patientPhoto && (
+                          <button
+                            type="button"
+                            onClick={() => setPatientPhoto('')}
+                            style={{ marginTop: '4px', fontSize: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Vitals BP */}
+                    <div style={{
+                      background: 'var(--color-surface-container, #f8fafc)',
+                      border: '1px solid var(--color-outline-variant, #e2e8f0)',
+                      borderRadius: '10px',
+                      padding: '12px 14px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '1rem' }}>🫀</span>
+                        <strong style={{ fontSize: '0.85rem', color: 'var(--color-primary, #075c91)' }}>Vital Signs (Optional)</strong>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Systolic BP (mmHg)</label>
+                          <input
+                            type="number"
+                            min="50"
+                            max="300"
+                            placeholder="e.g. 120"
+                            value={systolicBP}
+                            onChange={e => setSystolicBP(e.target.value)}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Diastolic BP (mmHg)</label>
+                          <input
+                            type="number"
+                            min="30"
+                            max="200"
+                            placeholder="e.g. 80"
+                            value={diastolicBP}
+                            onChange={e => setDiastolicBP(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
+                      <button type="submit" disabled={busy} className="primary-button" style={{ background: '#0284c7', borderColor: '#0284c7' }}>
+                        Proceed to Payment (1,500 ETB) →
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* ── STANDARD LABORATORY REGISTRATION FORM ── */
+                  <form onSubmit={registrationType === 'Self Aware' ? handleSelfAwareSubmit : handleProceedToTestSelection}>
+                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+                      <div className="form-group">
+                        <label>Patient Type</label>
+                        <select value={registrationType} onChange={e => setRegistrationType(e.target.value)}>
+                          <option value="Self">Self</option>
+                          <option value="Referral">Referral</option>
+                          <option value="Self Aware">Self Aware</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Patient Name <span style={{ color: 'var(--color-error)' }}>*</span></label>
                         <input
                           type="text"
                           required
-                          placeholder="Specify hospital name"
-                          value={otherHospital}
-                          onChange={e => setOtherHospital(e.target.value)}
-                          style={{ marginTop: '6px' }}
+                          placeholder="Full Name"
+                          value={patientName}
+                          onChange={e => setPatientName(e.target.value)}
                         />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Age <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                        <input
+                          type="number"
+                          required
+                          min="0"
+                          max="130"
+                          placeholder="Age"
+                          value={patientAge}
+                          onChange={e => setPatientAge(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Sex <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                        <select required value={patientSex} onChange={e => setPatientSex(e.target.value)}>
+                          <option value="">Select Sex</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Phone Number <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Phone Number"
+                          value={patientPhone}
+                          onChange={e => setPatientPhone(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Address (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="Address"
+                          value={patientAddress}
+                          onChange={e => setPatientAddress(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Date of Birth (Optional)</label>
+                        <input
+                          type="date"
+                          value={patientDateOfBirth}
+                          onChange={e => {
+                            const dobVal = e.target.value;
+                            setPatientDateOfBirth(dobVal);
+                            const computedAge = calculateAgeFromDob(dobVal);
+                            if (computedAge !== '') setPatientAge(String(computedAge));
+                          }}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Nationality (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. ETHIOPIA"
+                          value={patientNationality}
+                          onChange={e => setPatientNationality(e.target.value.toUpperCase())}
+                          style={{ textTransform: 'uppercase' }}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Passport Number (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. EQ2677316"
+                          value={patientPassportNumber}
+                          onChange={e => setPatientPassportNumber(e.target.value.toUpperCase())}
+                          style={{ textTransform: 'uppercase' }}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Passport Issue Date (Optional)</label>
+                        <input
+                          type="date"
+                          value={patientPassportIssueDate}
+                          onChange={e => setPatientPassportIssueDate(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Marital Status (Optional)</label>
+                        <select value={patientMaritalStatus} onChange={e => setPatientMaritalStatus(e.target.value)}>
+                          <option value="Single">Single</option>
+                          <option value="Married">Married</option>
+                          <option value="Divorced">Divorced</option>
+                          <option value="Widowed">Widowed</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Job Title / Occupation (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Housekeeper, Driver, Engineer"
+                          value={patientJobTitle}
+                          onChange={e => setPatientJobTitle(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* ═══ VITAL SIGNS (OPTIONAL) ═══ */}
+                    <div style={{
+                      background: 'var(--color-surface-container, #f8fafc)',
+                      border: '1px solid var(--color-outline-variant, #e2e8f0)',
+                      borderRadius: '10px',
+                      padding: '12px 14px',
+                      marginTop: '14px',
+                      marginBottom: '14px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '1rem' }}>🫀</span>
+                        <strong style={{ fontSize: '0.85rem', color: 'var(--color-primary, #075c91)' }}>Vital Signs (Optional)</strong>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Systolic BP (mmHg)</label>
+                          <input
+                            type="number"
+                            min="50"
+                            max="300"
+                            placeholder="e.g. 120"
+                            value={systolicBP}
+                            onChange={e => setSystolicBP(e.target.value)}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Diastolic BP (mmHg)</label>
+                          <input
+                            type="number"
+                            min="30"
+                            max="200"
+                            placeholder="e.g. 80"
+                            value={diastolicBP}
+                            onChange={e => setDiastolicBP(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {registrationType === 'Referral' && (
+                      <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
+                        <label>Referral Hospital</label>
+                        <select required value={referralHospital} onChange={e => setReferralHospital(e.target.value)}>
+                          <option value="">Select hospital</option>
+                          {hospitals.map(h => (
+                            <option key={h._id} value={h.name}>{h.name}</option>
+                          ))}
+                          <option value="Other">Other</option>
+                        </select>
+                        {referralHospital === 'Other' && (
+                          <input
+                            type="text"
+                            required
+                            placeholder="Specify hospital name"
+                            value={otherHospital}
+                            onChange={e => setOtherHospital(e.target.value)}
+                            style={{ marginTop: '6px' }}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
+                      {registrationType === 'Self Aware' ? (
+                        <button type="submit" disabled={busy} className="primary-button">
+                          {busy ? 'Registering...' : 'Register & Send to Sample Collector →'}
+                        </button>
+                      ) : (
+                        <button type="submit" className="primary-button">
+                          Select Tests &amp; Pricing →
+                        </button>
                       )}
                     </div>
-                  )}
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
-                    {registrationType === 'Self Aware' ? (
-                      <button type="submit" disabled={busy} className="primary-button">
-                        {busy ? 'Registering...' : 'Register & Send to Sample Collector →'}
-                      </button>
-                    ) : (
-                      <button type="submit" className="primary-button">
-                        Continue to Step 2 — Laboratory Test Type Selection →
-                      </button>
-                    )}
-                  </div>
-                </form>
+                  </form>
+                )}
               </div>
             )}
 

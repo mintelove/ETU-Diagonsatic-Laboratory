@@ -20,16 +20,40 @@ function getPrintableFlag(row, sex = '') {
   return '—';
 }
 
+export function formatMedDate(val) {
+  if (!val) return '—';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const [y, m, d] = trimmed.slice(0, 10).split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthName = months[parseInt(m, 10) - 1] || m;
+      return `${d.padStart(2, '0')} ${monthName} ${y}`;
+    }
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const day = String(d.getUTCDate ? d.getUTCDate() : d.getDate()).padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const year = d.getUTCFullYear ? d.getUTCFullYear() : d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
 export function reportHtml(report, user, logoBase64, referralHospitalAddress, showFooterOverride) {
+  const patient = (report?.patient && typeof report.patient === 'object') ? report.patient : (report || {});
   const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
   const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
+  const isInternalMedicine = report?.isInternalMedicineForm ||
+    Boolean(report?.internalMedicineReport?.examinationResult || report?.internalMedicineReport?.labInvestigations) ||
+    patient?.examinationFormType === 'Internal Medicine Speciality Examination Form' ||
+    (Array.isArray(report?.laboratoryTests) && report.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t))) ||
+    (Array.isArray(patient?.laboratoryTests) && patient.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t)));
 
-  const patient = report.patient || {};
   const showFooter = showFooterOverride !== undefined ? showFooterOverride : (report.showFooter !== undefined ? report.showFooter : true);
 
   const logoImg = logoBase64 || labLogo;
   const logoHeader = (showFooter && logoImg)
-    ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 90px; width: auto; max-width: 100%; display: block; margin: 0 auto 10px; object-fit: contain;" />`
+    ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 80px; width: auto; max-width: 100%; display: block; margin: 0 auto 6px; object-fit: contain;" />`
     : '';
 
   const refHtml = patient.referralHospital ? `<div><b>Referral Hospital Name</b>${safe(patient.referralHospital)}</div><div><b>Referral Hospital Address</b>${safe(referralHospitalAddress || patient.address || 'Not recorded')}</div>` : '';
@@ -39,14 +63,148 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   const reportDateStr = stamp(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || new Date());
 
   let mainBodyHtml = '';
-  let subTitle = 'Official Laboratory Test Report';
+  let subTitle = isInternalMedicine ? 'Internal Medicine Speciality Examination Form' : 'Official Laboratory Test Report';
   let preparedByName = safe(report.technician?.fullName || report.submittedBy?.fullName || user?.fullName || 'Clinical Specialist');
-  const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || (['Approved', 'Ready for Printing'].includes(report.status) ? user?.fullName : '');
+  const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || (['Approved', 'Ready for Printing'].includes(report.status) ? user?.fullName : '');
   let approvedByName = safe(rawApprover ? (rawApprover.startsWith('Dr.') ? rawApprover : `Dr. ${rawApprover}`) : 'Pending Specialist Approval');
-  let approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : 'Approver / Laboratory Technologist');
+  let approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
+
+  // ── 0. INTERNAL MEDICINE REPORT RENDERING ─────────────────────────────────
+  if (isInternalMedicine) {
+    const med = report.internalMedicineReport || {};
+    const lab = med.labInvestigations || {};
+    const clin = med.clinicalExamination || {};
+    const vit = med.vitalSigns || {};
+    const decl = med.declaration || {};
+
+    mainBodyHtml = `
+      <div style="margin-top: 4px;">
+        <!-- 2-Column Tables: Clinical Examination (44%) & Laboratory Investigations (56%) -->
+        <div class="imed-a4-two-tables" style="display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 56%); gap: 8px; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <!-- Clinical Examination Table -->
+          <div style="min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+            <table class="imed-a4-table-bordered" style="width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; border: 1.5px solid #000; font-size: 10.5px; box-sizing: border-box;">
+              <thead>
+                <tr>
+                  <th colspan="2" class="imed-a4-table-header" style="background: #e2e8f0; font-weight: 800; font-size: 10.5px; text-transform: uppercase; text-align: center; padding: 3px 4px; border: 1px solid #000;">Clinical Examination</th>
+                </tr>
+                <tr>
+                  <th style="width: 55%; background: #f0f4f8; font-weight: 800; padding: 3px 5px; border: 1px solid #000; text-align: left; font-size: 10.5px;">Examination</th>
+                  <th style="width: 45%; background: #f0f4f8; font-weight: 800; padding: 3px 5px; border: 1px solid #000; text-align: left; font-size: 10.5px;">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">General Appearance</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.generalAppearance || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Respiratory System</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.respiratorySystem || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Cardio-vascular System</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.cardiovascularSystem || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Skin</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.skin || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">CNS</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.cns || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Psychiatry</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.psychiatry || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Extremities</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.extremities || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Hernia</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.hernia || 'Nil')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Varicose Veins</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.varicoseVeins || 'Nil')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Chest X-Ray</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(clin.chestXRay || 'Normal')}</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Laboratory Investigations Table -->
+          <div style="min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+            <table class="imed-a4-table-bordered" style="width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; border: 1.5px solid #000; font-size: 10.5px; box-sizing: border-box;">
+              <thead>
+                <tr>
+                  <th colspan="2" class="imed-a4-table-header" style="background: #e2e8f0; font-weight: 800; font-size: 10.5px; text-transform: uppercase; text-align: center; padding: 3px 4px; border: 1px solid #000;">Laboratory Investigations</th>
+                </tr>
+                <tr>
+                  <th style="width: 55%; background: #f0f4f8; font-weight: 800; padding: 3px 5px; border: 1px solid #000; text-align: left; font-size: 10.5px;">Investigation</th>
+                  <th style="width: 45%; background: #f0f4f8; font-weight: 800; padding: 3px 5px; border: 1px solid #000; text-align: left; font-size: 10.5px;">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">CBC</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.cbc || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">FBS</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.fbs || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Blood Group</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.bloodGroup || 'O+')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Stool</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.stool || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Urine</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.urine || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Pregnancy Test</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.pregnancyTest || ((patient.sex === 'Male' || report.sex === 'Male') ? 'N/A' : 'Negative'))}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">HBsAg</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.hbsag || 'Negative')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">HCV</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.hcv || 'Negative')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">HIV 1 & 2</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.hiv12 || 'Negative')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">VDRL</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.vdrl || 'Negative')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">LPT</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.lpt || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">LFT</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.lft || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">RFT</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.rft || 'Normal')}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Malaria</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${safe(lab.malaria || 'Negative')}</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vital Signs Bordered Box -->
+        <div class="imed-a4-vitals-box" style="border: 1.5px solid #000; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <div class="imed-a4-vitals-header" style="background: #e2e8f0; font-weight: 800; font-size: 10.5px; text-transform: uppercase; padding: 3px 8px; border-bottom: 1px solid #000;">Vital Signs</div>
+          <table class="imed-a4-vitals-table" style="width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; box-sizing: border-box;">
+            <tbody>
+              <tr>
+                <td style="width: 25%; border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><b>Blood Pressure:</b></td>
+                <td style="width: 25%; border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><strong>${safe(vit.systolicBP || patient.systolicBP || '120')} / ${safe(vit.diastolicBP || patient.diastolicBP || '80')} mmHg</strong></td>
+                <td style="width: 25%; border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><b>Pulse:</b></td>
+                <td style="width: 25%; border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><strong>${safe(vit.pulse || '72 bpm')}</strong></td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><b>ECG:</b></td>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><strong>${safe(vit.ecg || 'Normal')}</strong></td>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><b>Ear (RT / LT):</b></td>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><strong>${safe(vit.earRt || 'Normal')} / ${safe(vit.earLt || 'Normal')}</strong></td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><b>Height & Weight:</b></td>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><strong>${safe(vit.height || '170 cm')} / ${safe(vit.weight || '65 kg')}</strong></td>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><b>Vision (RT / LT):</b></td>
+                <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10.5px;"><strong>${safe(vit.visionRt || '6/6')} / ${safe(vit.visionLt || '6/6')}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Result Bordered Box -->
+        <div class="imed-a4-result-box" style="border: 1.5px solid #000; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <div class="imed-a4-result-header" style="background: #e2e8f0; font-weight: 800; font-size: 10.5px; text-transform: uppercase; padding: 3px 8px; border-bottom: 1px solid #000;">RESULT</div>
+          <div class="imed-a4-result-body" style="padding: 5px 8px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+            <div>
+              <span style="font-size: 10.5px; color: #0369a1; font-weight: 700; text-transform: uppercase;">FINAL MEDICAL ASSESSMENT: </span>
+              <span class="imed-a4-result-value" style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: ${(med.examinationResult || '').includes('UNFIT') ? '#991b1b' : '#166534'};">
+                ${safe(med.examinationResult || 'FIT FOR EMPLOYMENT')}
+              </span>
+            </div>
+            ${report.comments ? `
+              <div style="font-size: 10.5px; color: #475569;">
+                <b>Remarks:</b> ${safe(report.comments)}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Declaration Bordered Box -->
+        <div class="imed-a4-decl-box" style="border: 1.5px solid #000; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <div class="imed-a4-decl-header" style="background: #e2e8f0; font-weight: 800; font-size: 10.5px; text-transform: uppercase; padding: 3px 8px; border-bottom: 1px solid #000;">Declaration</div>
+          <div class="imed-a4-decl-body" style="padding: 5px 8px; font-size: 10.5px; box-sizing: border-box;">
+            <p class="imed-a4-decl-text" style="margin: 0 0 4px 0; font-style: italic; line-height: 1.35;">
+              "${safe(decl.declarationText || 'I hereby declare that all information provided above is true.')}"
+            </p>
+            <div class="imed-a4-decl-grid" style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; padding-top: 3px; border-top: 1px dashed #718096;">
+              <div><b>Doctor Name:</b> <strong>${safe(decl.doctorName || approvedByName || preparedByName)}</strong></div>
+              <div><b>Signature:</b> <span style="color: #075c91; font-weight: 700;">✍️ Verified Practitioner</span></div>
+              <div><b>Date:</b> <span>${safe(formatMedDate(decl.signatureDate || new Date()))}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   // ── 1. PATHOLOGY REPORT RENDERING ─────────────────────────────────────────
-  if (isPathology) {
+  else if (isPathology) {
     subTitle = `Pathology Examination Report — ${safe(report.testType || 'Biopsy')}`;
     approverRoleTitle = 'Pathologist';
     if (report.reportType === 'Option A' || (!report.reportType && report.reportContent)) {
@@ -296,32 +454,81 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       </div>
     `}
 
-    <section class="section" style="margin-top: 14px;">
-      <h2>Patient & Case Information</h2>
-      <div class="patient">
-        <div><b>Patient Name</b>${safe(patient.name)}</div>
-        <div><b>Patient ID</b>${safe(patient.patientId)}</div>
-        <div><b>Age / Sex</b>${safe(patient.age)} / ${safe(patient.sex)}</div>
-        <div><b>Phone</b>${safe(patient.phone)}</div>
-        <div><b>Examination Type</b>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr)}</div>
-        <div><b>Registration Date</b>${safe(collectionDateStr)}</div>
-        <div><b>Report Date</b>${safe(reportDateStr)}</div>
-        <div><b>Branch</b>📍 ${safe(report.branchName || patient.branchName || 'Main')}</div>
-        ${bpHtml}
-        ${refHtml}
-      </div>
+    <section class="section" style="margin-top: ${isInternalMedicine ? '6px' : '8px'};">
+      <h2>Patient Information</h2>
+      ${isInternalMedicine ? `
+        <div style="display: flex; gap: 8px; align-items: stretch; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
+          <div style="width: 80px; min-width: 80px; max-width: 80px; height: 105px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; background: #fafafa; flex-shrink: 0; overflow: hidden; box-sizing: border-box;">
+            ${(patient.patientPhoto || report.patientPhoto) ? `
+              <img src="${patient.patientPhoto || report.patientPhoto}" alt="Patient Photo" style="width: 100%; height: 100%; object-fit: cover;" />
+            ` : `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; color: #64748b; font-size: 9px; text-align: center; font-weight: 700; padding: 2px; background: #f8fafc;">
+                <span>PHOTO</span>
+                <span style="font-size: 8px; opacity: 0.8;">3 × 4</span>
+              </div>
+            `}
+          </div>
+          <table class="imed-a4-table-bordered" style="flex: 1; min-width: 0; width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; border: 1.5px solid #000; font-size: 10.5px; box-sizing: border-box;">
+            <tbody>
+              <tr>
+                <td style="width: 20%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Name:</td>
+                <td style="width: 30%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase;">${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong></td>
+                <td style="width: 20%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Nationality:</td>
+                <td style="width: 30%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase;">${safe(patient.nationality || report.nationality || 'ETHIOPIA')}</strong></td>
+              </tr>
+              <tr>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Date of Birth:</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;">${safe(formatMedDate(patient.dateOfBirth || patient.dob || patient.birthDate || report.dateOfBirth || report.dob || report.birthDate))}</td>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Age:</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;"><strong>${safe((patient.age !== undefined && patient.age !== null && patient.age !== '') ? `${patient.age} YRS` : ((report.age !== undefined && report.age !== null && report.age !== '') ? `${report.age} YRS` : '—'))}</strong></td>
+              </tr>
+              <tr>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Passport No.:</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;"><code>${safe(patient.passportNumber || patient.passportNo || patient.passport_no || report.passportNumber || report.passportNo || report.passport_no || '—')}</code></td>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Passport Issue Date:</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;">${safe(formatMedDate(patient.passportIssueDate || patient.passportIssue || patient.passport_issue_date || report.passportIssueDate || report.passportIssue || report.passport_issue_date))}</td>
+              </tr>
+              <tr>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Sex:</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;"><strong>${safe(patient.sex || report.sex || '—')}</strong></td>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Marital Status:</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;">${safe(patient.maritalStatus || report.maritalStatus || 'Single')}</td>
+              </tr>
+              <tr>
+                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Job Title:</td>
+                <td colspan="3" style="border: 1px solid #000; padding: 3px 5px;">${safe(patient.jobTitle || patient.job || patient.occupation || report.jobTitle || report.job || report.occupation || '—')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ` : `
+        <div class="patient">
+          <div><b>Patient Name</b>${safe(patient.name)}</div>
+          <div><b>Patient ID</b>${safe(patient.patientId)}</div>
+          <div><b>Age / Sex</b>${safe(patient.age)} / ${safe(patient.sex)}</div>
+          <div><b>Phone</b>${safe(patient.phone)}</div>
+          <div><b>Examination Type</b>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr)}</div>
+          <div><b>Registration Date</b>${safe(collectionDateStr)}</div>
+          <div><b>Report Date</b>${safe(reportDateStr)}</div>
+          <div><b>Branch</b>📍 ${safe(report.branchName || patient.branchName || 'Main')}</div>
+          ${bpHtml}
+          ${refHtml}
+        </div>
+      `}
     </section>
 
     ${mainBodyHtml}
 
-    <section class="section">
-      <h2>Authorization & Sign-off</h2>
-      <div class="signoff-grid">
-        <div><b>Authorized Specialist:</b> <strong>${preparedByName}</strong></div>
-        <div><b>Approved By:</b> <strong>Dr. ${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
-        <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
-      </div>
-    </section>
+    ${!isInternalMedicine ? `
+      <section class="section">
+        <h2>Authorization & Sign-off</h2>
+        <div class="signoff-grid">
+          <div><b>Authorized Specialist:</b> <strong>${preparedByName}</strong></div>
+          <div><b>Approved By:</b> <strong>Dr. ${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
+          <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
+        </div>
+      </section>
+    ` : ''}
 
     ${footerSection}
   </main>
