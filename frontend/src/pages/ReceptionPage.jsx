@@ -743,20 +743,21 @@ export default function ReceptionPage() {
     submittingRef.current = true;
     setBusy(true);
     try {
+      const isImed = registrationMode === 'internal-medicine';
       const payload = {
         name: patientName.trim().toUpperCase(),
         age: Number(patientAge),
         sex: patientSex,
         phone: patientPhone.trim(),
         address: patientAddress.trim(),
-        nationality: patientNationality.trim().toUpperCase(),
-        dateOfBirth: patientDateOfBirth || null,
-        passportNumber: patientPassportNumber.trim().toUpperCase(),
-        passportIssueDate: patientPassportIssueDate || null,
-        maritalStatus: patientMaritalStatus,
-        jobTitle: patientJobTitle.trim(),
-        patientPhoto: patientPhoto || '',
-        examinationFormType: registrationMode === 'internal-medicine' ? 'Internal Medicine Speciality Examination Form' : '',
+        nationality: isImed ? patientNationality.trim().toUpperCase() : '',
+        dateOfBirth: isImed ? (patientDateOfBirth || null) : null,
+        passportNumber: isImed ? patientPassportNumber.trim().toUpperCase() : '',
+        passportIssueDate: isImed ? (patientPassportIssueDate || null) : null,
+        maritalStatus: isImed ? patientMaritalStatus : '',
+        jobTitle: isImed ? patientJobTitle.trim() : '',
+        patientPhoto: isImed ? (patientPhoto || '') : '',
+        examinationFormType: isImed ? 'Internal Medicine Speciality Examination Form' : '',
         registrationType: 'Self Aware',
         referralHospital: '',
         laboratoryTests: [],
@@ -818,10 +819,7 @@ export default function ReceptionPage() {
     setBusy(true);
     try {
       const finalHospital = referralHospital === 'Other' ? otherHospital : referralHospital;
-      const isInternalMedSelected = registrationMode === 'internal-medicine' || selectedSampleIds.some(id => {
-        const s = samples.find(x => String(x._id) === String(id));
-        return s && (/internal medicine/i.test(s.name) || /speciality examination/i.test(s.name) || /internal medicine/i.test(s.categoryName || ''));
-      });
+      const isInternalMedSelected = registrationMode === 'internal-medicine';
       const finalFormType = isInternalMedSelected ? 'Internal Medicine Speciality Examination Form' : '';
 
       const payload = {
@@ -830,13 +828,13 @@ export default function ReceptionPage() {
         sex: patientSex,
         phone: patientPhone.trim(),
         address: patientAddress.trim(),
-        nationality: patientNationality.trim().toUpperCase(),
-        dateOfBirth: patientDateOfBirth || null,
-        passportNumber: patientPassportNumber.trim().toUpperCase(),
-        passportIssueDate: patientPassportIssueDate || null,
-        maritalStatus: patientMaritalStatus,
-        jobTitle: patientJobTitle.trim(),
-        patientPhoto: patientPhoto || '',
+        nationality: isInternalMedSelected ? patientNationality.trim().toUpperCase() : '',
+        dateOfBirth: isInternalMedSelected ? (patientDateOfBirth || null) : null,
+        passportNumber: isInternalMedSelected ? patientPassportNumber.trim().toUpperCase() : '',
+        passportIssueDate: isInternalMedSelected ? (patientPassportIssueDate || null) : null,
+        maritalStatus: isInternalMedSelected ? patientMaritalStatus : '',
+        jobTitle: isInternalMedSelected ? patientJobTitle.trim() : '',
+        patientPhoto: isInternalMedSelected ? (patientPhoto || '') : '',
         examinationFormType: finalFormType,
         registrationType,
         referralHospital: registrationType === 'Referral' ? finalHospital : '',
@@ -1647,71 +1645,6 @@ export default function ReceptionPage() {
                           placeholder="Address"
                           value={patientAddress}
                           onChange={e => setPatientAddress(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Date of Birth (Optional)</label>
-                        <input
-                          type="date"
-                          value={patientDateOfBirth}
-                          onChange={e => {
-                            const dobVal = e.target.value;
-                            setPatientDateOfBirth(dobVal);
-                            const computedAge = calculateAgeFromDob(dobVal);
-                            if (computedAge !== '') setPatientAge(String(computedAge));
-                          }}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Nationality (Optional)</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. ETHIOPIA"
-                          value={patientNationality}
-                          onChange={e => setPatientNationality(e.target.value.toUpperCase())}
-                          style={{ textTransform: 'uppercase' }}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Passport Number (Optional)</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. EQ2677316"
-                          value={patientPassportNumber}
-                          onChange={e => setPatientPassportNumber(e.target.value.toUpperCase())}
-                          style={{ textTransform: 'uppercase' }}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Passport Issue Date (Optional)</label>
-                        <input
-                          type="date"
-                          value={patientPassportIssueDate}
-                          onChange={e => setPatientPassportIssueDate(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Marital Status (Optional)</label>
-                        <select value={patientMaritalStatus} onChange={e => setPatientMaritalStatus(e.target.value)}>
-                          <option value="Single">Single</option>
-                          <option value="Married">Married</option>
-                          <option value="Divorced">Divorced</option>
-                          <option value="Widowed">Widowed</option>
-                        </select>
-                      </div>
-
-                      <div className="form-group">
-                        <label>Job Title / Occupation (Optional)</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Housekeeper, Driver, Engineer"
-                          value={patientJobTitle}
-                          onChange={e => setPatientJobTitle(e.target.value)}
                         />
                       </div>
                     </div>

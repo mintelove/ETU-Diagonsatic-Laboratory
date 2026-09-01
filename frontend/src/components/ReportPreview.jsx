@@ -191,25 +191,23 @@ export function ReportPreview({ report, showFooter = true }) {
             </table>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-            <div className="a4-patient-grid" style={{ flex: 1 }}>
-              <div><b>Patient Name:</b> <span style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>{p.name || '—'}</span></div>
-              <div><b>Nationality:</b> <span style={{ textTransform: 'uppercase' }}>{p.nationality || 'ETHIOPIA'}</span></div>
-              <div><b>Date of Birth:</b> <span>{formatMedDate(p.dateOfBirth || p.dob || p.birthDate)}</span></div>
-              <div><b>Age / Sex:</b> <span>{p.age ?? '—'} YRS / {p.sex || '—'}</span></div>
-              <div><b>Passport Number:</b> <code>{p.passportNumber || p.passportNo || '—'}</code></div>
-              <div><b>Passport Issue Date:</b> <span>{formatMedDate(p.passportIssueDate || p.passportIssue)}</span></div>
-              <div><b>Marital Status:</b> <span>{p.maritalStatus || 'Single'}</span></div>
-              <div><b>Job Title:</b> <span>{p.jobTitle || p.job || '—'}</span></div>
-              <div><b>Patient ID:</b> <span>{p.patientId || '—'}</span></div>
-              <div><b>Registration Date:</b> <span>{formatMedDate(p.registrationDate || p.createdDate || report.createdDate || Date.now())}</span></div>
-              <div><b>Report Date:</b> <span>{formatMedDate(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now())}</span></div>
-              <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
-            </div>
-            {p.patientPhoto && (
-              <div style={{ width: '85px', height: '105px', border: '1.5px solid #075c91', borderRadius: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', flexShrink: 0 }}>
-                <img src={p.patientPhoto} alt="Patient" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
+          <div className="a4-patient-grid">
+            <div><b>Patient Name:</b> <span style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>{p.name || '—'}</span></div>
+            <div><b>Patient ID:</b> <span>{p.patientId || '—'}</span></div>
+            <div><b>Age / Sex:</b> <span>{p.age ?? '—'} YRS / {p.sex || '—'}</span></div>
+            <div><b>Phone:</b> <span>{p.phone || '—'}</span></div>
+            <div><b>Examination Type:</b> <span>{report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || (p.sampleTypes || []).map(x => x?.name || x).filter(Boolean).join(', ') || 'Laboratory Investigation'}</span></div>
+            <div><b>Registration Date:</b> <span>{formatMedDate(p.registrationDate || p.createdDate || report.createdDate || Date.now())}</span></div>
+            <div><b>Report Date:</b> <span>{formatMedDate(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now())}</span></div>
+            <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
+            {(p.systolicBP || p.diastolicBP) && (
+              <div><b>Blood Pressure:</b> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
+            )}
+            {p.referralHospital && (
+              <>
+                <div><b>Referral Hospital:</b> <span>{p.referralHospital}</span></div>
+                <div><b>Referral Address:</b> <span>{p.address || '—'}</span></div>
+              </>
             )}
           </div>
         )}
