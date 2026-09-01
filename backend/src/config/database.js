@@ -336,9 +336,10 @@ export async function connectDatabase() {
           existingUser.status = 'Active';
           changed = true;
         }
-        // If password is not set or matches initial admin placeholder, set password@123
+        // If password is not set or in test mode, ensure standard seed password is set
         const isInitialMatch = await existingUser.comparePassword('123456').catch(() => false);
-        if (isInitialMatch) {
+        const isPassMatch = await existingUser.comparePassword(reqAcc.password).catch(() => false);
+        if (isInitialMatch || (process.env.NODE_ENV === 'test' && !isPassMatch)) {
           existingUser.password = reqAcc.password;
           changed = true;
         }
@@ -452,8 +453,14 @@ export async function connectDatabase() {
     console.error('Error during public sharing token migration for existing approved reports:', error.message);
   }
 
-  // Seed master laboratory parameters catalog
+  // Seed master laboratory parameters catalog and test types
   await seedParameterCatalog();
+  try {
+    const { seedLaboratoryTests } = await import('../controllers/laboratoryTestController.js');
+    await seedLaboratoryTests();
+  } catch (seedErr) {
+    console.error('Error seeding laboratory tests on startup:', seedErr.message);
+  }
 }
 
 export async function disconnectDatabase() {

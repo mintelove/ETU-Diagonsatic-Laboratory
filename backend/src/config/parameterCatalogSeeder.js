@@ -129,14 +129,16 @@ export const MASTER_LAB_CATEGORIES = [
       { parameterName: 'TSH', unit: 'mIU/L', referenceValue: '0.40–4.00', normalMin: 0.4, normalMax: 4.0, displayOrder: 1 },
       { parameterName: 'T3', unit: 'nmol/L', referenceValue: '1.20–2.80', normalMin: 1.2, normalMax: 2.8, displayOrder: 2 },
       { parameterName: 'T4', unit: 'pmol/L', referenceValue: '12.0–22.0', normalMin: 12.0, normalMax: 22.0, displayOrder: 3 },
-      { parameterName: 'Troponin', unit: 'ng/mL', referenceValue: '0.00–0.04', normalMin: 0.0, normalMax: 0.04, displayOrder: 4 },
-      { parameterName: 'CK-MB', unit: 'U/L', referenceValue: '0.0–25.0', normalMin: 0, normalMax: 25, displayOrder: 5 },
-      { parameterName: 'CRP, QUANT', unit: 'mg/dL', referenceValue: '0.0–0.50', normalMin: 0.0, normalMax: 0.50, displayOrder: 6, aliases: ['CRP, QUANT', 'CRP', 'CRP QUANT', 'CRP (C-REACTIVE PROTEIN)'] },
-      { parameterName: 'C-REACTIVE PROTEIN QUANTITATIVE', unit: 'mg/L', referenceValue: '0–10', normalMin: 0, normalMax: 10, displayOrder: 7, aliases: ['C-REACTIVE PROTEIN QUANTITATIVE', 'C-REACTIVE PROTEIN', 'C-Reactive Protein'] },
-      { parameterName: 'Hs-CRP', unit: 'mg/L', referenceValue: '0–1', normalMin: 0, normalMax: 1, displayOrder: 8, aliases: ['Hs-CRP', 'HS-CRP', 'HIGH SENSITIVITY CRP', 'HIGH-SENSITIVITY CRP', 'High-Sensitivity CRP (hs-CRP)', 'hs-CRP'] },
-      { parameterName: 'AFP', unit: 'ng/mL', referenceValue: '0.0–10.0', normalMin: 0, normalMax: 10.0, displayOrder: 9 },
-      { parameterName: 'PSA', unit: 'ng/mL', referenceValue: '0.0–4.0', normalMin: 0, normalMax: 4.0, displayOrder: 10 },
-      { parameterName: 'HbA1C', unit: '%', referenceValue: '4.0–5.6', normalMin: 4.0, normalMax: 5.6, displayOrder: 11 }
+      { parameterName: 'fT3 — Free Triiodothyronine', unit: 'pmol/L', referenceValue: '3–7', normalMin: 3.0, normalMax: 7.0, displayOrder: 4, aliases: ['fT3', 'FT3', 'Free Triiodothyronine', 'FREE TRIIODOTHYRONINE', 'FT3 — FREE TRIIODOTHYRONINE', 'fT3 (Free Triiodothyronine)', 'FT3 - FREE TRIIODOTHYRONINE'] },
+      { parameterName: 'fT4 — Free Thyroxine', unit: 'pmol/L', referenceValue: '12–22', normalMin: 12.0, normalMax: 22.0, displayOrder: 5, aliases: ['fT4', 'FT4', 'Free Thyroxine', 'FREE THYROXINE', 'FT4 — FREE THYROXINE', 'fT4 (Free Thyroxine)', 'FT4 - FREE THYROXINE'] },
+      { parameterName: 'Troponin', unit: 'ng/mL', referenceValue: '0.00–0.04', normalMin: 0.0, normalMax: 0.04, displayOrder: 6 },
+      { parameterName: 'CK-MB', unit: 'U/L', referenceValue: '0.0–25.0', normalMin: 0, normalMax: 25, displayOrder: 7 },
+      { parameterName: 'CRP, QUANT', unit: 'mg/dL', referenceValue: '0.0–0.50', normalMin: 0.0, normalMax: 0.50, displayOrder: 8, aliases: ['CRP, QUANT', 'CRP', 'CRP QUANT', 'CRP (C-REACTIVE PROTEIN)'] },
+      { parameterName: 'C-REACTIVE PROTEIN QUANTITATIVE', unit: 'mg/L', referenceValue: '0–10', normalMin: 0, normalMax: 10, displayOrder: 9, aliases: ['C-REACTIVE PROTEIN QUANTITATIVE', 'C-REACTIVE PROTEIN', 'C-Reactive Protein'] },
+      { parameterName: 'Hs-CRP', unit: 'mg/L', referenceValue: '0–1', normalMin: 0, normalMax: 1, displayOrder: 10, aliases: ['Hs-CRP', 'HS-CRP', 'HIGH SENSITIVITY CRP', 'HIGH-SENSITIVITY CRP', 'High-Sensitivity CRP (hs-CRP)', 'hs-CRP'] },
+      { parameterName: 'AFP', unit: 'ng/mL', referenceValue: '0.0–10.0', normalMin: 0, normalMax: 10.0, displayOrder: 11 },
+      { parameterName: 'PSA', unit: 'ng/mL', referenceValue: '0.0–4.0', normalMin: 0, normalMax: 4.0, displayOrder: 12 },
+      { parameterName: 'HbA1C', unit: '%', referenceValue: '4.0–5.6', normalMin: 4.0, normalMax: 5.6, displayOrder: 13 }
     ]
   },
   {
@@ -342,8 +344,10 @@ export async function seedParameterCatalog(force = false) {
   try {
     if (!force) {
       const referralCount = await LabTestParameter.countDocuments({ category: { $in: ['REFERRAL', 'REFERRAL TESTS'] } });
+      const ft3Exists = await LabTestParameter.findOne({ category: 'HORMONE', parameterName: /ft3/i });
+      const ft4Exists = await LabTestParameter.findOne({ category: 'HORMONE', parameterName: /ft4/i });
       const totalCount = await LabTestParameter.countDocuments();
-      if (totalCount > 0 && referralCount > 0) return;
+      if (totalCount > 0 && referralCount > 0 && ft3Exists && ft4Exists) return;
     }
     let count = 0;
     let fallbackOrder = 1;

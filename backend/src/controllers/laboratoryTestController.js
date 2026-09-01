@@ -56,11 +56,14 @@ async function seedReferralTests() {
   }
 }
 
-async function seed(force = false) {
+export async function seedLaboratoryTests(force = false) {
   try {
     if (!force) {
+      const hormoneCat = await LaboratoryTestCategory.findOne({ name: /^HORMONE/i });
+      const ft3Exists = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft3/i }) : false;
+      const ft4Exists = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft4/i }) : false;
       const existingTestCount = await LaboratoryTest.countDocuments();
-      if (existingTestCount > 0) {
+      if (existingTestCount > 0 && ft3Exists && ft4Exists) {
         return;
       }
     }
@@ -208,7 +211,7 @@ async function seed(force = false) {
 }
 export async function publicCatalog(req,res,next){
   try{
-    await seed();
+    await seedLaboratoryTests();
     const [categories,settings]=await Promise.all([
       LaboratoryTestCategory.find({status:'Active',hidden:false}).sort({displayOrder:1}),
       LaboratorySettings.findOne({key:'default'})
@@ -232,7 +235,7 @@ export async function publicCatalog(req,res,next){
     res.json({categories: categoriesWithTests, settings});
   }catch(e){next(e)}
 }
-export async function adminCatalog(req,res,next){try{await seed();const [categories,tests,settings,samples,stockItems]=await Promise.all([LaboratoryTestCategory.find().sort({displayOrder:1}),LaboratoryTest.find().populate('category','name').populate('requiredSampleTypes','name').populate('consumables.item','itemName unit').sort({displayOrder:1}),LaboratorySettings.findOne({key:'default'}),SampleType.find().select('name'),StockItem.find({status:'Active'}).select('itemName unit').sort({itemName:1})]);res.json({categories,tests,settings,samples,stockItems})}catch(e){next(e)}}
+export async function adminCatalog(req,res,next){try{await seedLaboratoryTests();const [categories,tests,settings,samples,stockItems]=await Promise.all([LaboratoryTestCategory.find().sort({displayOrder:1}),LaboratoryTest.find().populate('category','name').populate('requiredSampleTypes','name').populate('consumables.item','itemName unit').sort({displayOrder:1}),LaboratorySettings.findOne({key:'default'}),SampleType.find().select('name'),StockItem.find({status:'Active'}).select('itemName unit').sort({itemName:1})]);res.json({categories,tests,settings,samples,stockItems})}catch(e){next(e)}}
 export async function createCategory(req,res,next){try{const category=await LaboratoryTestCategory.create(req.body);emit('laboratory-tests:change',{});res.status(201).json({category})}catch(e){next(e)}}
 export async function updateCategory(req,res,next){try{const category=await LaboratoryTestCategory.findByIdAndUpdate(req.params.id,req.body,{new:true,runValidators:true});if(!category)throw new AppError('Category not found.',404);emit('laboratory-tests:change',{});res.json({category})}catch(e){next(e)}}
 export async function deleteCategory(req,res,next){try{if(await LaboratoryTest.exists({category:req.params.id}))throw new AppError('Delete or move its tests first.',422);await LaboratoryTestCategory.findByIdAndDelete(req.params.id);emit('laboratory-tests:change',{});res.status(204).send()}catch(e){next(e)}}
