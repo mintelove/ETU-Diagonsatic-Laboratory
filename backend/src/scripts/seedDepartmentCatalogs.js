@@ -57,7 +57,7 @@ export async function seedDepartmentCatalogs() {
     } else {
       test.status = 'Active';
       test.category = pathCat._id;
-      if (test.price === undefined || test.price === null) test.price = t.price;
+      test.price = t.price;
       await test.save();
     }
   }
@@ -104,7 +104,7 @@ export async function seedDepartmentCatalogs() {
     } else {
       test.status = 'Active';
       test.category = radCat._id;
-      if (test.price === undefined || test.price === null) test.price = t.price;
+      test.price = t.price;
       await test.save();
     }
   }
@@ -143,7 +143,7 @@ export async function seedDepartmentCatalogs() {
   } else {
     medTest.status = 'Active';
     medTest.category = medCat._id;
-    if (medTest.price === undefined || medTest.price === null) medTest.price = 1500;
+    medTest.price = 1500;
     await medTest.save();
   }
 

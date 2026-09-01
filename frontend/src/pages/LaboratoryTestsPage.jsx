@@ -81,6 +81,7 @@ const REFERENCE_SOURCES = [
 export const getCategoryDefaultAnalyzer = (catName = '') => {
   const norm = (catName || '').toUpperCase();
   if (norm.includes('HEMA')) return 'Mindray BC-3000Plus (Hematology)';
+  if (norm.includes('BLOOD GROUP') || norm.includes('B/GROUP')) return 'Immunohematology / Rapid Slide';
   if (norm.includes('CHEM') || norm.includes('ASSAY') || norm.includes('LIPID') || norm.includes('LIVER') || norm.includes('RENAL')) return 'Mindray BS-120 (Chemistry)';
   if (norm.includes('ELECTROL')) return 'K-Lyte 8 (Electrolytes)';
   if (norm.includes('SUGAR') || norm.includes('DIABETIC') || norm.includes('HBA1C') || norm.includes('DM')) return 'Finecare HbA1c Reader';

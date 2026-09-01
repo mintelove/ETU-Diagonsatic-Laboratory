@@ -60,10 +60,12 @@ export async function seedLaboratoryTests(force = false) {
   try {
     if (!force) {
       const hormoneCat = await LaboratoryTestCategory.findOne({ name: /^HORMONE/i });
-      const ft3Exists = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft3/i }) : false;
-      const ft4Exists = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft4/i }) : false;
+      const bloodGroupCat = await LaboratoryTestCategory.findOne({ name: /^BLOOD GROUP$/i });
+      const fshExists = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /^fsh$/i }) : false;
+      const ft3Test = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft3/i }) : false;
+      const ft4Test = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft4/i }) : false;
       const existingTestCount = await LaboratoryTest.countDocuments();
-      if (existingTestCount > 0 && ft3Exists && ft4Exists) {
+      if (existingTestCount > 0 && bloodGroupCat && fshExists && ft3Test && ft4Test && ft3Test.price === 1300 && ft4Test.price === 1300) {
         return;
       }
     }
@@ -81,6 +83,7 @@ export async function seedLaboratoryTests(force = false) {
       'SERUM ELECTROLYTE',
       'HORMONE',
       'SEROLOGY AND IMMUNOHEMATOLOGY',
+      'BLOOD GROUP',
       'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP',
       'URINALYSIS',
       'BACTERIOLOGY / PARASITOLOGY',
@@ -100,6 +103,7 @@ export async function seedLaboratoryTests(force = false) {
       if (!catDoc) {
         const aliasRegex = catName.includes('CLINICAL') ? /clinical chemistry/i
           : catName.includes('SEROLOGY') ? /serolog|immuno/i
+          : catName.includes('BLOOD GROUP') ? /blood\s*group|b\/group/i
           : catName.includes('DIABETIC') ? /diabetic|blood sugar/i
           : catName.includes('URINE AND') ? /urine.*body.*fluid/i
           : catName.includes('BACTERIOLOGY') ? /bacteriol|parasitol/i
@@ -137,7 +141,7 @@ export async function seedLaboratoryTests(force = false) {
       const subcatName = catGroup.subcategory || '';
 
       let sampleId;
-      if (catGroup.category === 'HEMATOLOGY' || catGroup.category === 'COAGULATION TEST') sampleId = bloodSample || serumSample;
+      if (catGroup.category === 'HEMATOLOGY' || catGroup.category === 'COAGULATION TEST' || catGroup.category === 'BLOOD GROUP') sampleId = bloodSample || serumSample;
       else if (catGroup.category === 'URINALYSIS') sampleId = urineSample;
       else if (catGroup.category === 'STOOL EXAMINATION') sampleId = stoolSample;
       else if (catGroup.category === 'URINE AND BODY FLUID ANALYSIS') sampleId = urineSample || bodyFluidSample;
@@ -146,14 +150,22 @@ export async function seedLaboratoryTests(force = false) {
       for (const p of catGroup.parameters) {
         const testName = p.parameterName;
         const aliases = p.aliases || [];
+        const expectedPrice = p.defaultPrice || 600;
 
-        const searchQueries = [
+        const categoryScopedQueries = [
           { category: catDoc._id, name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
-          { name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
-          ...aliases.map(a => ({ name: new RegExp(`^${escapeRegex(a)}$`, 'i') }))
+          ...aliases.map(a => ({ category: catDoc._id, name: new RegExp(`^${escapeRegex(a)}$`, 'i') }))
         ];
 
-        const matches = await LaboratoryTest.find({ $or: searchQueries });
+        let matches = await LaboratoryTest.find({ $or: categoryScopedQueries });
+
+        if (matches.length === 0) {
+          const unassignedQueries = [
+            { category: { $in: [null, undefined] }, name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
+            ...aliases.map(a => ({ category: { $in: [null, undefined] }, name: new RegExp(`^${escapeRegex(a)}$`, 'i') }))
+          ];
+          matches = await LaboratoryTest.find({ $or: unassignedQueries });
+        }
 
         if (matches.length > 0) {
           const primary = matches[0];
@@ -162,17 +174,17 @@ export async function seedLaboratoryTests(force = false) {
           primary.subcategory = subcatName;
           primary.status = 'Active';
           primary.displayOrder = testOrder++;
+          primary.price = expectedPrice;
           if (sampleId && (!primary.requiredSampleTypes || !primary.requiredSampleTypes.length)) {
             primary.requiredSampleTypes = [sampleId];
-          }
-          if (primary.price === undefined || primary.price === null) {
-            primary.price = 600;
           }
           await primary.save();
 
           if (matches.length > 1) {
             for (let d = 1; d < matches.length; d++) {
-              await LaboratoryTest.findByIdAndDelete(matches[d]._id);
+              if (String(matches[d].category) === String(catDoc._id)) {
+                await LaboratoryTest.findByIdAndDelete(matches[d]._id);
+              }
             }
           }
         } else {
@@ -180,7 +192,7 @@ export async function seedLaboratoryTests(force = false) {
             name: testName,
             category: catDoc._id,
             subcategory: subcatName,
-            price: 600,
+            price: expectedPrice,
             status: 'Active',
             displayOrder: testOrder++,
             description: `${catGroup.category} laboratory investigation`,
@@ -204,7 +216,11 @@ export async function seedLaboratoryTests(force = false) {
       await obs.save();
     }
 
-    await LaboratorySettings.findOneAndUpdate({ key: 'default' }, { $setOnInsert: { key: 'default' } }, { upsert: true });
+    await LaboratorySettings.findOneAndUpdate(
+      { key: 'default' },
+      { $set: { cbcGroupPrice: 500 }, $setOnInsert: { key: 'default' } },
+      { upsert: true }
+    );
   } catch (err) {
     console.error('Error during laboratory tests seed synchronization:', err.message);
   }

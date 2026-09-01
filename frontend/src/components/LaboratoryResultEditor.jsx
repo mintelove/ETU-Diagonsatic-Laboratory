@@ -6,6 +6,8 @@ import { MAIN_CATEGORY_ORDER, CATEGORY_MAP_ALIASES, normalizeCategoryName } from
 
 const CATEGORY_META = {
   'HEMATOLOGY': { icon: '🩸', themeClass: 'cat-theme-hematology', bgGradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' },
+  'BLOOD GROUP': { icon: '🩸', themeClass: 'cat-theme-hematology', bgGradient: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)' },
+  'B/GROUP': { icon: '🩸', themeClass: 'cat-theme-hematology', bgGradient: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)' },
   'CLINICAL CHEMISTRY': { icon: '🧪', themeClass: 'cat-theme-chemistry', bgGradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' },
   'CHEMISTRY': { icon: '🧪', themeClass: 'cat-theme-chemistry', bgGradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' },
   'URINALYSIS': { icon: '🟡', themeClass: 'cat-theme-urinalysis', bgGradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
