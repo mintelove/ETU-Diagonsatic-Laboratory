@@ -194,7 +194,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
             </p>
             <div class="imed-a4-decl-grid" style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; padding-top: 3px; border-top: 1px dashed #718096;">
               <div><b>Doctor Name:</b> <strong>${safe(decl.doctorName || approvedByName || preparedByName)}</strong></div>
-              <div><b>Signature:</b> <span style="color: #075c91; font-weight: 700;">✍️ Verified Practitioner</span></div>
+              <div><b>Signature:</b> <span style="display: inline-block; min-width: 90px; border-bottom: 1px solid #000;">&nbsp;</span></div>
               <div><b>Date:</b> <span>${safe(formatMedDate(decl.signatureDate || new Date()))}</span></div>
             </div>
           </div>
@@ -455,7 +455,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     `}
 
     <section class="section" style="margin-top: ${isInternalMedicine ? '6px' : '8px'};">
-      <h2>Patient Information</h2>
+      <h2>${isInternalMedicine ? 'Basic Information' : 'Patient Information'}</h2>
       ${isInternalMedicine ? `
         <div style="display: flex; gap: 8px; align-items: stretch; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
           <div style="width: 80px; min-width: 80px; max-width: 80px; height: 105px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; background: #fafafa; flex-shrink: 0; overflow: hidden; box-sizing: border-box;">

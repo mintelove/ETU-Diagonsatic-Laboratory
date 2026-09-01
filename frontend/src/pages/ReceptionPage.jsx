@@ -1374,7 +1374,7 @@ export default function ReceptionPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '16px', marginBottom: '16px' }}>
                       <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                         <div className="form-group">
-                          <label>Patient Full Name (CAPITAL LETTERS) <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                          <label>Full Name (CAPITAL LETTERS) <span style={{ color: 'var(--color-error)' }}>*</span></label>
                           <input
                             type="text"
                             required

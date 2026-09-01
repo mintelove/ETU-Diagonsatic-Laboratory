@@ -351,7 +351,7 @@ export default function InternalMedicineEditor({
       <section className="imed-card">
         <div className="imed-card-title">
           <span className="imed-badge-num">1</span>
-          <h3>Patient Information</h3>
+          <h3>Basic Information</h3>
           <small>Registered by Receptionist</small>
         </div>
         <div className="imed-patient-summary">

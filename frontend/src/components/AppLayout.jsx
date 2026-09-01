@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { usePreferences } from '../context/PreferencesContext.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import Logo from '../assets/Logo.jsx';
+import AccountSettingsModal from './AccountSettingsModal.jsx';
 
 const icon = {
   dashboard: '⌂',
@@ -35,6 +36,7 @@ export default function AppLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const collapseTimerRef = useRef(null);
 
   // Initial load: keep expanded for 4 seconds, then smoothly auto-collapse
@@ -207,6 +209,13 @@ export default function AppLayout() {
           <div className="sidebar-mobile-tools">
             <button
               className="mobile-tool-btn"
+              title="Account Settings"
+              onClick={() => setAccountModalOpen(true)}
+            >
+              ⚙️ <span>Account Settings</span>
+            </button>
+            <button
+              className="mobile-tool-btn"
               title={t('language')}
               onClick={() => updatePreferences({ language: preferences.language === 'en' ? 'am' : 'en' })}
             >
@@ -227,10 +236,25 @@ export default function AppLayout() {
           </div>
 
           <div className="user-card">
-            <div className="user-card-info">
+            <div
+              className="user-card-info"
+              onClick={() => setAccountModalOpen(true)}
+              style={{ cursor: 'pointer' }}
+              title="Click to open Account Settings"
+            >
               <strong>{user.fullName}</strong>
               <span>{t(user.role)} • 📍 {user.branchName || 'Main'}</span>
             </div>
+            <button
+              type="button"
+              className="sidebar-logout-btn"
+              onClick={() => setAccountModalOpen(true)}
+              title="Account Settings"
+              aria-label="Account Settings"
+              style={{ marginRight: '4px' }}
+            >
+              <span aria-hidden="true">⚙️</span>
+            </button>
             <button
               type="button"
               className="sidebar-logout-btn"
@@ -276,7 +300,21 @@ export default function AppLayout() {
                 {preferences.theme === 'light' ? '◐' : '☀'}
               </button>
             )}
-            <span className="profile-chip" title={`${user.fullName} — ${t(user.role)} (${user.branchName || 'Main'} Branch)`}>
+            <button
+              type="button"
+              className="tool-button account-settings-btn"
+              title="Account Settings (Change Username & Password)"
+              onClick={() => setAccountModalOpen(true)}
+              style={{ fontSize: '1rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ⚙️
+            </button>
+            <span
+              className="profile-chip"
+              onClick={() => setAccountModalOpen(true)}
+              style={{ cursor: 'pointer' }}
+              title={`${user.fullName} — ${t(user.role)} (${user.branchName || 'Main'} Branch) • Click to open Account Settings`}
+            >
               ♙ <b>{user.fullName}</b> <span className="profile-role">({t(user.role)})</span> <small style={{ marginLeft: '4px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem' }}>📍 {user.branchName || 'Main'}</small>
             </span>
             <button className="logout-button" onClick={logout}>
@@ -286,6 +324,12 @@ export default function AppLayout() {
         </header>
         <Outlet />
       </main>
+
+      {/* Self-Service Account Settings Modal for All Roles */}
+      <AccountSettingsModal
+        isOpen={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+      />
     </div>
   );
 }

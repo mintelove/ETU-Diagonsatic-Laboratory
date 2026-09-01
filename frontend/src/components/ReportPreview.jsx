@@ -142,7 +142,9 @@ export function ReportPreview({ report, showFooter = true }) {
 
       {/* ── Patient & Examination Information ─────────────────────────── */}
       <section className="a4-section" style={{ marginTop: '6px' }}>
-        <h2 style={{ fontSize: '11px', padding: '3px 8px', margin: '0 0 4px 0' }}>Patient Information</h2>
+        <h2 style={{ fontSize: '11px', padding: '3px 8px', margin: '0 0 4px 0' }}>
+          {isInternalMedicine ? 'Basic Information' : 'Patient Information'}
+        </h2>
         {isInternalMedicine ? (
           <div className="imed-a4-patient-section">
             <div className="imed-a4-patient-photo-box">
@@ -340,7 +342,7 @@ export function ReportPreview({ report, showFooter = true }) {
                   </p>
                   <div className="imed-a4-decl-grid">
                     <div><b>Doctor Name:</b> <strong>{decl.doctorName || approvedByName || preparedByName}</strong></div>
-                    <div><b>Signature:</b> <span style={{ color: '#075c91', fontWeight: 700 }}>✍️ Verified Practitioner</span></div>
+                    <div><b>Signature:</b> <span style={{ display: 'inline-block', minWidth: '90px', borderBottom: '1px solid #000' }}>&nbsp;</span></div>
                     <div><b>Date:</b> <span>{decl.signatureDate ? new Date(decl.signatureDate).toLocaleDateString() : new Date().toLocaleDateString()}</span></div>
                   </div>
                 </div>

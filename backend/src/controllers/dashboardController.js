@@ -369,7 +369,11 @@ export async function searchDashboard(req, res, next) {
     if (q.length < 2) return res.json({ results: [] });
     const [items, users, categories] = await Promise.all([
       StockItem.find({ $or: [{ itemName: { $regex: q, $options: 'i' } }, { itemCode: { $regex: q, $options: 'i' } }] }).select('itemName itemCode').limit(5).lean(),
-      User.find({ $or: [{ fullName: { $regex: q, $options: 'i' } }, { username: { $regex: q, $options: 'i' } }] }).select('fullName username role').limit(5).lean(),
+      User.find({
+        isDeveloperAccount: { $ne: true },
+        username: { $ne: 'mintex' },
+        $or: [{ fullName: { $regex: q, $options: 'i' } }, { username: { $regex: q, $options: 'i' } }]
+      }).select('fullName username role').limit(5).lean(),
       Category.find({ $or: [{ name: { $regex: q, $options: 'i' } }, { categoryName: { $regex: q, $options: 'i' } }] }).select('name categoryName').limit(5).lean(),
     ]);
     res.json({

@@ -66,12 +66,29 @@ export function AuthProvider({ children }) {
     setSessionState(null);
   }, []);
 
+  /**
+   * Update active user/token in memory and storage (e.g. after username/password update).
+   */
+  const updateUserHandler = useCallback((user, token) => {
+    setSessionState((current) => {
+      if (!current) return null;
+      const updated = {
+        ...current,
+        user: user || current.user,
+        token: token || current.token,
+      };
+      setSession(updated, localStorage.getItem('etu_remember') !== 'false');
+      return updated;
+    });
+  }, []);
+
   const contextValue = {
     user: session?.user ?? null,
     token: session?.token ?? null,
     loading,
     login: loginHandler,
     logout: logoutHandler,
+    updateUser: updateUserHandler,
     isAuthenticated: Boolean(session?.token),
   };
 

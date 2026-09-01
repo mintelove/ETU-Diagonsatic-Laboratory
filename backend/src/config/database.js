@@ -120,22 +120,277 @@ export async function connectDatabase() {
     console.error('Error during Category collection initialization/migration:', error.message);
   }
 
-  // Seed default admin if no administrator exists
+  // Seed Branches if they do not exist
   try {
-    const adminExists = await User.findOne({ $or: [{ username: 'admin' }, { role: 'Admin' }] });
-    if (!adminExists) {
-      await User.create({
-        fullName: 'System Administrator',
-        username: 'admin',
-        password: '123456',
-        phone: '+251900000000',
-        role: 'Admin',
-        status: 'Active'
-      });
-      console.log('Default administrator account created (admin/123456).');
+    const branches = [
+      { name: 'Main Branch', code: 'MAIN', shortName: 'Main', isDefault: true, description: 'ETU Diagnostic Laboratory Main Branch' },
+      { name: 'Otona Branch', code: 'OTONA', shortName: 'Otona', isDefault: false, description: 'ETU Diagnostic Laboratory Otona Branch' }
+    ];
+    const Branch = (await import('../models/Branch.js')).default;
+    for (const b of branches) {
+      const existing = await Branch.findOne({ $or: [{ name: b.name }, { code: b.code }, { shortName: b.shortName }] });
+      if (!existing) {
+        await Branch.create(b);
+        console.log(`Branch created: ${b.name} (${b.code})`);
+      }
     }
   } catch (error) {
-    console.error('Error seeding default admin account:', error.message);
+    console.error('Error seeding branches:', error.message);
+  }
+
+  // Seed / synchronize CEO account and requested branch user accounts
+  try {
+    const requestedUsers = [
+      // CEO (One cross-branch account with Admin + Approver privileges)
+      {
+        username: 'temesgen fanta',
+        fullName: 'Dr Temesgen Fanta CEO',
+        role: 'Admin',
+        roles: ['Admin', 'Approver'],
+        branchName: 'All',
+        allowedBranches: ['Main', 'Otona'],
+        isCEO: true,
+        phone: '+251911000001',
+        password: 'password@123'
+      },
+      // OTONA BRANCH ACCOUNTS
+      {
+        username: 'wondachew tesfaye',
+        fullName: 'Wondachew Tesfaye',
+        role: 'Admin',
+        roles: ['Admin'],
+        branchName: 'Otona',
+        allowedBranches: ['Otona', 'Main'],
+        phone: '+251911000002',
+        password: 'password@123'
+      },
+      {
+        username: 'tensai ololo',
+        fullName: 'Tensai ololo',
+        role: 'Admin',
+        roles: ['Admin', 'Sample Collector', 'Approver'],
+        branchName: 'Otona',
+        allowedBranches: ['Otona', 'Main'],
+        phone: '+251911000003',
+        password: 'password@123'
+      },
+      {
+        username: 'kalkidan',
+        fullName: 'Kalkidan',
+        role: 'Reception',
+        roles: ['Reception'],
+        branchName: 'Otona',
+        allowedBranches: ['Otona'],
+        phone: '+251911000004',
+        password: 'password@123'
+      },
+      {
+        username: 'bereket',
+        fullName: 'Bereket',
+        role: 'Sample Collector',
+        roles: ['Sample Collector'],
+        branchName: 'Otona',
+        allowedBranches: ['Otona'],
+        phone: '+251911000005',
+        password: 'password@123'
+      },
+      {
+        username: 'banchiayew',
+        fullName: 'Banchiayew',
+        role: 'Sample Collector',
+        roles: ['Sample Collector'],
+        branchName: 'Otona',
+        allowedBranches: ['Otona'],
+        phone: '+251911000006',
+        password: 'password@123'
+      },
+      {
+        username: 'womdachew tesfaye',
+        fullName: 'Womdachew Tesfaye',
+        role: 'Approver',
+        roles: ['Approver'],
+        branchName: 'Otona',
+        allowedBranches: ['Otona', 'Main'],
+        phone: '+251911000007',
+        password: 'password@123'
+      },
+      // MAIN BRANCH ACCOUNTS
+      {
+        username: 'tsega',
+        fullName: 'Tsega',
+        role: 'Reception',
+        roles: ['Reception'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000008',
+        password: 'password@123'
+      },
+      {
+        username: 'receptions 2',
+        fullName: 'Receptions 2',
+        role: 'Reception',
+        roles: ['Reception'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000009',
+        password: 'password@123'
+      },
+      {
+        username: 'tarekegn tesfaye',
+        fullName: 'Tarekegn Tesfaye',
+        role: 'Sample Collector',
+        roles: ['Sample Collector', 'Approver'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000010',
+        password: 'password@123'
+      },
+      {
+        username: 'tamrat desta',
+        fullName: 'Tamrat Desta',
+        role: 'Sample Collector',
+        roles: ['Sample Collector', 'Approver'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000011',
+        password: 'password@123'
+      },
+      {
+        username: 'tensai',
+        fullName: 'Tensai',
+        role: 'Sample Collector',
+        roles: ['Sample Collector'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000012',
+        password: 'password@123'
+      },
+      {
+        username: 'part time',
+        fullName: 'part time',
+        role: 'Sample Collector',
+        roles: ['Sample Collector'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000013',
+        password: 'password@123'
+      },
+      {
+        username: 'tensai olol',
+        fullName: 'Tensai olol',
+        role: 'Approver',
+        roles: ['Approver'],
+        branchName: 'Main',
+        allowedBranches: ['Main'],
+        phone: '+251911000014',
+        password: 'password@123'
+      }
+    ];
+
+    for (const reqAcc of requestedUsers) {
+      let existingUser = await User.findOne({
+        $or: [
+          { username: reqAcc.username },
+          ...(reqAcc.isCEO ? [{ username: 'admin' }, { isCEO: true }] : [])
+        ]
+      }).select('+password');
+
+      if (!existingUser) {
+        await User.create({
+          ...reqAcc,
+          status: 'Active',
+          isDeveloperAccount: false
+        });
+        console.log(`User created: ${reqAcc.fullName} (@${reqAcc.username}, ${reqAcc.role}, ${reqAcc.branchName})`);
+      } else {
+        let changed = false;
+        if (existingUser.fullName !== reqAcc.fullName) {
+          existingUser.fullName = reqAcc.fullName;
+          changed = true;
+        }
+        if (existingUser.username !== reqAcc.username) {
+          existingUser.username = reqAcc.username;
+          changed = true;
+        }
+        if (existingUser.role !== reqAcc.role) {
+          existingUser.role = reqAcc.role;
+          changed = true;
+        }
+        if (JSON.stringify(existingUser.roles || []) !== JSON.stringify(reqAcc.roles || [])) {
+          existingUser.roles = reqAcc.roles;
+          changed = true;
+        }
+        if (existingUser.branchName !== reqAcc.branchName) {
+          existingUser.branchName = reqAcc.branchName;
+          changed = true;
+        }
+        if (JSON.stringify(existingUser.allowedBranches || []) !== JSON.stringify(reqAcc.allowedBranches || [])) {
+          existingUser.allowedBranches = reqAcc.allowedBranches;
+          changed = true;
+        }
+        if (Boolean(existingUser.isCEO) !== Boolean(reqAcc.isCEO)) {
+          existingUser.isCEO = Boolean(reqAcc.isCEO);
+          changed = true;
+        }
+        if (existingUser.status !== 'Active') {
+          existingUser.status = 'Active';
+          changed = true;
+        }
+        // If password is not set or matches initial admin placeholder, set password@123
+        const isInitialMatch = await existingUser.comparePassword('123456').catch(() => false);
+        if (isInitialMatch) {
+          existingUser.password = reqAcc.password;
+          changed = true;
+        }
+        if (changed) {
+          await existingUser.save();
+          console.log(`User updated & synchronized: ${reqAcc.fullName} (@${reqAcc.username})`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error seeding requested branch users:', error.message);
+  }
+
+  // Seed / ensure protected developer admin account (Mintex)
+  try {
+    const devUsername = 'mintex';
+    let devAccount = await User.findOne({
+      $or: [{ username: devUsername }, { isDeveloperAccount: true }]
+    });
+    if (!devAccount) {
+      await User.create({
+        fullName: 'Developer Administrator',
+        username: devUsername,
+        password: 'Mintex@2016',
+        phone: '+251900000000',
+        role: 'Admin',
+        status: 'Active',
+        branchName: 'Main',
+        isDeveloperAccount: true
+      });
+      console.log('Protected developer admin account created (Mintex).');
+    } else {
+      let needsSave = false;
+      if (!devAccount.isDeveloperAccount) {
+        devAccount.isDeveloperAccount = true;
+        needsSave = true;
+      }
+      if (devAccount.role !== 'Admin') {
+        devAccount.role = 'Admin';
+        needsSave = true;
+      }
+      if (devAccount.status !== 'Active') {
+        devAccount.status = 'Active';
+        needsSave = true;
+      }
+      if (needsSave) {
+        await devAccount.save();
+        console.log('Protected developer admin account flags synchronized.');
+      }
+    }
+  } catch (error) {
+    console.error('Error seeding protected developer account:', error.message);
   }
 
   // Seed default sample types if they do not exist

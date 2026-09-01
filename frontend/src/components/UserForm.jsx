@@ -74,10 +74,10 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
       newErrors.fullName = 'Full name must be between 2 and 100 characters.';
     }
 
-    if (!form.username.trim() || form.username.length < 3 || form.username.length > 30) {
-      newErrors.username = 'Username must be between 3 and 30 characters.';
-    } else if (!/^[a-z0-9._-]+$/.test(form.username)) {
-      newErrors.username = 'Letters, numbers, dots, hyphens, and underscores only.';
+    if (!form.username.trim() || form.username.length < 3 || form.username.length > 50) {
+      newErrors.username = 'Username must be between 3 and 50 characters.';
+    } else if (!/^[a-zA-Z0-9._\s-]+$/.test(form.username)) {
+      newErrors.username = 'Letters, numbers, spaces, dots, hyphens, and underscores only.';
     }
 
     if (!isEditMode) {
@@ -98,7 +98,7 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
       newErrors.email = 'Provide a valid email address.';
     }
 
-    if (!['Main', 'Otona'].includes(form.branchName)) {
+    if (!['Main', 'Otona', 'All'].includes(form.branchName)) {
       newErrors.branchName = 'Please select a valid branch.';
     }
 
@@ -299,8 +299,9 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
                   value={form.branchName}
                   onChange={(e) => setForm({ ...form, branchName: e.target.value })}
                 >
-                  <option value="Main">Main</option>
-                  <option value="Otona">Otona</option>
+                  <option value="Main">Main Branch</option>
+                  <option value="Otona">Otona Branch</option>
+                  <option value="All">All Branches (Otona + Main)</option>
                 </select>
                 {errors.branchName && <span className="field-error">{errors.branchName}</span>}
               </div>
