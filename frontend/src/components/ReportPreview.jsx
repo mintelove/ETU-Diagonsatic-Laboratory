@@ -91,11 +91,10 @@ export function ReportPreview({ report, showFooter = true }) {
 
   const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
   const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
-  const isInternalMedicine = report?.isInternalMedicineForm ||
-    Boolean(report?.internalMedicineReport?.examinationResult || report?.internalMedicineReport?.labInvestigations) ||
-    p?.examinationFormType === 'Internal Medicine Speciality Examination Form' ||
-    (Array.isArray(report?.laboratoryTests) && report.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t))) ||
-    (Array.isArray(p?.laboratoryTests) && p.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t)));
+  const isInternalMedicine = Boolean(
+    report?.isInternalMedicineForm === true ||
+    p?.examinationFormType === 'Internal Medicine Speciality Examination Form'
+  );
 
   const [fetchedToken, setFetchedToken] = useState(report.publicReport?.token || null);
   const currentToken = report.publicReport?.token || fetchedToken;

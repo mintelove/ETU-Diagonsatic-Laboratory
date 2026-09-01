@@ -43,11 +43,10 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   const patient = (report?.patient && typeof report.patient === 'object') ? report.patient : (report || {});
   const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
   const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
-  const isInternalMedicine = report?.isInternalMedicineForm ||
-    Boolean(report?.internalMedicineReport?.examinationResult || report?.internalMedicineReport?.labInvestigations) ||
-    patient?.examinationFormType === 'Internal Medicine Speciality Examination Form' ||
-    (Array.isArray(report?.laboratoryTests) && report.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t))) ||
-    (Array.isArray(patient?.laboratoryTests) && patient.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t)));
+  const isInternalMedicine = Boolean(
+    report?.isInternalMedicineForm === true ||
+    patient?.examinationFormType === 'Internal Medicine Speciality Examination Form'
+  );
 
   const showFooter = showFooterOverride !== undefined ? showFooterOverride : (report.showFooter !== undefined ? report.showFooter : true);
 

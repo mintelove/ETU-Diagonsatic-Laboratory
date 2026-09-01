@@ -571,8 +571,7 @@ export default function CollectionPage() {
   </div>
 
   {Boolean(selected?.examinationFormType === 'Internal Medicine Speciality Examination Form' ||
-    (Array.isArray(selected?.laboratoryTests) && selected.laboratoryTests.some(t => /internal medicine/i.test(t?.name || t))) ||
-    report?.isInternalMedicineForm) ? (
+    report?.isInternalMedicineForm === true) ? (
     <InternalMedicineEditor
       patient={selected}
       report={report}
