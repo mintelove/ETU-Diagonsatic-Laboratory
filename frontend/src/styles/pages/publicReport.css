@@ -237,41 +237,49 @@ body:has(.public-report-page) {
   text-align: center !important;
 }
 
-/* ── Neutralize Hover Artifacts ────────────────────────────────────────────── */
-.public-report-page table tr:hover,
-.public-report-main table tr:hover,
-.public-report-page tr:hover {
-  background-color: #f1f5f9 !important;
+/* ── Total Hover Immunity: Zero Hover-Based Content or Style Mutation ─────── */
+.public-report-page *,
+.public-report-page *::before,
+.public-report-page *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
-.public-report-page table tr:hover td,
-.public-report-main table tr:hover td,
-.public-report-page tr:hover td {
-  background-color: #f1f5f9 !important;
+.public-report-page table tbody tr:nth-child(even):hover td,
+.public-report-main table tbody tr:nth-child(even):hover td {
+  background-color: #f8fafc !important;
   color: #0f172a !important;
-  opacity: 1 !important;
-  visibility: visible !important;
+}
+
+.public-report-page table tbody tr:nth-child(odd):hover td,
+.public-report-main table tbody tr:nth-child(odd):hover td {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
 }
 
 .public-report-page table tr:hover td strong,
 .public-report-main table tr:hover td strong,
 .public-report-page tr:hover td strong {
   color: #0f172a !important;
+  opacity: 1 !important;
 }
 
 .public-report-page table tr:hover td span:not(.flag-badge):not(.flag-badge *),
 .public-report-main table tr:hover td span:not(.flag-badge):not(.flag-badge *) {
   color: #475569 !important;
+  opacity: 1 !important;
 }
 
 .public-report-page table tr:hover td small,
 .public-report-main table tr:hover td small {
   color: #657d87 !important;
+  opacity: 1 !important;
 }
 
 .public-report-page table tr:hover td .public-result-val,
 .public-report-page table tr:hover td:nth-child(2) {
   color: #075c91 !important;
+  opacity: 1 !important;
 }
 
 /* ── Clinical Interpretation & Remarks ─────────────────────────────────────── */
