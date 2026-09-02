@@ -95,7 +95,9 @@ export async function viewPublicReport(req, res, next) {
       unit: r.unit || '',
       referenceValue: r.referenceValue || '',
       flag: r.flag || '',
-      remarks: r.remarks || ''
+      remarks: r.remarks || '',
+      category: r.category || '',
+      subcategory: r.subcategory || ''
     }));
 
     const publicData = {
@@ -107,6 +109,8 @@ export async function viewPublicReport(req, res, next) {
       patientId: patient.patientId || '',
       age: patient.age || '',
       sex: patient.sex || '',
+      systolicBP: patient.systolicBP || null,
+      diastolicBP: patient.diastolicBP || null,
       reportDate: report.approvedDate || report.approvalDate || report.updatedDate || report.createdDate,
       referralHospital: patient.referralHospital || '',
       sampleTypes: (patient.sampleTypes || []).map(s => s?.name || s).filter(Boolean),
@@ -115,6 +119,8 @@ export async function viewPublicReport(req, res, next) {
       equipment: report.equipment || [],
       results,
       comments: report.comments || '',
+      sampleCollectorComments: report.sampleCollectorComments || [],
+      testInterpretations: report.testInterpretations || [],
       collectorName: report.technician?.fullName || '',
       approvedBy: report.approvedBy?.fullName || '',
       approvedDate: report.approvedDate || report.approvalDate || '',

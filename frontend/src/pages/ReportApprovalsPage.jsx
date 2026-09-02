@@ -60,9 +60,30 @@ export default function ReportApprovalsPage() {
         <div className="modal-body">
           <ReportPreview report={selected} />
         </div>
-        <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0 }}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>Print Preview</button>
-          {selected?.publicReport?.token && <button type="button" className="secondary" onClick={() => { const link = buildPublicReportUrl(selected.publicReport.token); navigator.clipboard.writeText(link); setMessage('Public report link copied to clipboard!'); }}>🔗 Copy Public Link</button>}
+        <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
+          {['Approved', 'Ready for Printing'].includes(selected?.status) && (
+            <button
+              type="button"
+              className="primary"
+              onClick={async () => {
+                let tok = selected?.publicReport?.token;
+                if (!tok && selected?._id) {
+                  try {
+                    const res = await api(`/final-reports/${selected._id}/public-link`, { token });
+                    if (res?.token) tok = res.token;
+                  } catch (err) {}
+                }
+                if (tok) {
+                  const link = buildPublicReportUrl(tok);
+                  navigator.clipboard.writeText(link);
+                  setMessage('Public report link copied to clipboard!');
+                }
+              }}
+            >
+              📋 Copy Share Link
+            </button>
+          )}
         </div>
         {['Pending', 'Submitted'].includes(selected?.status) && (
           <div className="form-actions" style={{ padding: '12px 24px 18px', borderTop: '1px dashed var(--color-outline-variant, #e2e8f0)', marginTop: 0 }}>

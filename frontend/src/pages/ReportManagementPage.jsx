@@ -7,6 +7,8 @@ import {printLabReport} from '../utils/printLabReport.js';
 import ReportPreview, { getReportTestTypes } from '../components/ReportPreview.jsx';
 import {FlagBadge} from '../utils/flagHelper.jsx';
 
+import {buildPublicReportUrl} from '../utils/publicUrlHelper.js';
+
 import ModalPortal from '../components/ModalPortal.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
 
@@ -38,8 +40,32 @@ export default function ReportManagementPage(){
         {selected?.rejectionReason&&<div className="alert error"><strong>Rejection reason:</strong>&nbsp;{selected.rejectionReason}</div>}
         <ReportPreview report={selected}/>
       </div>
-      <div className="form-actions" style={{padding:'14px 24px',borderTop:'1px solid var(--color-outline-variant, #e2e8f0)',marginTop:0}}>
-        <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
+      <div className="form-actions" style={{padding:'14px 24px',borderTop:'1px solid var(--color-outline-variant, #e2e8f0)',marginTop:0,display:'flex',gap:'10px',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
+          {['Approved', 'Ready for Printing'].includes(selected?.status) && (
+            <button
+              type="button"
+              className="primary"
+              onClick={async () => {
+                let tok = selected?.publicReport?.token;
+                if (!tok && selected?._id) {
+                  try {
+                    const res = await api(`/final-reports/${selected._id}/public-link`, { token });
+                    if (res?.token) tok = res.token;
+                  } catch (err) {}
+                }
+                if (tok) {
+                  const link = buildPublicReportUrl(tok);
+                  navigator.clipboard.writeText(link);
+                  setMessage('Public report link copied to clipboard!');
+                }
+              }}
+            >
+              📋 Copy Share Link
+            </button>
+          )}
+        </div>
         <button type="button" className="secondary" onClick={()=>setSelected(null)}>Close</button>
       </div>
     </div>

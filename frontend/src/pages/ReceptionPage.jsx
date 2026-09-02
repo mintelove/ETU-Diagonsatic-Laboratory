@@ -16,6 +16,7 @@ import { preparePOS80ReceiptData, isCbcParameter, printPOS80ThermalReceipt } fro
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import ReportPreview from '../components/ReportPreview.jsx';
+import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 
 const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
 const CATEGORY_THEMES = {
@@ -1212,6 +1213,29 @@ export default function ReceptionPage() {
                 </label>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {['Approved', 'Ready for Printing'].includes(selectedReportForPreview?.status) && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
+                    onClick={async () => {
+                      let tok = selectedReportForPreview?.publicReport?.token;
+                      if (!tok && selectedReportForPreview?._id) {
+                        try {
+                          const res = await api(`/final-reports/${selectedReportForPreview._id}/public-link`, { token });
+                          if (res?.token) tok = res.token;
+                        } catch (e) {}
+                      }
+                      if (tok) {
+                        const link = buildPublicReportUrl(tok);
+                        navigator.clipboard.writeText(link);
+                        setFeedback('Public report link copied to clipboard!');
+                      }
+                    }}
+                  >
+                    📋 Copy Share Link
+                  </button>
+                )}
                 <button
                   type="button"
                   className="primary-button"

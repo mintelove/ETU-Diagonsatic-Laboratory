@@ -942,10 +942,60 @@ tr:hover td .flag-badge.critical-low * {
 }
 
 
+/* ── 6. PUBLIC SHARE LINK BANNER ─────────────────────────────────────────── */
+.lab-report-preview .report-preview-share-banner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 16px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-share-banner,
+[data-theme='dark'] .lab-report-preview .report-preview-share-banner {
+  background-color: #0c1527 !important;
+  border: 1.5px solid #0284c7 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-share-banner strong,
+[data-theme='dark'] .lab-report-preview .report-preview-share-banner strong {
+  color: #38bdf8 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-share-banner span,
+[data-theme='dark'] .lab-report-preview .report-preview-share-banner span {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme='light'] .lab-report-preview .report-preview-share-banner,
+:root:not([data-theme='dark']) .lab-report-preview .report-preview-share-banner {
+  background-color: #f0f9ff !important;
+  border: 1.5px solid #0284c7 !important;
+}
+
+:root[data-theme='light'] .lab-report-preview .report-preview-share-banner strong,
+:root:not([data-theme='dark']) .lab-report-preview .report-preview-share-banner strong {
+  color: #075c91 !important;
+}
+
+:root[data-theme='light'] .lab-report-preview .report-preview-share-banner span,
+:root:not([data-theme='dark']) .lab-report-preview .report-preview-share-banner span {
+  color: #334155 !important;
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   6. PRINT ISOLATION (@media print)
+   7. PRINT ISOLATION (@media print)
    ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
+  .report-preview-share-banner,
+  .no-print {
+    display: none !important;
+  }
+
   .lab-report-preview {
     background: #ffffff !important;
     color: #000000 !important;
@@ -979,3 +1029,4 @@ tr:hover td .flag-badge.critical-low * {
     color: #000000 !important;
   }
 }
+

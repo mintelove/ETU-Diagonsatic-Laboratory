@@ -3,6 +3,7 @@ import { FlagBadge } from '../utils/flagHelper.jsx';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
+import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 
 import labLogo from '../assets/etu.jpg';
 
@@ -94,6 +95,7 @@ export function ReportPreview({ report, showFooter = true }) {
   );
 
   const [fetchedToken, setFetchedToken] = useState(report.publicReport?.token || null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (report.publicReport?.token) {
@@ -106,6 +108,8 @@ export function ReportPreview({ report, showFooter = true }) {
         .catch(() => {});
     }
   }, [report._id, report.status, report.publicReport?.token, isApproved, authToken]);
+
+  const currentToken = report.publicReport?.token || fetchedToken;
 
   const reportSubTitle = isPathology
     ? `Pathology Examination Report — ${report.testType || 'Biopsy'}`
@@ -121,6 +125,34 @@ export function ReportPreview({ report, showFooter = true }) {
 
   return (
     <article className="lab-report-preview a4-document-page">
+      {/* ── Public Share Link Banner (Screen Only, Hidden in Print) ────── */}
+      {isApproved && currentToken && (
+        <div className="report-preview-share-banner no-print">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: '18px' }}>🔗</span>
+            <div style={{ minWidth: 0 }}>
+              <strong style={{ fontSize: '12px', display: 'block' }}>Public / Shareable Report Link</strong>
+              <span style={{ fontSize: '11px', wordBreak: 'break-all', userSelect: 'all' }}>
+                {buildPublicReportUrl(currentToken)}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              const link = buildPublicReportUrl(currentToken);
+              navigator.clipboard.writeText(link);
+              setCopiedLink(true);
+              setTimeout(() => setCopiedLink(false), 3000);
+            }}
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {copiedLink ? '✓ Link Copied!' : '📋 Copy Share Link'}
+          </button>
+        </div>
+      )}
+
       {/* ── Official ETU Header or Clean Medical Subtitle ────────────────── */}
       {showFooter ? (
         <header className="report-preview-header a4-header">
