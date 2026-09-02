@@ -174,11 +174,16 @@ export function FlagBadge({ flag, result, referenceValue, sex = '', showIcon = t
         background: details.bg,
         color: details.color,
         border: `1px solid ${details.border}`,
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        position: 'relative',
+        zIndex: 2,
+        opacity: 1,
+        visibility: 'visible',
+        pointerEvents: 'auto'
       }}
     >
-      {showIcon && <span>{details.icon}</span>}
-      <span>{details.label}</span>
+      {showIcon && <span style={{ color: details.color, pointerEvents: 'none' }}>{details.icon}</span>}
+      <span style={{ color: details.color, pointerEvents: 'none' }}>{details.label}</span>
     </span>
   );
 }

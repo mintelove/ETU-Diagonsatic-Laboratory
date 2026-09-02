@@ -5,6 +5,7 @@ import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useLocation } from 'react-router-dom';
 import LaboratoryResultEditor from '../components/LaboratoryResultEditor.jsx';
 import InternalMedicineEditor from '../components/InternalMedicineEditor.jsx';
+import ReportPreview from '../components/ReportPreview.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 const emptyReport = {
@@ -614,77 +615,17 @@ export default function CollectionPage() {
 </ModalPortal>
 
 <ModalPortal isOpen={previewOpen && !!generated} onClose={() => setPreviewOpen(false)}>
-  <div className="report-preview-modal" onClick={e => e.stopPropagation()}>
-    <div className="report-preview-modal-header">
-      <div>
-        <p className="eyebrow" style={{ margin: 0 }}>Laboratory Report Preview</p>
-        <h2 className="preview-header-title">ETU Diagnostic Laboratory</h2>
-      </div>
-      <button type="button" className="report-preview-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">&times;</button>
+  <div className="modal-content" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
+    <header className="modal-header">
+      <h2>Laboratory Report Preview</h2>
+      <button type="button" className="close-button" onClick={() => setPreviewOpen(false)}>×</button>
+    </header>
+
+    <div className="modal-body" style={{ padding: '16px' }}>
+      <ReportPreview report={generated} showFooter={true} />
     </div>
 
-    <div className="report-preview-modal-body">
-      {/* Patient Info */}
-      <div className="report-preview-patient-info">
-        <p><strong>Patient Name:</strong> {selected?.name || '—'}</p>
-        <p><strong>Patient ID:</strong> {selected?.patientId || '—'}</p>
-        <p><strong>Age / Sex:</strong> {selected?.age || '—'} / {selected?.sex || '—'}</p>
-        <p><strong>Date:</strong> {new Date().toLocaleString()}</p>
-      </div>
-
-      {/* Equipment */}
-      {generated?.equipment?.length > 0 && (
-        <p style={{ fontSize: '0.88rem', margin: '0 0 12px' }}>
-          <strong>Equipment Used:</strong> {generated.equipment.join(', ')}
-        </p>
-      )}
-
-      {/* Results grouped by category */}
-      {(() => {
-        if (!generated?.results) return null;
-        const grouped = groupResultsByCategory(generated.results);
-        return grouped.map(([catName, rows], gi) => (
-          <div key={catName} className="report-preview-category-group">
-            <h4 className="report-preview-category-title">{catName}</h4>
-            <table className="report-preview-table">
-              <thead>
-                <tr>
-                  <th>Parameter</th>
-                  <th>Result</th>
-                  <th>SI Unit</th>
-                  <th>Reference Range</th>
-                  <th style={{ textAlign: 'center' }}>Flag</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={`${catName}-${i}`}>
-                    <td><strong>{row.sampleName}</strong></td>
-                    <td><strong>{row.result}</strong></td>
-                    <td>{row.unit || '—'}</td>
-                    <td>{row.referenceValue || '—'}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={`flag-badge ${row.flag || flagFor(row, selected?.sex) || 'blank'}`}>
-                        {flagText(row.flag || flagFor(row, selected?.sex))}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ));
-      })()}
-
-      {/* Comments */}
-      {generated?.comments && (
-        <p style={{ margin: '12px 0 0', fontSize: '0.88rem' }}>
-          <strong>Collector Comments:</strong> {generated.comments}
-        </p>
-      )}
-    </div>
-
-    <div className="report-preview-modal-footer" style={{ padding: '14px 28px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+    <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0, display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
       <button type="button" className="secondary" onClick={() => setPreviewOpen(false)}>Close Preview</button>
       <button type="button" className="primary" onClick={() => { setPreviewOpen(false); setConfirmSubmit(true); }}>🚀 Proceed to Submit</button>
     </div>

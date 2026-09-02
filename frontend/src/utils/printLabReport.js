@@ -506,7 +506,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           <div><b>Patient ID</b>${safe(patient.patientId)}</div>
           <div><b>Age / Sex</b>${safe(patient.age)} / ${safe(patient.sex)}</div>
           <div><b>Phone</b>${safe(patient.phone)}</div>
-          <div><b>Examination Type</b>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || sampleTypesStr)}</div>
+          <div><b>Examination Type</b>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || 'General Laboratory Investigation')}</div>
           <div><b>Registration Date</b>${safe(collectionDateStr)}</div>
           <div><b>Report Date</b>${safe(reportDateStr)}</div>
           <div><b>Branch</b>📍 ${safe(report.branchName || patient.branchName || 'Main')}</div>

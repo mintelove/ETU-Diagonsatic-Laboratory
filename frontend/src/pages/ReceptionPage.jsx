@@ -1230,7 +1230,7 @@ export default function ReceptionPage() {
             </header>
 
             {/* A4 Document Canvas */}
-            <div style={{ padding: '24px 16px', display: 'flex', justifyContent: 'center', background: '#cbd5e1' }}>
+            <div style={{ padding: '20px 16px', display: 'flex', justifyContent: 'center', background: 'var(--color-surface-container, transparent)' }}>
               <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
             </div>
           </div>
