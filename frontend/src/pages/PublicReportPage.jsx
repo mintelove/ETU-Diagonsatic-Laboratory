@@ -302,8 +302,8 @@ export function PublicReportViewer() {
           </div>
         </header>
 
-        {/* Main A4 Document Preview */}
-        <main className="public-report-main" style={{ background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+        {/* Main A4 Document Preview (100% Static Document — Zero Hover/Cursor Reaction) */}
+        <main className="public-report-main" style={{ background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word', pointerEvents: 'none', userSelect: 'text', cursor: 'default' }}>
           
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '3px solid #087ca8', paddingBottom: '16px', marginBottom: '20px' }}>

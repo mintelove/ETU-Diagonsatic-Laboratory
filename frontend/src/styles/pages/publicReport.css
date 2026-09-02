@@ -45,7 +45,7 @@ body:has(.public-report-page) {
   animation: none !important;
 }
 
-/* ── Container & Card ──────────────────────────────────────────────────────── */
+/* ── Container & Card (Strict Static Non-Interactive Document Body) ────────── */
 .public-report-main {
   background-color: #ffffff !important;
   color: #0f172a !important;
@@ -53,11 +53,24 @@ body:has(.public-report-page) {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06) !important;
   border-radius: 16px !important;
   cursor: default !important;
+  pointer-events: none !important;
+  user-select: text !important;
 }
 
-.public-report-main,
 .public-report-main * {
   cursor: default !important;
+  pointer-events: none !important;
+  user-select: text !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Top Action Controls remain fully functional */
+.public-report-actions,
+.public-report-actions * {
+  pointer-events: auto !important;
 }
 
 .public-report-actions button {
@@ -66,9 +79,7 @@ body:has(.public-report-page) {
 
 /* ── Section Titles & Headers (Static, Zero Hover Mutation) ────────────────── */
 .public-report-page .public-section-title,
-.public-report-page h3,
-.public-report-page .public-section-title:hover,
-.public-report-page h3:hover {
+.public-report-page h3 {
   background-color: #e8f5fa !important;
   color: #075c91 !important;
   border-left: 4px solid #0b95b7 !important;
@@ -85,9 +96,7 @@ body:has(.public-report-page) {
 }
 
 .public-report-page .public-category-header,
-.public-report-page h4,
-.public-report-page .public-category-header:hover,
-.public-report-page h4:hover {
+.public-report-page h4 {
   background: #075c91 !important;
   background-color: #075c91 !important;
   color: #ffffff !important;
@@ -106,9 +115,7 @@ body:has(.public-report-page) {
 }
 
 .public-report-page .public-subcategory-header,
-.public-report-page h5,
-.public-report-page .public-subcategory-header:hover,
-.public-report-page h5:hover {
+.public-report-page h5 {
   background-color: #e8f5fa !important;
   color: #075c91 !important;
   margin: 4px 0 6px 0 !important;
@@ -126,8 +133,7 @@ body:has(.public-report-page) {
 }
 
 /* ── Patient & Information Grids ───────────────────────────────────────────── */
-.public-report-page .public-info-grid,
-.public-report-page .public-info-grid:hover {
+.public-report-page .public-info-grid {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
   gap: 10px 20px !important;
@@ -140,8 +146,7 @@ body:has(.public-report-page) {
   transform: none !important;
 }
 
-.public-report-page .public-info-grid strong,
-.public-report-page .public-info-grid strong:hover {
+.public-report-page .public-info-grid strong {
   color: #475569 !important;
   min-width: 100px !important;
   display: inline-block !important;
@@ -150,8 +155,7 @@ body:has(.public-report-page) {
   visibility: visible !important;
 }
 
-.public-report-page .public-info-grid span,
-.public-report-page .public-info-grid span:hover {
+.public-report-page .public-info-grid span {
   color: #0f172a !important;
   font-weight: 600 !important;
   opacity: 1 !important;
@@ -160,9 +164,7 @@ body:has(.public-report-page) {
 
 /* ── Tables & Results (100% Static, Zero Hover Effects) ────────────────────── */
 .public-report-page table,
-.public-report-main table,
-.public-report-page table:hover,
-.public-report-main table:hover {
+.public-report-main table {
   width: 100% !important;
   min-width: 520px !important;
   border-collapse: collapse !important;
@@ -176,9 +178,7 @@ body:has(.public-report-page) {
 }
 
 .public-report-page table thead tr,
-.public-report-main table thead tr,
-.public-report-page table thead tr:hover,
-.public-report-main table thead tr:hover {
+.public-report-main table thead tr {
   background-color: #075c91 !important;
   box-shadow: none !important;
   transform: none !important;
@@ -186,10 +186,7 @@ body:has(.public-report-page) {
 
 .public-report-page table th,
 .public-report-main table th,
-.public-report-page th,
-.public-report-page table th:hover,
-.public-report-main table th:hover,
-.public-report-page th:hover {
+.public-report-page th {
   background-color: #075c91 !important;
   color: #ffffff !important;
   font-size: 0.8rem !important;
@@ -211,9 +208,7 @@ body:has(.public-report-page) {
 
 /* Table Rows: Permanent Static Striping, Zero Hover Shift */
 .public-report-page table tbody tr,
-.public-report-main table tbody tr,
-.public-report-page table tbody tr:hover,
-.public-report-main table tbody tr:hover {
+.public-report-main table tbody tr {
   border-bottom: 1px solid #d6e2e7 !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -223,12 +218,8 @@ body:has(.public-report-page) {
 
 .public-report-page table tbody tr:nth-child(even),
 .public-report-page table tbody tr:nth-child(even) td,
-.public-report-page table tbody tr:nth-child(even):hover,
-.public-report-page table tbody tr:nth-child(even):hover td,
 .public-report-main table tbody tr:nth-child(even),
-.public-report-main table tbody tr:nth-child(even) td,
-.public-report-main table tbody tr:nth-child(even):hover,
-.public-report-main table tbody tr:nth-child(even):hover td {
+.public-report-main table tbody tr:nth-child(even) td {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   box-shadow: none !important;
@@ -237,12 +228,8 @@ body:has(.public-report-page) {
 
 .public-report-page table tbody tr:nth-child(odd),
 .public-report-page table tbody tr:nth-child(odd) td,
-.public-report-page table tbody tr:nth-child(odd):hover,
-.public-report-page table tbody tr:nth-child(odd):hover td,
 .public-report-main table tbody tr:nth-child(odd),
-.public-report-main table tbody tr:nth-child(odd) td,
-.public-report-main table tbody tr:nth-child(odd):hover,
-.public-report-main table tbody tr:nth-child(odd):hover td {
+.public-report-main table tbody tr:nth-child(odd) td {
   background-color: #ffffff !important;
   color: #0f172a !important;
   box-shadow: none !important;
@@ -252,10 +239,7 @@ body:has(.public-report-page) {
 /* Table Cells */
 .public-report-page table td,
 .public-report-main table td,
-.public-report-page td,
-.public-report-page table td:hover,
-.public-report-main table td:hover,
-.public-report-page td:hover {
+.public-report-page td {
   padding: 9px !important;
   font-size: 0.88rem !important;
   color: #0f172a !important;
@@ -270,15 +254,7 @@ body:has(.public-report-page) {
 .public-report-page table td strong,
 .public-report-main table td strong,
 .public-report-page td strong,
-.public-report-page td b,
-.public-report-page table td strong:hover,
-.public-report-main table td strong:hover,
-.public-report-page td strong:hover,
-.public-report-page td b:hover,
-.public-report-page table tr:hover td strong,
-.public-report-main table tr:hover td strong,
-.public-report-page tr:hover td strong,
-.public-report-page tr:hover td b {
+.public-report-page td b {
   color: #0f172a !important;
   font-weight: 700 !important;
   font-size: inherit !important;
@@ -293,13 +269,7 @@ body:has(.public-report-page) {
 .public-report-page table td .public-result-val,
 .public-report-page table td:nth-child(2),
 .public-report-main table td:nth-child(2),
-.public-report-page table td .public-result-val:hover,
-.public-report-page table td:nth-child(2):hover,
-.public-report-main table td:nth-child(2):hover,
-.public-report-page table tr:hover td .public-result-val,
-.public-report-page table tr:hover td:nth-child(2),
-.public-report-main table tr:hover td .public-result-val,
-.public-report-main table tr:hover td:nth-child(2) {
+.public-report-main table td .public-result-val {
   color: #075c91 !important;
   font-weight: 700 !important;
   font-size: inherit !important;
@@ -313,15 +283,7 @@ body:has(.public-report-page) {
 .public-report-page table td:nth-child(3),
 .public-report-page table td:nth-child(4),
 .public-report-main table td:nth-child(3),
-.public-report-main table td:nth-child(4),
-.public-report-page table td:nth-child(3):hover,
-.public-report-page table td:nth-child(4):hover,
-.public-report-main table td:nth-child(3):hover,
-.public-report-main table td:nth-child(4):hover,
-.public-report-page table tr:hover td:nth-child(3),
-.public-report-page table tr:hover td:nth-child(4),
-.public-report-main table tr:hover td:nth-child(3),
-.public-report-main table tr:hover td:nth-child(4) {
+.public-report-main table td:nth-child(4) {
   color: #475569 !important;
   font-weight: 500 !important;
   font-size: inherit !important;
@@ -332,9 +294,7 @@ body:has(.public-report-page) {
 }
 
 .public-report-page table td span:not(.flag-badge):not(.flag-badge *),
-.public-report-main table td span:not(.flag-badge):not(.flag-badge *),
-.public-report-page table tr:hover td span:not(.flag-badge):not(.flag-badge *),
-.public-report-main table tr:hover td span:not(.flag-badge):not(.flag-badge *) {
+.public-report-main table td span:not(.flag-badge):not(.flag-badge *) {
   color: #475569 !important;
   font-weight: 500 !important;
   opacity: 1 !important;
@@ -343,11 +303,7 @@ body:has(.public-report-page) {
 
 .public-report-page table td small,
 .public-report-main table td small,
-.public-report-page td small,
-.public-report-page table td small:hover,
-.public-report-main table td small:hover,
-.public-report-page table tr:hover td small,
-.public-report-main table tr:hover td small {
+.public-report-page td small {
   color: #657d87 !important;
   display: block !important;
   margin-top: 2px !important;
@@ -365,8 +321,7 @@ body:has(.public-report-page) {
 }
 
 /* ── Clinical Interpretation & Remarks ─────────────────────────────────────── */
-.public-report-page .public-interpretation-box,
-.public-report-page .public-interpretation-box:hover {
+.public-report-page .public-interpretation-box {
   margin: 6px 0 14px 0 !important;
   padding: 8px 12px !important;
   background-color: #f0f7fa !important;
@@ -389,8 +344,7 @@ body:has(.public-report-page) {
   font-weight: 700 !important;
 }
 
-.public-report-page .public-remarks-box,
-.public-report-page .public-remarks-box:hover {
+.public-report-page .public-remarks-box {
   padding: 12px 16px !important;
   background-color: #f8fafc !important;
   border-radius: 8px !important;
@@ -416,18 +370,8 @@ body:has(.public-report-page) {
 /* ── Flag Badges (100% Static, Zero Hover Alteration) ──────────────────────── */
 .public-report-page .flag-badge,
 .public-report-page .flag-badge *,
-.public-report-page .flag-badge:hover,
-.public-report-page .flag-badge:hover *,
-.public-report-page tr:hover .flag-badge,
-.public-report-page tr:hover .flag-badge *,
-.public-report-page tr:hover td .flag-badge,
-.public-report-page tr:hover td .flag-badge *,
 .public-report-main .flag-badge,
-.public-report-main .flag-badge *,
-.public-report-main .flag-badge:hover,
-.public-report-main .flag-badge:hover *,
-.public-report-main tr:hover .flag-badge,
-.public-report-main tr:hover .flag-badge * {
+.public-report-main .flag-badge * {
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
@@ -446,33 +390,21 @@ body:has(.public-report-page) {
 }
 
 .public-report-page .flag-badge.N,
-.public-report-page .flag-badge.N *,
-.public-report-page .flag-badge.N:hover,
-.public-report-page .flag-badge.N:hover *,
-.public-report-page tr:hover .flag-badge.N,
-.public-report-page tr:hover .flag-badge.N * {
+.public-report-page .flag-badge.N * {
   background-color: #ddf6e7 !important;
   color: #14733e !important;
   border: 1px solid #a3e4bc !important;
 }
 
 .public-report-page .flag-badge.L,
-.public-report-page .flag-badge.L *,
-.public-report-page .flag-badge.L:hover,
-.public-report-page .flag-badge.L:hover *,
-.public-report-page tr:hover .flag-badge.L,
-.public-report-page tr:hover .flag-badge.L * {
+.public-report-page .flag-badge.L * {
   background-color: #fff5c8 !important;
   color: #8c6900 !important;
   border: 1px solid #fce38a !important;
 }
 
 .public-report-page .flag-badge.H,
-.public-report-page .flag-badge.H *,
-.public-report-page .flag-badge.H:hover,
-.public-report-page .flag-badge.H:hover *,
-.public-report-page tr:hover .flag-badge.H,
-.public-report-page tr:hover .flag-badge.H * {
+.public-report-page .flag-badge.H * {
   background-color: #ffe3e3 !important;
   color: #be2525 !important;
   border: 1px solid #f8b4b4 !important;
@@ -481,11 +413,7 @@ body:has(.public-report-page) {
 .public-report-page .flag-badge.critical-high,
 .public-report-page .flag-badge.CH,
 .public-report-page .flag-badge.critical-high *,
-.public-report-page .flag-badge.CH *,
-.public-report-page .flag-badge.critical-high:hover,
-.public-report-page .flag-badge.CH:hover *,
-.public-report-page tr:hover .flag-badge.critical-high,
-.public-report-page tr:hover .flag-badge.CH * {
+.public-report-page .flag-badge.CH * {
   background-color: #dc2626 !important;
   color: #ffffff !important;
   border: 1px solid #b91c1c !important;
@@ -494,11 +422,7 @@ body:has(.public-report-page) {
 .public-report-page .flag-badge.critical-low,
 .public-report-page .flag-badge.CL,
 .public-report-page .flag-badge.critical-low *,
-.public-report-page .flag-badge.CL *,
-.public-report-page .flag-badge.critical-low:hover,
-.public-report-page .flag-badge.CL:hover *,
-.public-report-page tr:hover .flag-badge.critical-low,
-.public-report-page tr:hover .flag-badge.CL * {
+.public-report-page .flag-badge.CL * {
   background-color: #991b1b !important;
   color: #ffffff !important;
   border: 1px solid #7f1d1d !important;
