@@ -5,6 +5,7 @@ import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHel
 import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 import { isSilentNetworkError } from '../api/client.js';
 import labLogo from '../assets/etu.jpg';
+import '../styles/pages/publicReport.css';
 
 export function PublicReportViewer() {
   const { token } = useParams();
@@ -302,10 +303,10 @@ export function PublicReportViewer() {
 
           {/* Patient Information Section */}
           <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h3 className="public-section-title" style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Patient Information
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+            <div className="public-info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient Name:</strong> <span style={{ color: '#0f172a' }}>{patientName}</span></div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Patient ID:</strong> <span style={{ color: '#0f172a' }}>{patientId}</span></div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Age / Sex:</strong> <span style={{ color: '#0f172a' }}>{age} / {sex}</span></div>
@@ -324,7 +325,7 @@ export function PublicReportViewer() {
 
           {/* Laboratory Results Table Section */}
           <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ margin: '0 0 12px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h3 className="public-section-title" style={{ margin: '0 0 12px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Laboratory Results
             </h3>
             
@@ -333,14 +334,14 @@ export function PublicReportViewer() {
                 const testInterps = findTestInterps(catName);
                 return (
                   <div key={catName} style={{ marginBottom: '22px' }}>
-                    <h4 style={{ margin: '0 0 8px 0', padding: '7px 12px', background: '#075c91', color: '#ffffff', borderRadius: '5px', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>
+                    <h4 className="public-category-header" style={{ margin: '0 0 8px 0', padding: '7px 12px', background: '#075c91', color: '#ffffff', borderRadius: '5px', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>
                       {catName}
                     </h4>
 
                     {Array.from(subMap.entries()).map(([subKey, rows]) => (
                       <div key={subKey} style={{ marginBottom: '10px' }}>
                         {subKey !== 'GENERAL' && (
-                          <h5 style={{ margin: '4px 0 6px 0', fontSize: '0.75rem', textTransform: 'uppercase', color: '#075c91', background: '#e8f5fa', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                          <h5 className="public-subcategory-header" style={{ margin: '4px 0 6px 0', fontSize: '0.75rem', textTransform: 'uppercase', color: '#075c91', background: '#e8f5fa', padding: '3px 8px', borderRadius: '4px', display: 'inline-block' }}>
                             {subKey}
                           </h5>
                         )}
@@ -364,7 +365,7 @@ export function PublicReportViewer() {
                                       <strong style={{ color: '#0f172a' }}>{pName}</strong>
                                       {row.remarks && <small style={{ display: 'block', color: '#657d87', marginTop: '2px', fontSize: '0.75rem' }}>{row.remarks}</small>}
                                     </td>
-                                    <td style={{ padding: '9px', fontSize: '0.88rem', fontWeight: 700, color: '#075c91' }}>{row.result}</td>
+                                    <td className="public-result-val" style={{ padding: '9px', fontSize: '0.88rem', fontWeight: 700, color: '#075c91' }}>{row.result}</td>
                                     <td style={{ padding: '9px', fontSize: '0.88rem', color: '#475569' }}>{row.unit || '—'}</td>
                                     <td style={{ padding: '9px', fontSize: '0.88rem', color: '#475569' }}>{row.referenceValue || '—'}</td>
                                     <td style={{ padding: '9px', textAlign: 'center' }}>
@@ -380,7 +381,7 @@ export function PublicReportViewer() {
                     ))}
 
                     {testInterps.length > 0 && (
-                      <div style={{ margin: '6px 0 14px 0', padding: '8px 12px', background: '#f0f7fa', borderLeft: '4px solid #075c91', borderRadius: '4px' }}>
+                      <div className="public-interpretation-box" style={{ margin: '6px 0 14px 0', padding: '8px 12px', background: '#f0f7fa', borderLeft: '4px solid #075c91', borderRadius: '4px' }}>
                         <b style={{ color: '#075c91', fontSize: '0.78rem', textTransform: 'uppercase' }}>Clinical Interpretation:</b>
                         {testInterps.map((item, idx) => (
                           <div key={idx} style={{ marginTop: '4px', fontSize: '0.82rem', color: '#203640' }}>
@@ -414,7 +415,7 @@ export function PublicReportViewer() {
 
           {/* General Remarks */}
           {report.comments && (
-            <div style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px' }}>
+            <div className="public-remarks-box" style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px' }}>
               <strong style={{ color: '#075c91', fontSize: '0.85rem' }}>General Remarks:</strong>
               <p style={{ margin: '4px 0 0', color: '#334155', fontSize: '0.88rem' }}>{report.comments}</p>
             </div>
@@ -422,11 +423,14 @@ export function PublicReportViewer() {
 
           {/* Authorization Section */}
           <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h3 className="public-section-title" style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Authorization
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span style={{ color: '#0f172a' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span></div>
+            <div className="public-info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Title: Head of ETU Diagnostic Laboratory</div>
+                <strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span style={{ color: '#0f172a' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span>
+              </div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span style={{ color: '#0f172a' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</span></div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span style={{ color: '#0f172a' }}>{reportDateStr}</span></div>
             </div>
@@ -434,7 +438,7 @@ export function PublicReportViewer() {
 
           {/* Footer Sign-off */}
           <footer style={{ borderTop: '1px solid #c9d9df', paddingTop: '14px', marginTop: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', fontSize: '0.78rem', color: '#59727c', gap: '12px' }}>
-            <div>Prepared by<br/><strong style={{ color: '#203640' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</strong></div>
+            <div>Title: Head of ETU Diagnostic Laboratory<br/>Prepared by: <strong style={{ color: '#203640' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</strong></div>
             <div>Approved by<br/><strong style={{ color: '#203640' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</strong></div>
             <div><br/><strong style={{ color: '#203640' }}>ETU Diagnostic Laboratory</strong></div>
           </footer>

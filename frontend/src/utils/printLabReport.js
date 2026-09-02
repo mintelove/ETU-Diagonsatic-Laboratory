@@ -759,14 +759,22 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       <section class="section">
         <h2>Authorization & Sign-off</h2>
         <div class="signoff-grid">
-          <div><b>Authorized Specialist:</b> <strong>${preparedByName}</strong></div>
+          <div>
+            <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Title: Head of ETU Diagnostic Laboratory</div>
+            <b>Prepared By:</b> <strong>${preparedByName}</strong>
+          </div>
           <div><b>Approved By:</b> <strong>${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
           <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
         </div>
       </section>
     ` : ''}
 
-    ${footerSection}
+    ${showFooter ? `
+      <footer class="${isInternalMedicine ? 'imed-a4-footer' : 'footer'}">
+        <span>Title: Head of ETU Diagnostic Laboratory &bull; Prepared By: ${preparedByName}</span>
+        <span class="report-preview-footer-brand">ETU DIAGNOSTIC LABORATORY</span>
+      </footer>
+    ` : ''}
   </main>
 </body>
 </html>`;

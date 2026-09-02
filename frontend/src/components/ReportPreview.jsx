@@ -613,7 +613,8 @@ export function ReportPreview({ report, showFooter = true }) {
           <h2 className="report-preview-section-title">Authorization &amp; Sign-off</h2>
           <div className="report-preview-signoff-grid a4-signoff-grid">
             <div>
-              <b>Authorized Specialist:</b>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Title: Head of ETU Diagnostic Laboratory</div>
+              <b>Prepared By:</b>
               <strong>{preparedByName}</strong>
             </div>
             <div>
@@ -639,7 +640,7 @@ export function ReportPreview({ report, showFooter = true }) {
       {/* ── Official Footer Branding (Controlled by showFooter) ───────── */}
       {showFooter && (
         <footer className={isInternalMedicine ? "imed-a4-footer" : "report-preview-footer a4-footer"}>
-          <span>Prepared &amp; Verified Diagnostically</span>
+          <span>Title: Head of ETU Diagnostic Laboratory &bull; Prepared By: {preparedByName}</span>
           <span className="report-preview-footer-brand">ETU DIAGNOSTIC LABORATORY</span>
         </footer>
       )}

@@ -1,4 +1,4 @@
-import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}from"./flagHelper-BZo2wCA4.js";import{f as pt,n as C,M as tt}from"./doctorNameHelper-x6MC2x6t.js";const e=t=>String(t??"—").replace(/[&<>"']/g,r=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[r]),et=t=>t?new Date(t).toLocaleString():"—";function lt(t,r=""){let s=String(t.flag||"").trim().toUpperCase();return!s&&t.result&&t.referenceValue&&(s=nt(t.result,t.referenceValue,r)),["CH","CRITICAL HIGH","CRITICAL_HIGH"].includes(s)?"CH":["CL","CRITICAL LOW","CRITICAL_LOW"].includes(s)?"CL":s==="H"||s==="HIGH"?"H":s==="L"||s==="LOW"?"L":s==="N"||s==="NORMAL"?"Normal":"—"}function M(t){if(!t)return"—";if(typeof t=="string"){const o=t.trim();if(/^\d{4}-\d{2}-\d{2}/.test(o)){const[g,h,x]=o.slice(0,10).split("-"),N=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(h,10)-1]||h;return`${x.padStart(2,"0")} ${N} ${g}`}}const r=new Date(t);if(isNaN(r.getTime()))return String(t);const s=String(r.getUTCDate?r.getUTCDate():r.getDate()).padStart(2,"0"),w=r.toLocaleString("en-US",{month:"short",timeZone:"UTC"}),l=r.getUTCFullYear?r.getUTCFullYear():r.getFullYear();return`${s} ${w} ${l}`}function xt(t,r,s,w,l){var j,G,O,V,_,Y,q,W,J,X,K,Z;const o=t!=null&&t.patient&&typeof t.patient=="object"?t.patient:t||{},g=(t==null?void 0:t.testType)||(t==null?void 0:t.docType)==="PathologyCase"||!!((j=t==null?void 0:t.structuredReport)!=null&&j.grossDescription||(G=t==null?void 0:t.structuredReport)!=null&&G.cytologicalFindings||(O=t==null?void 0:t.structuredReport)!=null&&O.rbcMorphology),h=(t==null?void 0:t.examinationType)||(t==null?void 0:t.docType)==="RadiologyCase"||!!((V=t==null?void 0:t.structuredReport)!=null&&V.liver||(_=t==null?void 0:t.structuredReport)!=null&&_.findings),x=(t==null?void 0:t.isInternalMedicineForm)===!0||(o==null?void 0:o.examinationFormType)==="Internal Medicine Speciality Examination Form",n=l!==void 0?l:t.showFooter!==void 0?t.showFooter:!0,N=s||st,D=n&&N?`<img src="${N}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 80px; width: auto; max-width: 100%; display: block; margin: 0 auto 6px; object-fit: contain;" />`:"",R=o.referralHospital?`<div><b>Referral Hospital Name:</b> <span>${e(o.referralHospital)}</span></div><div><b>Referral Hospital Address:</b> <span>${e(w||o.address||"Not recorded")}</span></div>`:"",A=o.systolicBP||o.diastolicBP?`<div><b>Blood Pressure:</b> <span>${e(o.systolicBP||"—")}/${e(o.diastolicBP||"—")} mmHg</span></div>`:"",ot=et(o.collectionDate||o.registrationDate||o.createdDate||t.createdDate),H=et(t.approvedAt||t.approvedDate||t.approvalDate||t.updatedDate||new Date);let z="",I=x?"Internal Medicine Speciality Examination Form":"Official Laboratory Test Report",F=e(((Y=t.technician)==null?void 0:Y.fullName)||((q=t.submittedBy)==null?void 0:q.fullName)||(r==null?void 0:r.fullName)||"Clinical Specialist");const it=((W=t.approvedBy)==null?void 0:W.fullName)||((J=t.pathologist)==null?void 0:J.fullName)||((X=t.radiologist)==null?void 0:X.fullName)||((Z=(K=t.internalMedicineReport)==null?void 0:K.declaration)==null?void 0:Z.doctorName)||(["Approved","Ready for Printing"].includes(t.status)?r==null?void 0:r.fullName:"");let U=e(pt(it)),P=t.approverRole||(g?"Pathologist":h?"Radiologist":x?"Authorized Medical Doctor":"Approver / Laboratory Technologist");if(x){const d=t.internalMedicineReport||{},i=d.labInvestigations||{},b=d.clinicalExamination||{},m=d.vitalSigns||{},k=d.declaration||{};z=`
+import{v as R,w as E,b as M,q as rt}from"./index-lXI07ygS.js";import{c as st}from"./flagHelper-Cq1DIbpV.js";import{f as nt,n as S,M as tt}from"./doctorNameHelper-x6MC2x6t.js";const e=t=>String(t??"—").replace(/[&<>"']/g,r=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[r]),et=t=>t?new Date(t).toLocaleString():"—";function pt(t,r=""){let s=String(t.flag||"").trim().toUpperCase();return!s&&t.result&&t.referenceValue&&(s=st(t.result,t.referenceValue,r)),["CH","CRITICAL HIGH","CRITICAL_HIGH"].includes(s)?"CH":["CL","CRITICAL LOW","CRITICAL_LOW"].includes(s)?"CL":s==="H"||s==="HIGH"?"H":s==="L"||s==="LOW"?"L":s==="N"||s==="NORMAL"?"Normal":"—"}function H(t){if(!t)return"—";if(typeof t=="string"){const o=t.trim();if(/^\d{4}-\d{2}-\d{2}/.test(o)){const[g,h,b]=o.slice(0,10).split("-"),N=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(h,10)-1]||h;return`${b.padStart(2,"0")} ${N} ${g}`}}const r=new Date(t);if(isNaN(r.getTime()))return String(t);const s=String(r.getUTCDate?r.getUTCDate():r.getDate()).padStart(2,"0"),w=r.toLocaleString("en-US",{month:"short",timeZone:"UTC"}),l=r.getUTCFullYear?r.getUTCFullYear():r.getFullYear();return`${s} ${w} ${l}`}function lt(t,r,s,w,l){var j,G,O,V,_,Y,q,W,J,X,K,Z;const o=t!=null&&t.patient&&typeof t.patient=="object"?t.patient:t||{},g=(t==null?void 0:t.testType)||(t==null?void 0:t.docType)==="PathologyCase"||!!((j=t==null?void 0:t.structuredReport)!=null&&j.grossDescription||(G=t==null?void 0:t.structuredReport)!=null&&G.cytologicalFindings||(O=t==null?void 0:t.structuredReport)!=null&&O.rbcMorphology),h=(t==null?void 0:t.examinationType)||(t==null?void 0:t.docType)==="RadiologyCase"||!!((V=t==null?void 0:t.structuredReport)!=null&&V.liver||(_=t==null?void 0:t.structuredReport)!=null&&_.findings),b=(t==null?void 0:t.isInternalMedicineForm)===!0||(o==null?void 0:o.examinationFormType)==="Internal Medicine Speciality Examination Form",n=l!==void 0?l:t.showFooter!==void 0?t.showFooter:!0,N=s||rt,D=n&&N?`<img src="${N}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 80px; width: auto; max-width: 100%; display: block; margin: 0 auto 6px; object-fit: contain;" />`:"",T=o.referralHospital?`<div><b>Referral Hospital Name:</b> <span>${e(o.referralHospital)}</span></div><div><b>Referral Hospital Address:</b> <span>${e(w||o.address||"Not recorded")}</span></div>`:"",I=o.systolicBP||o.diastolicBP?`<div><b>Blood Pressure:</b> <span>${e(o.systolicBP||"—")}/${e(o.diastolicBP||"—")} mmHg</span></div>`:"",ot=et(o.collectionDate||o.registrationDate||o.createdDate||t.createdDate),F=et(t.approvedAt||t.approvedDate||t.approvalDate||t.updatedDate||new Date);let z="",A=b?"Internal Medicine Speciality Examination Form":"Official Laboratory Test Report",P=e(((Y=t.technician)==null?void 0:Y.fullName)||((q=t.submittedBy)==null?void 0:q.fullName)||(r==null?void 0:r.fullName)||"Clinical Specialist");const it=((W=t.approvedBy)==null?void 0:W.fullName)||((J=t.pathologist)==null?void 0:J.fullName)||((X=t.radiologist)==null?void 0:X.fullName)||((Z=(K=t.internalMedicineReport)==null?void 0:K.declaration)==null?void 0:Z.doctorName)||(["Approved","Ready for Printing"].includes(t.status)?r==null?void 0:r.fullName:"");let U=e(nt(it)),B=t.approverRole||(g?"Pathologist":h?"Radiologist":b?"Authorized Medical Doctor":"Approver / Laboratory Technologist");if(b){const d=t.internalMedicineReport||{},i=d.labInvestigations||{},x=d.clinicalExamination||{},m=d.vitalSigns||{},k=d.declaration||{};z=`
       <div style="margin-top: 4px;">
         <!-- 2-Column Tables: Clinical Examination (44%) & Laboratory Investigations (56%) -->
         <div class="imed-a4-two-tables" style="display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 56%); gap: 8px; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
@@ -15,16 +15,16 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
                 </tr>
               </thead>
               <tbody>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">General Appearance</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.generalAppearance||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Respiratory System</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.respiratorySystem||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Cardio-vascular System</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.cardiovascularSystem||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Skin</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.skin||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">CNS</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.cns||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Psychiatry</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.psychiatry||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Extremities</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.extremities||"Normal")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Hernia</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.hernia||"Nil")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Varicose Veins</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.varicoseVeins||"Nil")}</strong></td></tr>
-                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Chest X-Ray</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(b.chestXRay||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">General Appearance</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.generalAppearance||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Respiratory System</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.respiratorySystem||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Cardio-vascular System</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.cardiovascularSystem||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Skin</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.skin||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">CNS</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.cns||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Psychiatry</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.psychiatry||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Extremities</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.extremities||"Normal")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Hernia</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.hernia||"Nil")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Varicose Veins</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.varicoseVeins||"Nil")}</strong></td></tr>
+                <tr><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;">Chest X-Ray</td><td style="padding: 3px 5px; border: 1px solid #000; overflow-wrap: break-word;"><strong>${e(x.chestXRay||"Normal")}</strong></td></tr>
               </tbody>
             </table>
           </div>
@@ -114,14 +114,14 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
               "${e(k.declarationText||"I hereby declare that all information provided above is true.")}"
             </p>
             <div class="imed-a4-decl-grid" style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; padding-top: 3px; border-top: 1px dashed #718096;">
-              <div><b>Doctor Name:</b> <strong>${e(k.doctorName||U||F)}</strong></div>
+              <div><b>Doctor Name:</b> <strong>${e(k.doctorName||U||P)}</strong></div>
               <div><b>Signature:</b> <span style="display: inline-block; min-width: 90px; border-bottom: 1px solid #000;">&nbsp;</span></div>
-              <div><b>Date:</b> <span>${e(M(k.signatureDate||new Date))}</span></div>
+              <div><b>Date:</b> <span>${e(H(k.signatureDate||new Date))}</span></div>
             </div>
           </div>
         </div>
       </div>
-    `}else if(g)if(I=`Pathology Examination Report — ${e(t.testType||"Biopsy")}`,P="Pathologist",t.reportType==="Option A"||!t.reportType&&t.reportContent)z=`
+    `}else if(g)if(A=`Pathology Examination Report — ${e(t.testType||"Biopsy")}`,B="Pathologist",t.reportType==="Option A"||!t.reportType&&t.reportContent)z=`
         <section class="section">
           <h2>Pathology Examination Report</h2>
           <div class="rich-report-body" style="padding: 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; line-height: 1.6; color: #1e293b;">
@@ -149,7 +149,7 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
             ${d.recommendation?`<div><b style="color: #075c91;">Recommendations:</b><div style="margin-top: 2px;">${e(d.recommendation)}</div></div>`:""}
           </div>
         </section>
-      `}else if(h)if(I=`Radiology & Imaging Report — ${e(t.customExaminationName||(t.ultrasoundSubtype?`Ultrasound — ${t.ultrasoundSubtype}`:t.examinationType||"Diagnostic Imaging"))}`,P="Radiologist",t.reportType==="Option A"||!t.reportType&&t.reportContent)z=`
+      `}else if(h)if(A=`Radiology & Imaging Report — ${e(t.customExaminationName||(t.ultrasoundSubtype?`Ultrasound — ${t.ultrasoundSubtype}`:t.examinationType||"Diagnostic Imaging"))}`,B="Radiologist",t.reportType==="Option A"||!t.reportType&&t.reportContent)z=`
         <section class="section">
           <h2>Radiology & Medical Imaging Report</h2>
           <div class="rich-report-body" style="padding: 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; line-height: 1.6; color: #1e293b;">
@@ -180,18 +180,13 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
             ${i.recommendation?`<div><b style="color: #075c91;">Recommendations:</b><div style="margin-top: 2px;">${e(i.recommendation)}</div></div>`:""}
           </div>
         </section>
-      `}else{const d=t.results||[],i={},b={};(Array.isArray(t==null?void 0:t.laboratoryTests)?t.laboratoryTests:Array.isArray(o==null?void 0:o.laboratoryTests)?o.laboratoryTests:[]).forEach(a=>{var S,v;if(!a||typeof a!="object")return;const f=a.category?typeof a.category=="object"?a.category.name||"":String(a.category):"",c=Array.isArray(a.parameters)&&a.parameters.length>0?typeof a.parameters[0]=="string"?a.parameters[0]:((S=a.parameters[0])==null?void 0:S.name)||((v=a.parameters[0])==null?void 0:v.sampleName):a.name,p=C(f,c||a.name),y=a.subcategory||"";Array.isArray(a.parameters)&&a.parameters.forEach(u=>{const B=typeof u=="string"?u:(u==null?void 0:u.name)||(u==null?void 0:u.sampleName)||"";B&&(i[B]=p,y&&(b[B]=y.toUpperCase()))}),a.name&&(i[a.name]=p,y&&(b[a.name]=y.toUpperCase()))});const k=new Map;d.forEach(a=>{const f=C(a.category||i[a.sampleName],a.sampleName),c=(a.subcategory||b[a.sampleName]||"").toUpperCase();k.has(f)||k.set(f,new Map);const p=k.get(f),y=c||"GENERAL";p.has(y)||p.set(y,[]),p.get(y).push(a)});const Q=Array.from(k.entries()).sort(([a],[f])=>{const c=tt.indexOf(a),p=tt.indexOf(f);return c!==-1&&p!==-1?c-p:c!==-1?-1:p!==-1?1:a.localeCompare(f)}),dt=Array.isArray(t.testInterpretations)?t.testInterpretations:[],rt=a=>{const f=C(a),c=dt.find(p=>C(p.testName)===f);return(c==null?void 0:c.interpretations)||[]};let $="";Q.length>0?Q.forEach(([a,f])=>{$+=`<div class="result-cat-block" style="margin-bottom: 22px;"><h4 class="result-cat-header">${e(a)}</h4>`,f.forEach((p,y)=>{y!=="GENERAL"&&($+=`<h5 style="margin: 6px 0 4px 0; font-size: 11px; text-transform: uppercase; color: #075c91; background: #e8f5fa; padding: 3px 8px; border-radius: 4px; display: inline-block;">${e(y)}</h5>`);const S=p.map(v=>{const u=lt(v,o.sex);return`<tr><td><b>${e(v.sampleName)}</b>${v.remarks?`<small>${e(v.remarks)}</small>`:""}</td><td>${e(v.result)}</td><td>${e(v.unit)}</td><td>${e(v.referenceValue)}</td><td><b>${e(u)}</b></td></tr>`}).join("");$+=`<table style="margin-bottom: 6px;"><thead><tr><th>Test / Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>${S}</tbody></table>`});const c=rt(a);c.length>0&&($+='<div style="margin: 6px 0 14px 0; padding: 8px 12px; background: #f0f7fa; border-left: 4px solid #075c91; border-radius: 4px;"><b style="color: #075c91; font-size: 11px; text-transform: uppercase;">Clinical Interpretation:</b>',c.forEach(p=>{$+=`<div style="margin-top: 4px; font-size: 11px; color: #203640;"><b>${e(p.title)}:</b> ${e(p.interpretation)}</div>`}),$+="</div>"),$+="</div>"}):$='<table><thead><tr><th>Test / Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody><tr><td colspan="5">No laboratory results recorded.</td></tr></tbody></table>',z=`
+      `}else{const d=t.results||[],i={},x={};(Array.isArray(t==null?void 0:t.laboratoryTests)?t.laboratoryTests:Array.isArray(o==null?void 0:o.laboratoryTests)?o.laboratoryTests:[]).forEach(a=>{var C,v;if(!a||typeof a!="object")return;const f=a.category?typeof a.category=="object"?a.category.name||"":String(a.category):"",c=Array.isArray(a.parameters)&&a.parameters.length>0?typeof a.parameters[0]=="string"?a.parameters[0]:((C=a.parameters[0])==null?void 0:C.name)||((v=a.parameters[0])==null?void 0:v.sampleName):a.name,p=S(f,c||a.name),y=a.subcategory||"";Array.isArray(a.parameters)&&a.parameters.forEach(u=>{const L=typeof u=="string"?u:(u==null?void 0:u.name)||(u==null?void 0:u.sampleName)||"";L&&(i[L]=p,y&&(x[L]=y.toUpperCase()))}),a.name&&(i[a.name]=p,y&&(x[a.name]=y.toUpperCase()))});const k=new Map;d.forEach(a=>{const f=S(a.category||i[a.sampleName],a.sampleName),c=(a.subcategory||x[a.sampleName]||"").toUpperCase();k.has(f)||k.set(f,new Map);const p=k.get(f),y=c||"GENERAL";p.has(y)||p.set(y,[]),p.get(y).push(a)});const Q=Array.from(k.entries()).sort(([a],[f])=>{const c=tt.indexOf(a),p=tt.indexOf(f);return c!==-1&&p!==-1?c-p:c!==-1?-1:p!==-1?1:a.localeCompare(f)}),at=Array.isArray(t.testInterpretations)?t.testInterpretations:[],dt=a=>{const f=S(a),c=at.find(p=>S(p.testName)===f);return(c==null?void 0:c.interpretations)||[]};let $="";Q.length>0?Q.forEach(([a,f])=>{$+=`<div class="result-cat-block" style="margin-bottom: 22px;"><h4 class="result-cat-header">${e(a)}</h4>`,f.forEach((p,y)=>{y!=="GENERAL"&&($+=`<h5 style="margin: 6px 0 4px 0; font-size: 11px; text-transform: uppercase; color: #075c91; background: #e8f5fa; padding: 3px 8px; border-radius: 4px; display: inline-block;">${e(y)}</h5>`);const C=p.map(v=>{const u=pt(v,o.sex);return`<tr><td><b>${e(v.sampleName)}</b>${v.remarks?`<small>${e(v.remarks)}</small>`:""}</td><td>${e(v.result)}</td><td>${e(v.unit)}</td><td>${e(v.referenceValue)}</td><td><b>${e(u)}</b></td></tr>`}).join("");$+=`<table style="margin-bottom: 6px;"><thead><tr><th>Test / Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>${C}</tbody></table>`});const c=dt(a);c.length>0&&($+='<div style="margin: 6px 0 14px 0; padding: 8px 12px; background: #f0f7fa; border-left: 4px solid #075c91; border-radius: 4px;"><b style="color: #075c91; font-size: 11px; text-transform: uppercase;">Clinical Interpretation:</b>',c.forEach(p=>{$+=`<div style="margin-top: 4px; font-size: 11px; color: #203640;"><b>${e(p.title)}:</b> ${e(p.interpretation)}</div>`}),$+="</div>"),$+="</div>"}):$='<table><thead><tr><th>Test / Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody><tr><td colspan="5">No laboratory results recorded.</td></tr></tbody></table>',z=`
       <section class="section">
         <h2>Laboratory Results</h2>
         ${$}
         ${t.comments?`<p style="margin-top: 10px;"><b>General remarks:</b> ${e(t.comments)}</p>`:""}
       </section>
-    `}const at=n?`
-    <footer class="footer" style="margin-top: 22px; padding-top: 10px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px;">
-      <span>Prepared & Verified Diagnostically</span>
-      <span style="font-weight: 800; color: #075c91; letter-spacing: 0.4px;">ETU DIAGNOSTIC LABORATORY</span>
-    </footer>
-  `:"";return`<!doctype html>
+    `}return`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -488,14 +483,14 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
         ${D}
         <div>
           <h1>ETU Diagnostic Laboratory</h1>
-          <p class="sub">${I}</p>
+          <p class="sub">${A}</p>
         </div>
       </header>
     `:""}
 
-    <section class="section" style="margin-top: ${x?"6px":n?"8px":"0px"};">
-      <h2>${x?"Basic Information":"Patient Information"}</h2>
-      ${x?`
+    <section class="section" style="margin-top: ${b?"6px":n?"8px":"0px"};">
+      <h2>${b?"Basic Information":"Patient Information"}</h2>
+      ${b?`
         <div style="display: flex; gap: 8px; align-items: stretch; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
           <div style="width: 80px; min-width: 80px; max-width: 80px; height: 105px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; background: #fafafa; flex-shrink: 0; overflow: hidden; box-sizing: border-box;">
             ${o.patientPhoto||t.patientPhoto?`
@@ -517,7 +512,7 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
               </tr>
               <tr>
                 <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Date of Birth:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;">${e(M(o.dateOfBirth||o.dob||o.birthDate||t.dateOfBirth||t.dob||t.birthDate))}</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;">${e(H(o.dateOfBirth||o.dob||o.birthDate||t.dateOfBirth||t.dob||t.birthDate))}</td>
                 <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Age:</td>
                 <td style="border: 1px solid #000; padding: 3px 5px;"><strong>${e(o.age!==void 0&&o.age!==null&&o.age!==""?`${o.age} YRS`:t.age!==void 0&&t.age!==null&&t.age!==""?`${t.age} YRS`:"—")}</strong></td>
               </tr>
@@ -525,7 +520,7 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
                 <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Passport No.:</td>
                 <td style="border: 1px solid #000; padding: 3px 5px;"><code>${e(o.passportNumber||o.passportNo||o.passport_no||t.passportNumber||t.passportNo||t.passport_no||"—")}</code></td>
                 <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Passport Issue Date:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;">${e(M(o.passportIssueDate||o.passportIssue||o.passport_issue_date||t.passportIssueDate||t.passportIssue||t.passport_issue_date))}</td>
+                <td style="border: 1px solid #000; padding: 3px 5px;">${e(H(o.passportIssueDate||o.passportIssue||o.passport_issue_date||t.passportIssueDate||t.passportIssue||t.passport_issue_date))}</td>
               </tr>
               <tr>
                 <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Sex:</td>
@@ -551,28 +546,36 @@ import{v as T,w as L,b as E,q as st}from"./index-OqkOnTK3.js";import{c as nt}fro
           <div><b>Phone:</b> <span>${e(o.phone||t.phone||"—")}</span></div>
           <div><b>Examination Type:</b> <span>${e(t.testType||t.customExaminationName||t.ultrasoundSubtype||t.examinationType||"General Laboratory Investigation")}</span></div>
           <div><b>Registration Date:</b> <span>${e(ot)}</span></div>
-          <div><b>Report Date:</b> <span>${e(H)}</span></div>
+          <div><b>Report Date:</b> <span>${e(F)}</span></div>
           <div><b>Branch:</b> <span>📍 ${e(t.branchName||o.branchName||"Main")}</span></div>
-          ${A}
-          ${R}
+          ${I}
+          ${T}
         </div>
       `}
     </section>
 
     ${z}
 
-    ${!x&&n?`
+    ${!b&&n?`
       <section class="section">
         <h2>Authorization & Sign-off</h2>
         <div class="signoff-grid">
-          <div><b>Authorized Specialist:</b> <strong>${F}</strong></div>
-          <div><b>Approved By:</b> <strong>${U}</strong> <span style="font-size: 10.5px; color: #64748b;">(${e(P)})</span></div>
-          <div><b>Approval Date:</b> <strong>${e(H)}</strong></div>
+          <div>
+            <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Title: Head of ETU Diagnostic Laboratory</div>
+            <b>Prepared By:</b> <strong>${P}</strong>
+          </div>
+          <div><b>Approved By:</b> <strong>${U}</strong> <span style="font-size: 10.5px; color: #64748b;">(${e(B)})</span></div>
+          <div><b>Approval Date:</b> <strong>${e(F)}</strong></div>
         </div>
       </section>
     `:""}
 
-    ${at}
+    ${n?`
+      <footer class="${b?"imed-a4-footer":"footer"}">
+        <span>Title: Head of ETU Diagnostic Laboratory &bull; Prepared By: ${P}</span>
+        <span class="report-preview-footer-brand">ETU DIAGNOSTIC LABORATORY</span>
+      </footer>
+    `:""}
   </main>
 </body>
-</html>`}async function ft(t,r,s,w){let l=null,o=null,g;typeof r=="string"?(l=r,o=s,g=w):typeof r=="boolean"?(g=r,l=T(),o=L()):typeof r=="object"&&r!==null?(o=r,typeof s=="boolean"?(g=s,l=T()):typeof s=="string"?(l=s,g=w):(l=T(),g=w!==void 0?w:typeof s=="boolean"?s:void 0)):(l=T(),o=L(),g=r!==void 0?r:s!==void 0?s:w),l||(l=T()),o||(o=L());const h=typeof t=="string"?t:t==null?void 0:t._id;if(!h)throw new Error("The requested document could not be loaded.");const x=window.open("","_blank","width=980,height=900");if(!x)throw new Error("Print preview was blocked. Please allow pop-ups and try again.");try{let n=typeof t=="object"?t:null,N="",D="";if(!n||!n.patient)try{const R=await E(`/final-reports/${h}`,{token:l});n=R.report,N=R.logoBase64,D=R.referralHospitalAddress}catch{try{n=(await E(`/pathology/cases/${h}`,{token:l})).case}catch{n=(await E(`/radiology/cases/${h}`,{token:l})).case}}x.document.write(xt(n,o,N,D,g)),x.document.close()}catch(n){throw x.close(),new Error(n.message||"The requested document could not be loaded.")}}export{ft as p};
+</html>`}async function gt(t,r,s,w){let l=null,o=null,g;typeof r=="string"?(l=r,o=s,g=w):typeof r=="boolean"?(g=r,l=R(),o=E()):typeof r=="object"&&r!==null?(o=r,typeof s=="boolean"?(g=s,l=R()):typeof s=="string"?(l=s,g=w):(l=R(),g=w!==void 0?w:typeof s=="boolean"?s:void 0)):(l=R(),o=E(),g=r!==void 0?r:s!==void 0?s:w),l||(l=R()),o||(o=E());const h=typeof t=="string"?t:t==null?void 0:t._id;if(!h)throw new Error("The requested document could not be loaded.");const b=window.open("","_blank","width=980,height=900");if(!b)throw new Error("Print preview was blocked. Please allow pop-ups and try again.");try{let n=typeof t=="object"?t:null,N="",D="";if(!n||!n.patient)try{const T=await M(`/final-reports/${h}`,{token:l});n=T.report,N=T.logoBase64,D=T.referralHospitalAddress}catch{try{n=(await M(`/pathology/cases/${h}`,{token:l})).case}catch{n=(await M(`/radiology/cases/${h}`,{token:l})).case}}b.document.write(lt(n,o,N,D,g)),b.document.close()}catch(n){throw b.close(),new Error(n.message||"The requested document could not be loaded.")}}export{gt as p};
