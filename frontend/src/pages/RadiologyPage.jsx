@@ -17,6 +17,7 @@ import ModalPortal from '../components/ModalPortal.jsx';
 import RichReportEditor from '../components/RichReportEditor.jsx';
 import { ReportPreview } from '../components/ReportPreview.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
+import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 import labLogo from '../assets/etu.jpg';
 
 export default function RadiologyPage() {
@@ -682,7 +683,7 @@ export default function RadiologyPage() {
               {/* ── SPECIALIST AUTHENTICATED SIGNOFF BANNER ── */}
               <div className="clinical-signoff-banner">
                 <div>
-                  <span className="clinical-signoff-title">Approved By:</span> Dr. {user?.fullName || 'Radiologist'} · <em>Radiologist (Logged-in Specialist)</em>
+                  <span className="clinical-signoff-title">Approved By:</span> {formatApproverDoctorName(user?.fullName || 'Radiologist')} · <em>Radiologist (Logged-in Specialist)</em>
                 </div>
                 <div style={{ fontWeight: 700 }}>
                   {selectedCase?.approvedAt ? `Approved on ${new Date(selectedCase.approvedAt).toLocaleString()}` : 'Ready for Direct Sign-off'}

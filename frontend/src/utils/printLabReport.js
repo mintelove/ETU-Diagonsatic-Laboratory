@@ -2,6 +2,7 @@ import { api } from '../api/client.js';
 import { getToken, getUser } from './storage.js';
 import { calculateFlag } from './flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from './categoryHelper.js';
+import { formatApproverDoctorName } from './doctorNameHelper.js';
 import labLogo from '../assets/etu.jpg';
 
 const safe = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
@@ -64,7 +65,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   let subTitle = isInternalMedicine ? 'Internal Medicine Speciality Examination Form' : 'Official Laboratory Test Report';
   let preparedByName = safe(report.technician?.fullName || report.submittedBy?.fullName || user?.fullName || 'Clinical Specialist');
   const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || (['Approved', 'Ready for Printing'].includes(report.status) ? user?.fullName : '');
-  let approvedByName = safe(rawApprover ? (rawApprover.startsWith('Dr.') ? rawApprover : `Dr. ${rawApprover}`) : 'Pending Specialist Approval');
+  let approvedByName = safe(formatApproverDoctorName(rawApprover));
   let approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
 
   // ── 0. INTERNAL MEDICINE REPORT RENDERING ─────────────────────────────────
@@ -759,7 +760,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
         <h2>Authorization & Sign-off</h2>
         <div class="signoff-grid">
           <div><b>Authorized Specialist:</b> <strong>${preparedByName}</strong></div>
-          <div><b>Approved By:</b> <strong>Dr. ${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
+          <div><b>Approved By:</b> <strong>${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
           <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
         </div>
       </section>

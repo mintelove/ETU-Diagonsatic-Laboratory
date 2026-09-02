@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
+import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 
 import labLogo from '../assets/etu.jpg';
 
@@ -121,7 +122,7 @@ export function ReportPreview({ report, showFooter = true }) {
 
   const preparedByName = report.technician?.fullName || report.submittedBy?.fullName || (user?.role === 'Sample Collector' ? user?.fullName : '') || 'Clinical Specialist';
   const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || (['Approved', 'Ready for Printing'].includes(report.status) && ['Approver', 'Admin', 'Pathologist', 'Radiologist'].includes(user?.role) ? user?.fullName : '');
-  const approvedByName = rawApprover ? (rawApprover.startsWith('Dr.') ? rawApprover.replace(/^Dr\.\s*/, '') : rawApprover) : 'Pending Specialist Approval';
+  const approvedByName = formatApproverDoctorName(rawApprover);
   const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
 
   return (
@@ -617,7 +618,7 @@ export function ReportPreview({ report, showFooter = true }) {
             </div>
             <div>
               <b>Approved By:</b>
-              <strong>Dr. {approvedByName}</strong>
+              <strong>{approvedByName}</strong>
               <small style={{ opacity: 0.8 }}>({approverRoleTitle})</small>
             </div>
             <div>

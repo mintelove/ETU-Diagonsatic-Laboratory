@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
+import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 import { isSilentNetworkError } from '../api/client.js';
 import labLogo from '../assets/etu.jpg';
 
@@ -426,7 +427,7 @@ export function PublicReportViewer() {
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span style={{ color: '#0f172a' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span></div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span style={{ color: '#0f172a' }}>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</span></div>
+              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span style={{ color: '#0f172a' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</span></div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span style={{ color: '#0f172a' }}>{reportDateStr}</span></div>
             </div>
           </div>
@@ -434,7 +435,7 @@ export function PublicReportViewer() {
           {/* Footer Sign-off */}
           <footer style={{ borderTop: '1px solid #c9d9df', paddingTop: '14px', marginTop: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', fontSize: '0.78rem', color: '#59727c', gap: '12px' }}>
             <div>Prepared by<br/><strong style={{ color: '#203640' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</strong></div>
-            <div>Approved by<br/><strong style={{ color: '#203640' }}>{report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved')}</strong></div>
+            <div>Approved by<br/><strong style={{ color: '#203640' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</strong></div>
             <div><br/><strong style={{ color: '#203640' }}>ETU Diagnostic Laboratory</strong></div>
           </footer>
         </main>
