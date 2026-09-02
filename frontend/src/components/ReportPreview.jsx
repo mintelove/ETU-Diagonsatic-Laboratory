@@ -83,7 +83,7 @@ export function getReportTestTypes(report) {
 
 export function ReportPreview({ report, showFooter = true }) {
   if (!report) return null;
-  const { token: authToken } = useAuth();
+  const { token: authToken, user } = useAuth();
   const p = (report.patient && typeof report.patient === 'object') ? report.patient : report;
   const isApproved = ['Approved', 'Ready for Printing'].includes(report.status);
 
