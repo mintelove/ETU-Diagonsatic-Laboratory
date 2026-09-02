@@ -13,7 +13,6 @@ import './styles/variables.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/components/a4Report.css';
-import './styles/components/reportPreview.css';
 import './styles/components/internalMedicine.css';
 
 import './styles/pages/login.css';
@@ -33,7 +32,8 @@ import './styles/pages/phase17.css';
 import './styles/theme.css';
 import './styles.css'; // Legacy/existing app page styles
 import './styles/responsive.css'; // Responsive layout additions
-import './styles/components/clinicalResultEntry.css'; // Clinical specialist pages — loaded LAST to override theme.css !important rules
+import './styles/components/clinicalResultEntry.css'; // Clinical specialist pages
+import './styles/components/reportPreview.css'; // Report Preview isolated explicit color system (LOADED LAST FOR MAXIMUM SPECIFICITY)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

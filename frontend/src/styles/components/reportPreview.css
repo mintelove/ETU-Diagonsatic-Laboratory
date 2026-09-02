@@ -1,19 +1,18 @@
 /**
- * ETU Diagnostic Laboratory — Laboratory Report Preview UI Stylesheet
+ * ETU Diagnostic Laboratory — Report Preview Self-Contained Explicit Color System
  *
- * Provides a professional, responsive, high-contrast Report Preview interface for:
- * - Admin (Report Management & Approvals)
- * - Receptionist (Report Inspection & Quick Print)
- * - Sample Collector (Result Entry Review & Pre-submission Preview)
- * - Approver (Quality Control & Doctor Review)
- *
- * Full Dark Theme & Light Theme support with mobile responsiveness.
+ * Controls 100% of the Report Preview appearance in both DARK and LIGHT themes.
+ * Uses explicit foreground/background color combinations with complete hover immunity.
+ * No reliance on ambiguous theme inheritance.
  */
 
-/* ── 1. PREVIEW CONTAINER & CARD ─────────────────────────────────────────── */
-.lab-report-preview {
+/* ── 1. MODAL & PREVIEW CONTAINER ─────────────────────────────────────────── */
+.lab-report-preview,
+.report-preview-container .lab-report-preview,
+.modal-content .lab-report-preview,
+.report-preview-modal .lab-report-preview {
   width: 100%;
-  max-width: 850px;
+  max-width: 860px;
   margin: 0 auto;
   box-sizing: border-box;
   border-radius: 12px;
@@ -21,39 +20,434 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 13px;
   line-height: 1.5;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: none !important;
   overflow: hidden;
+  position: relative;
 }
 
-/* Dark Theme (Default when data-theme='dark') */
-:root[data-theme='dark'] .lab-report-preview {
-  background: #1e293b;
-  color: #f8fafc;
-  border: 1px solid #334155;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. DARK THEME — EXPLICIT HIGH-CONTRAST MEDICAL SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Canvas / Background */
+:root[data-theme='dark'] .lab-report-preview,
+[data-theme='dark'] .lab-report-preview {
+  background-color: #111d33 !important;
+  color: #f8fafc !important;
+  border: 1.5px solid #243552 !important;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55) !important;
 }
 
-/* Light Theme */
+/* Header */
+:root[data-theme='dark'] .lab-report-preview .report-preview-header,
+[data-theme='dark'] .lab-report-preview .report-preview-header {
+  border-bottom: 2.5px solid #0284c7 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-title,
+[data-theme='dark'] .lab-report-preview .report-preview-title {
+  color: #38bdf8 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-subtitle,
+[data-theme='dark'] .lab-report-preview .report-preview-subtitle {
+  color: #7dd3fc !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-header-clean,
+[data-theme='dark'] .lab-report-preview .report-preview-header-clean {
+  border-bottom: 2px solid #0284c7 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-header-clean h2,
+[data-theme='dark'] .lab-report-preview .report-preview-header-clean h2 {
+  color: #38bdf8 !important;
+}
+
+/* Section Titles (Patient Info, Laboratory Results, Sign-Off) */
+:root[data-theme='dark'] .lab-report-preview .report-preview-section-title,
+[data-theme='dark'] .lab-report-preview .report-preview-section-title {
+  background: linear-gradient(135deg, #0369a1, #075c91) !important;
+  color: #ffffff !important;
+  border-left: 4px solid #38bdf8 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+}
+
+/* Patient Information Grid */
+:root[data-theme='dark'] .lab-report-preview .report-preview-patient-grid,
+[data-theme='dark'] .lab-report-preview .report-preview-patient-grid {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-patient-grid b,
+[data-theme='dark'] .lab-report-preview .report-preview-patient-grid b {
+  color: #94a3b8 !important;
+  font-weight: 700 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-patient-grid span,
+[data-theme='dark'] .lab-report-preview .report-preview-patient-grid span {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-patient-grid strong,
+[data-theme='dark'] .lab-report-preview .report-preview-patient-grid strong {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+/* Category Headers */
+:root[data-theme='dark'] .lab-report-preview .report-preview-category-title,
+[data-theme='dark'] .lab-report-preview .report-preview-category-title {
+  background: linear-gradient(90deg, #075985, #0284c7) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+  margin: 14px 0 8px 0 !important;
+}
+
+/* Subcategory Badges */
+:root[data-theme='dark'] .lab-report-preview .report-preview-subcategory-badge,
+[data-theme='dark'] .lab-report-preview .report-preview-subcategory-badge {
+  background-color: rgba(56, 189, 248, 0.18) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 3px 10px !important;
+}
+
+/* Table & Table Wrapper */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table-wrapper,
+[data-theme='dark'] .lab-report-preview .report-preview-table-wrapper {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-table,
+[data-theme='dark'] .lab-report-preview .report-preview-table {
+  background-color: #0c1527 !important;
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+/* Table Header */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table th,
+[data-theme='dark'] .lab-report-preview .report-preview-table th {
+  background-color: #162640 !important;
+  color: #38bdf8 !important;
+  border-bottom: 2px solid #243552 !important;
+  font-weight: 800 !important;
+  font-size: 11.5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 9px 12px !important;
+}
+
+/* Table Rows & Cells */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td,
+[data-theme='dark'] .lab-report-preview .report-preview-table td {
+  background-color: #0c1527 !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #1c2c47 !important;
+  padding: 9px 12px !important;
+  font-size: 12.5px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:nth-child(even) td,
+[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:nth-child(even) td {
+  background-color: #101c33 !important;
+}
+
+/* Parameter Cell */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td .report-preview-param-name,
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td strong:first-child,
+[data-theme='dark'] .lab-report-preview .report-preview-table td .report-preview-param-name,
+[data-theme='dark'] .lab-report-preview .report-preview-table td strong:first-child {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 12.5px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td small,
+[data-theme='dark'] .lab-report-preview .report-preview-table td small {
+  color: #94a3b8 !important;
+  font-size: 10.5px !important;
+}
+
+/* Result Cell */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td .report-preview-result-value,
+[data-theme='dark'] .lab-report-preview .report-preview-table td .report-preview-result-value {
+  color: #38bdf8 !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+}
+
+/* SI Unit Cell */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(3),
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(3) span,
+[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(3),
+[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(3) span {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+/* Reference Range Cell */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(4),
+:root[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(4) span,
+[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(4),
+[data-theme='dark'] .lab-report-preview .report-preview-table td:nth-child(4) span {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+/* Controlled Hover State in Dark Theme */
+:root[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td,
+[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td {
+  background-color: #192a47 !important;
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td .report-preview-param-name,
+:root[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td strong,
+[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td .report-preview-param-name,
+[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td strong {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td .report-preview-result-value,
+[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td .report-preview-result-value {
+  color: #38bdf8 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td span:not(.flag-badge):not(.flag-badge *),
+[data-theme='dark'] .lab-report-preview .report-preview-table tbody tr:hover td span:not(.flag-badge):not(.flag-badge *) {
+  color: #cbd5e1 !important;
+}
+
+/* Dark Theme Clinical Interpretation */
+:root[data-theme='dark'] .lab-report-preview .report-preview-interp-box,
+[data-theme='dark'] .lab-report-preview .report-preview-interp-box {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+  border-left: 4px solid #38bdf8 !important;
+  border-radius: 6px !important;
+  padding: 10px 14px !important;
+  margin-top: 10px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-interp-header,
+[data-theme='dark'] .lab-report-preview .report-preview-interp-header {
+  color: #38bdf8 !important;
+  font-weight: 800 !important;
+  font-size: 11.5px !important;
+  text-transform: uppercase !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-interp-item,
+[data-theme='dark'] .lab-report-preview .report-preview-interp-item {
+  color: #e2e8f0 !important;
+  font-size: 12px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-interp-item strong,
+[data-theme='dark'] .lab-report-preview .report-preview-interp-item strong {
+  color: #7dd3fc !important;
+}
+
+/* Authorization & Sign-off */
+:root[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid,
+[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid b,
+[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid b {
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid strong,
+[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid strong {
+  color: #f8fafc !important;
+  font-size: 12.5px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid small,
+[data-theme='dark'] .lab-report-preview .report-preview-signoff-grid small {
+  color: #7dd3fc !important;
+  font-size: 10.5px !important;
+}
+
+/* General Comments */
+:root[data-theme='dark'] .lab-report-preview .report-preview-comments,
+[data-theme='dark'] .lab-report-preview .report-preview-comments {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+  color: #cbd5e1 !important;
+  border-radius: 6px !important;
+  padding: 10px 14px !important;
+  margin-top: 10px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-comments strong,
+[data-theme='dark'] .lab-report-preview .report-preview-comments strong {
+  color: #38bdf8 !important;
+}
+
+/* Footer */
+:root[data-theme='dark'] .lab-report-preview .report-preview-footer,
+[data-theme='dark'] .lab-report-preview .report-preview-footer {
+  border-top: 1.5px solid #243552 !important;
+  color: #94a3b8 !important;
+  margin-top: 20px !important;
+  padding-top: 10px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-preview-footer-brand,
+[data-theme='dark'] .lab-report-preview .report-preview-footer-brand {
+  color: #38bdf8 !important;
+  font-weight: 800 !important;
+}
+
+/* Internal Medicine Speciality Form in Dark Theme */
+:root[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered,
+[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered {
+  border: 1px solid #243552 !important;
+  background-color: #0c1527 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered th,
+[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered th {
+  background-color: #162640 !important;
+  color: #38bdf8 !important;
+  border: 1px solid #243552 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered td,
+[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered td {
+  border: 1px solid #1c2c47 !important;
+  background-color: #0c1527 !important;
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered td strong,
+[data-theme='dark'] .lab-report-preview .imed-a4-table-bordered td strong {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-vitals-box,
+:root[data-theme='dark'] .lab-report-preview .imed-a4-result-box,
+:root[data-theme='dark'] .lab-report-preview .imed-a4-decl-box,
+[data-theme='dark'] .lab-report-preview .imed-a4-vitals-box,
+[data-theme='dark'] .lab-report-preview .imed-a4-result-box,
+[data-theme='dark'] .lab-report-preview .imed-a4-decl-box {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+  border-radius: 6px !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-vitals-header,
+:root[data-theme='dark'] .lab-report-preview .imed-a4-result-header,
+:root[data-theme='dark'] .lab-report-preview .imed-a4-decl-header,
+[data-theme='dark'] .lab-report-preview .imed-a4-vitals-header,
+[data-theme='dark'] .lab-report-preview .imed-a4-result-header,
+[data-theme='dark'] .lab-report-preview .imed-a4-decl-header {
+  background-color: #162640 !important;
+  color: #38bdf8 !important;
+  border-bottom: 1px solid #243552 !important;
+  font-weight: 800 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-vitals-table td,
+[data-theme='dark'] .lab-report-preview .imed-a4-vitals-table td {
+  color: #f8fafc !important;
+  border: 1px solid #1c2c47 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-vitals-table b,
+[data-theme='dark'] .lab-report-preview .imed-a4-vitals-table b {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-vitals-table strong,
+[data-theme='dark'] .lab-report-preview .imed-a4-vitals-table strong {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-decl-body,
+[data-theme='dark'] .lab-report-preview .imed-a4-decl-body {
+  color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-decl-text,
+[data-theme='dark'] .lab-report-preview .imed-a4-decl-text {
+  color: #e2e8f0 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-decl-grid b,
+[data-theme='dark'] .lab-report-preview .imed-a4-decl-grid b {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-decl-grid strong,
+[data-theme='dark'] .lab-report-preview .imed-a4-decl-grid strong {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .imed-a4-patient-photo-box,
+[data-theme='dark'] .lab-report-preview .imed-a4-patient-photo-box {
+  background-color: #0c1527 !important;
+  border: 1px solid #243552 !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. LIGHT THEME — CRISP OFFICIAL CLINICAL PRESENTATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root[data-theme='light'] .lab-report-preview,
-:root:not([data-theme='dark']) .lab-report-preview {
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+:root:not([data-theme='dark']) .lab-report-preview,
+.lab-report-preview {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* ── 2. REPORT HEADER ────────────────────────────────────────────────────── */
-.report-preview-header {
+/* Header */
+.lab-report-preview .report-preview-header {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   padding-bottom: 14px;
   margin-bottom: 16px;
-  border-bottom: 2.5px solid #0284c7;
+  border-bottom: 2.5px solid #075c91;
 }
 
-.report-preview-logo {
+.lab-report-preview .report-preview-logo {
   max-height: 75px;
   width: auto;
   max-width: 100%;
@@ -63,69 +457,45 @@
   border-radius: 4px;
 }
 
-.report-preview-title {
+.lab-report-preview .report-preview-title {
   margin: 2px 0 0;
   font-size: 20px;
   font-weight: 800;
   letter-spacing: 0.6px;
   text-transform: uppercase;
+  color: #075c91 !important;
 }
 
-:root[data-theme='dark'] .report-preview-title {
-  color: #38bdf8;
-}
-
-:root[data-theme='light'] .report-preview-title,
-:root:not([data-theme='dark']) .report-preview-title {
-  color: #075c91;
-}
-
-.report-preview-subtitle {
+.lab-report-preview .report-preview-subtitle {
   margin: 4px 0 0;
   font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
+  color: #0369a1 !important;
 }
 
-:root[data-theme='dark'] .report-preview-subtitle {
-  color: #7dd3fc;
-}
-
-:root[data-theme='light'] .report-preview-subtitle,
-:root:not([data-theme='dark']) .report-preview-subtitle {
-  color: #0369a1;
-}
-
-.report-preview-header-clean {
+.lab-report-preview .report-preview-header-clean {
   padding-bottom: 8px;
   margin-bottom: 14px;
-  border-bottom: 2px solid #0284c7;
+  border-bottom: 2px solid #075c91;
 }
 
-.report-preview-header-clean h2 {
+.lab-report-preview .report-preview-header-clean h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  color: #075c91 !important;
 }
 
-:root[data-theme='dark'] .report-preview-header-clean h2 {
-  color: #38bdf8;
-}
-
-:root[data-theme='light'] .report-preview-header-clean h2,
-:root:not([data-theme='dark']) .report-preview-header-clean h2 {
-  color: #075c91;
-}
-
-/* ── 3. SECTION TITLES ───────────────────────────────────────────────────── */
-.report-preview-section {
+/* Section Titles */
+.lab-report-preview .report-preview-section {
   margin-top: 14px;
 }
 
-.report-preview-section-title {
+.lab-report-preview .report-preview-section-title {
   margin: 0 0 8px 0;
   padding: 6px 12px;
   border-radius: 6px;
@@ -136,88 +506,54 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background-color: #e0f2fe !important;
+  color: #075c91 !important;
+  border-left: 4px solid #0284c7 !important;
 }
 
-:root[data-theme='dark'] .report-preview-section-title {
-  background: linear-gradient(135deg, #0369a1, #075c91);
-  color: #ffffff;
-  border-left: 4px solid #38bdf8;
-}
-
-:root[data-theme='light'] .report-preview-section-title,
-:root:not([data-theme='dark']) .report-preview-section-title {
-  background: #e0f2fe;
-  color: #075c91;
-  border-left: 4px solid #0284c7;
-}
-
-/* ── 4. PATIENT INFORMATION GRID ─────────────────────────────────────────── */
-.report-preview-patient-grid {
+/* Patient Information Grid */
+.lab-report-preview .report-preview-patient-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px 16px;
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 12.5px;
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
-:root[data-theme='dark'] .report-preview-patient-grid {
-  background: #0f172a;
-  border: 1px solid #334155;
-}
-
-:root[data-theme='light'] .report-preview-patient-grid,
-:root:not([data-theme='dark']) .report-preview-patient-grid {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.report-preview-patient-grid > div {
+.lab-report-preview .report-preview-patient-grid > div {
   display: flex;
   align-items: baseline;
   gap: 8px;
   word-break: break-word;
 }
 
-.report-preview-patient-grid b {
+.lab-report-preview .report-preview-patient-grid b {
   font-weight: 700;
   min-width: 110px;
   flex-shrink: 0;
   font-size: 12px;
+  color: #475569 !important;
 }
 
-:root[data-theme='dark'] .report-preview-patient-grid b {
-  color: #94a3b8;
-}
-
-:root[data-theme='light'] .report-preview-patient-grid b,
-:root:not([data-theme='dark']) .report-preview-patient-grid b {
-  color: #475569;
-}
-
-.report-preview-patient-grid span,
-.report-preview-patient-grid strong {
+.lab-report-preview .report-preview-patient-grid span {
   font-weight: 600;
+  color: #0f172a !important;
 }
 
-:root[data-theme='dark'] .report-preview-patient-grid span,
-:root[data-theme='dark'] .report-preview-patient-grid strong {
-  color: #f8fafc;
+.lab-report-preview .report-preview-patient-grid strong {
+  font-weight: 800;
+  color: #0f172a !important;
 }
 
-:root[data-theme='light'] .report-preview-patient-grid span,
-:root[data-theme='light'] .report-preview-patient-grid strong,
-:root:not([data-theme='dark']) .report-preview-patient-grid span,
-:root:not([data-theme='dark']) .report-preview-patient-grid strong {
-  color: #0f172a;
-}
-
-/* ── 5. CATEGORIES & RESULTS ─────────────────────────────────────────────── */
-.report-preview-category-group {
+/* Categories & Tables */
+.lab-report-preview .report-preview-category-group {
   margin-bottom: 18px;
 }
 
-.report-preview-category-title {
+.lab-report-preview .report-preview-category-title {
   margin: 0 0 8px 0;
   padding: 6px 12px;
   border-radius: 6px;
@@ -225,337 +561,268 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  background-color: #075c91 !important;
+  color: #ffffff !important;
 }
 
-:root[data-theme='dark'] .report-preview-category-title {
-  background: #075c91;
-  color: #ffffff;
-}
-
-:root[data-theme='light'] .report-preview-category-title,
-:root:not([data-theme='dark']) .report-preview-category-title {
-  background: #075c91;
-  color: #ffffff;
-}
-
-.report-preview-subcategory-badge {
+.lab-report-preview .report-preview-subcategory-badge {
   display: inline-block;
   margin: 4px 0 6px 0;
   padding: 3px 10px;
   border-radius: 4px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bae6fd !important;
 }
 
-:root[data-theme='dark'] .report-preview-subcategory-badge {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
-:root[data-theme='light'] .report-preview-subcategory-badge,
-:root:not([data-theme='dark']) .report-preview-subcategory-badge {
-  background: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #bae6fd;
-}
-
-/* ── 6. TABLE STYLING ────────────────────────────────────────────────────── */
-.report-preview-table-wrapper {
+.lab-report-preview .report-preview-table-wrapper {
   width: 100%;
   overflow-x: auto;
   border-radius: 8px;
   margin-bottom: 10px;
   -webkit-overflow-scrolling: touch;
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
-.report-preview-table {
+.lab-report-preview .report-preview-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
   text-align: left;
+  background-color: #ffffff !important;
 }
 
-.report-preview-table th {
+.lab-report-preview .report-preview-table th {
   padding: 8px 12px;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   white-space: nowrap;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-bottom: 2px solid #cbd5e1 !important;
 }
 
-:root[data-theme='dark'] .report-preview-table th {
-  background: #0f172a;
-  color: #38bdf8;
-  border-bottom: 2px solid #334155;
-}
-
-:root[data-theme='light'] .report-preview-table th,
-:root:not([data-theme='dark']) .report-preview-table th {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-bottom: 2px solid #cbd5e1;
-}
-
-.report-preview-table td {
+.lab-report-preview .report-preview-table td {
   padding: 8px 12px;
   vertical-align: middle;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #1e293b !important;
+  background-color: #ffffff !important;
 }
 
-:root[data-theme='dark'] .report-preview-table td {
-  border-bottom: 1px solid #334155;
-  color: #e2e8f0;
+.lab-report-preview .report-preview-table tbody tr:nth-child(even) td {
+  background-color: #f8fafc !important;
 }
 
-:root[data-theme='light'] .report-preview-table td,
-:root:not([data-theme='dark']) .report-preview-table td {
-  border-bottom: 1px solid #e2e8f0;
-  color: #1e293b;
+.lab-report-preview .report-preview-table td .report-preview-param-name,
+.lab-report-preview .report-preview-table td strong:first-child {
+  color: #0f172a !important;
+  font-weight: 700 !important;
 }
 
-:root[data-theme='dark'] .report-preview-table tr:hover td {
-  background: #24324d;
+.lab-report-preview .report-preview-table td small {
+  color: #64748b !important;
 }
 
-:root[data-theme='light'] .report-preview-table tr:hover td,
-:root:not([data-theme='dark']) .report-preview-table tr:hover td {
-  background: #f8fafc;
+.lab-report-preview .report-preview-table td .report-preview-result-value {
+  color: #0369a1 !important;
+  font-weight: 800 !important;
 }
 
-.report-preview-param-name {
-  font-weight: 700;
+.lab-report-preview .report-preview-table td:nth-child(3),
+.lab-report-preview .report-preview-table td:nth-child(3) span {
+  color: #334155 !important;
 }
 
-:root[data-theme='dark'] .report-preview-param-name {
-  color: #ffffff;
+.lab-report-preview .report-preview-table td:nth-child(4),
+.lab-report-preview .report-preview-table td:nth-child(4) span {
+  color: #475569 !important;
 }
 
-:root[data-theme='light'] .report-preview-param-name,
-:root:not([data-theme='dark']) .report-preview-param-name {
-  color: #0f172a;
+/* Light Mode Hover */
+.lab-report-preview .report-preview-table tbody tr:hover td {
+  background-color: #f1f5f9 !important;
 }
 
-.report-preview-result-value {
-  font-weight: 800;
-}
-
-:root[data-theme='dark'] .report-preview-result-value {
-  color: #38bdf8;
-}
-
-:root[data-theme='light'] .report-preview-result-value,
-:root:not([data-theme='dark']) .report-preview-result-value {
-  color: #0369a1;
-}
-
-/* ── 7. CLINICAL INTERPRETATION BOX ──────────────────────────────────────── */
-.report-preview-interp-box {
+/* Clinical Interpretation */
+.lab-report-preview .report-preview-interp-box {
   margin-top: 10px;
   padding: 10px 14px;
   border-radius: 6px;
   font-size: 12px;
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-left: 4px solid #075c91 !important;
 }
 
-:root[data-theme='dark'] .report-preview-interp-box {
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-left: 4px solid #38bdf8;
-}
-
-:root[data-theme='light'] .report-preview-interp-box,
-:root:not([data-theme='dark']) .report-preview-interp-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-left: 4px solid #075c91;
-}
-
-.report-preview-interp-header {
+.lab-report-preview .report-preview-interp-header {
   font-size: 11.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-bottom: 6px;
   display: block;
+  color: #075c91 !important;
 }
 
-:root[data-theme='dark'] .report-preview-interp-header {
-  color: #38bdf8;
-}
-
-:root[data-theme='light'] .report-preview-interp-header,
-:root:not([data-theme='dark']) .report-preview-interp-header {
-  color: #075c91;
-}
-
-.report-preview-interp-item {
+.lab-report-preview .report-preview-interp-item {
   margin-bottom: 4px;
+  color: #1e293b !important;
 }
 
-:root[data-theme='dark'] .report-preview-interp-item {
-  color: #e2e8f0;
+.lab-report-preview .report-preview-interp-item strong {
+  color: #0369a1 !important;
 }
 
-:root[data-theme='light'] .report-preview-interp-item,
-:root:not([data-theme='dark']) .report-preview-interp-item {
-  color: #1e293b;
-}
-
-/* ── 8. AUTHORIZATION & SIGNOFF ─────────────────────────────────────────── */
-.report-preview-signoff-grid {
+/* Sign-off Grid */
+.lab-report-preview .report-preview-signoff-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 12px;
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
-:root[data-theme='dark'] .report-preview-signoff-grid {
-  background: #0f172a;
-  border: 1px solid #334155;
-}
-
-:root[data-theme='light'] .report-preview-signoff-grid,
-:root:not([data-theme='dark']) .report-preview-signoff-grid {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.report-preview-signoff-grid > div {
+.lab-report-preview .report-preview-signoff-grid > div {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.report-preview-signoff-grid b {
+.lab-report-preview .report-preview-signoff-grid b {
   font-size: 11px;
+  color: #64748b !important;
 }
 
-:root[data-theme='dark'] .report-preview-signoff-grid b {
-  color: #94a3b8;
+.lab-report-preview .report-preview-signoff-grid strong {
+  color: #0f172a !important;
+  font-size: 12px;
 }
 
-:root[data-theme='light'] .report-preview-signoff-grid b,
-:root:not([data-theme='dark']) .report-preview-signoff-grid b {
-  color: #64748b;
+.lab-report-preview .report-preview-signoff-grid small {
+  color: #475569 !important;
 }
 
-:root[data-theme='dark'] .report-preview-signoff-grid strong {
-  color: #f8fafc;
-}
-
-:root[data-theme='light'] .report-preview-signoff-grid strong,
-:root:not([data-theme='dark']) .report-preview-signoff-grid strong {
-  color: #0f172a;
-}
-
-/* ── 9. COMMENTS & FOOTER ───────────────────────────────────────────────── */
-.report-preview-comments {
+/* Comments & Footer */
+.lab-report-preview .report-preview-comments {
   margin: 10px 0 0;
   padding: 10px 14px;
   border-radius: 6px;
   font-size: 12px;
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
 }
 
-:root[data-theme='dark'] .report-preview-comments {
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+.lab-report-preview .report-preview-comments strong {
+  color: #075c91 !important;
 }
 
-:root[data-theme='light'] .report-preview-comments,
-:root:not([data-theme='dark']) .report-preview-comments {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
-}
-
-.report-preview-footer {
+.lab-report-preview .report-preview-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 20px;
   padding-top: 10px;
-  border-top: 1.5px solid;
+  border-top: 1.5px solid #e2e8f0 !important;
   font-size: 11px;
+  color: #64748b !important;
 }
 
-:root[data-theme='dark'] .report-preview-footer {
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-:root[data-theme='light'] .report-preview-footer,
-:root:not([data-theme='dark']) .report-preview-footer {
-  border-color: #e2e8f0;
-  color: #64748b;
-}
-
-.report-preview-footer-brand {
+.lab-report-preview .report-preview-footer-brand {
   font-weight: 800;
   letter-spacing: 0.5px;
+  color: #075c91 !important;
 }
 
-:root[data-theme='dark'] .report-preview-footer-brand {
-  color: #38bdf8;
-}
 
-:root[data-theme='light'] .report-preview-footer-brand,
-:root:not([data-theme='dark']) .report-preview-footer-brand {
-  color: #075c91;
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. FLAG BADGES — 100% EXPLICIT COLORS & TOTAL HOVER IMMUNITY
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── 10. FLAG BADGES IN DARK & LIGHT THEMES (HOVER IMMUNITY) ─────────────── */
+/* Global base immunity for flag badges */
 .flag-badge,
 .flag-badge *,
-tr:hover td .flag-badge,
-tr:hover td .flag-badge *,
-table tr:hover td .flag-badge,
-table tr:hover td .flag-badge *,
+.lab-report-preview .flag-badge,
+.lab-report-preview .flag-badge *,
+tr:hover .flag-badge,
+tr:hover .flag-badge *,
+td:hover .flag-badge,
+td:hover .flag-badge *,
 .report-preview-table tr:hover td .flag-badge,
 .report-preview-table tr:hover td .flag-badge * {
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
   position: relative !important;
-  z-index: 2 !important;
+  z-index: 5 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 10px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
 }
 
-/* Light Theme / Default Flag Badges */
-.flag-badge.L,
-.flag-badge.L *,
-tr:hover td .flag-badge.L,
-tr:hover td .flag-badge.L *,
-.report-preview-table tr:hover td .flag-badge.L,
-.report-preview-table tr:hover td .flag-badge.L * {
-  background: #fff5c8 !important;
-  color: #8c6900 !important;
-  border-color: #fce38a !important;
+.flag-badge span,
+.flag-badge * span {
+  display: inline !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
 }
 
+/* ── LIGHT THEME FLAGS ── */
 .flag-badge.N,
 .flag-badge.N *,
+.lab-report-preview .flag-badge.N,
+.lab-report-preview .flag-badge.N *,
 tr:hover td .flag-badge.N,
 tr:hover td .flag-badge.N *,
 .report-preview-table tr:hover td .flag-badge.N,
 .report-preview-table tr:hover td .flag-badge.N * {
-  background: #ddf6e7 !important;
+  background-color: #ddf6e7 !important;
   color: #14733e !important;
-  border-color: #a3e4bc !important;
+  border: 1px solid #a3e4bc !important;
+}
+
+.flag-badge.L,
+.flag-badge.L *,
+.lab-report-preview .flag-badge.L,
+.lab-report-preview .flag-badge.L *,
+tr:hover td .flag-badge.L,
+tr:hover td .flag-badge.L *,
+.report-preview-table tr:hover td .flag-badge.L,
+.report-preview-table tr:hover td .flag-badge.L * {
+  background-color: #fff5c8 !important;
+  color: #8c6900 !important;
+  border: 1px solid #fce38a !important;
 }
 
 .flag-badge.H,
 .flag-badge.H *,
+.lab-report-preview .flag-badge.H,
+.lab-report-preview .flag-badge.H *,
 tr:hover td .flag-badge.H,
 tr:hover td .flag-badge.H *,
 .report-preview-table tr:hover td .flag-badge.H,
 .report-preview-table tr:hover td .flag-badge.H * {
-  background: #ffe3e3 !important;
+  background-color: #ffe3e3 !important;
   color: #be2525 !important;
-  border-color: #f8b4b4 !important;
+  border: 1px solid #f8b4b4 !important;
 }
 
 .flag-badge.critical-high,
@@ -570,43 +837,55 @@ tr:hover td .flag-badge.critical-high,
 tr:hover td .flag-badge.critical-high *,
 tr:hover td .flag-badge.critical-low,
 tr:hover td .flag-badge.critical-low * {
-  background: #ffdede !important;
+  background-color: #ffdede !important;
   color: #a81717 !important;
-  border-color: #f5b5b5 !important;
+  border: 1px solid #f5b5b5 !important;
 }
 
-/* Dark Theme Flag Badges with complete Hover Immunity */
-:root[data-theme='dark'] .flag-badge.L,
-:root[data-theme='dark'] .flag-badge.L *,
-:root[data-theme='dark'] tr:hover td .flag-badge.L,
-:root[data-theme='dark'] tr:hover td .flag-badge.L *,
-:root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.L,
-:root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.L * {
-  background: rgba(245, 158, 11, 0.22) !important;
-  color: #fbbf24 !important;
-  border: 1px solid rgba(251, 191, 36, 0.45) !important;
-}
-
+/* ── DARK THEME FLAGS — BRIGHT, VIBRANT, HIGH CONTRAST ── */
 :root[data-theme='dark'] .flag-badge.N,
 :root[data-theme='dark'] .flag-badge.N *,
+[data-theme='dark'] .flag-badge.N,
+[data-theme='dark'] .flag-badge.N *,
+:root[data-theme='dark'] .lab-report-preview .flag-badge.N,
+:root[data-theme='dark'] .lab-report-preview .flag-badge.N *,
 :root[data-theme='dark'] tr:hover td .flag-badge.N,
 :root[data-theme='dark'] tr:hover td .flag-badge.N *,
 :root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.N,
 :root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.N * {
-  background: rgba(34, 197, 94, 0.2) !important;
+  background-color: rgba(34, 197, 94, 0.22) !important;
   color: #4ade80 !important;
-  border: 1px solid rgba(74, 222, 128, 0.45) !important;
+  border: 1px solid rgba(74, 222, 128, 0.5) !important;
+}
+
+:root[data-theme='dark'] .flag-badge.L,
+:root[data-theme='dark'] .flag-badge.L *,
+[data-theme='dark'] .flag-badge.L,
+[data-theme='dark'] .flag-badge.L *,
+:root[data-theme='dark'] .lab-report-preview .flag-badge.L,
+:root[data-theme='dark'] .lab-report-preview .flag-badge.L *,
+:root[data-theme='dark'] tr:hover td .flag-badge.L,
+:root[data-theme='dark'] tr:hover td .flag-badge.L *,
+:root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.L,
+:root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.L * {
+  background-color: rgba(245, 158, 11, 0.25) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251, 191, 36, 0.55) !important;
 }
 
 :root[data-theme='dark'] .flag-badge.H,
 :root[data-theme='dark'] .flag-badge.H *,
+[data-theme='dark'] .flag-badge.H,
+[data-theme='dark'] .flag-badge.H *,
+:root[data-theme='dark'] .lab-report-preview .flag-badge.H,
+:root[data-theme='dark'] .lab-report-preview .flag-badge.H *,
 :root[data-theme='dark'] tr:hover td .flag-badge.H,
 :root[data-theme='dark'] tr:hover td .flag-badge.H *,
 :root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.H,
 :root[data-theme='dark'] .report-preview-table tr:hover td .flag-badge.H * {
-  background: rgba(239, 68, 68, 0.22) !important;
+  background-color: rgba(239, 68, 68, 0.25) !important;
   color: #f87171 !important;
-  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+  border: 1px solid rgba(248, 113, 113, 0.55) !important;
 }
 
 :root[data-theme='dark'] .flag-badge.CH,
@@ -621,40 +900,82 @@ tr:hover td .flag-badge.critical-low * {
 :root[data-theme='dark'] tr:hover td .flag-badge.CH *,
 :root[data-theme='dark'] tr:hover td .flag-badge.CL,
 :root[data-theme='dark'] tr:hover td .flag-badge.CL * {
-  background: rgba(220, 38, 38, 0.3) !important;
+  background-color: rgba(220, 38, 38, 0.35) !important;
   color: #fca5a5 !important;
   border: 1px solid #ef4444 !important;
 }
 
-/* ── 11. RESPONSIVE MOBILE ADJUSTMENTS ──────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5. RESPONSIVE MOBILE ADJUSTMENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
   .lab-report-preview {
-    padding: 16px 12px;
-    border-radius: 8px;
+    padding: 16px 12px !important;
+    border-radius: 8px !important;
   }
 
-  .report-preview-patient-grid {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    padding: 10px 12px;
+  .lab-report-preview .report-preview-patient-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    padding: 10px 12px !important;
   }
 
-  .report-preview-signoff-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .lab-report-preview .report-preview-signoff-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
   }
 
-  .report-preview-title {
-    font-size: 17px;
+  .lab-report-preview .report-preview-title {
+    font-size: 17px !important;
   }
 
-  .report-preview-subtitle {
-    font-size: 11.5px;
+  .lab-report-preview .report-preview-subtitle {
+    font-size: 11.5px !important;
   }
 
-  .report-preview-table th,
-  .report-preview-table td {
-    padding: 6px 8px;
-    font-size: 11.5px;
+  .lab-report-preview .report-preview-table th,
+  .lab-report-preview .report-preview-table td {
+    padding: 6px 8px !important;
+    font-size: 11.5px !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6. PRINT ISOLATION (@media print)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  .lab-report-preview {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .lab-report-preview * {
+    color: #000000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .lab-report-preview .report-preview-title,
+  .lab-report-preview .report-preview-subtitle,
+  .lab-report-preview .report-preview-category-title,
+  .lab-report-preview .report-preview-section-title {
+    color: #075c91 !important;
+  }
+
+  .lab-report-preview .report-preview-table th {
+    background-color: #f0f4f8 !important;
+    color: #000000 !important;
+    border-bottom: 1px solid #000000 !important;
+  }
+
+  .lab-report-preview .report-preview-table td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #000000 !important;
   }
 }
