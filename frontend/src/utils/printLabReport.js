@@ -55,9 +55,8 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 80px; width: auto; max-width: 100%; display: block; margin: 0 auto 6px; object-fit: contain;" />`
     : '';
 
-  const refHtml = patient.referralHospital ? `<div><b>Referral Hospital Name</b>${safe(patient.referralHospital)}</div><div><b>Referral Hospital Address</b>${safe(referralHospitalAddress || patient.address || 'Not recorded')}</div>` : '';
-  const bpHtml = (patient.systolicBP || patient.diastolicBP) ? `<div><b>Blood Pressure</b>${safe(patient.systolicBP || '—')}/${safe(patient.diastolicBP || '—')} mmHg</div>` : '';
-  const sampleTypesStr = (patient.sampleTypes || []).map(x => x?.name || x).filter(Boolean).join(', ') || (isPathology ? 'Pathology Specimen' : isRadiology ? 'Imaging Scan' : 'Specimen Assigned');
+  const refHtml = patient.referralHospital ? `<div><b>Referral Hospital Name:</b> <span>${safe(patient.referralHospital)}</span></div><div><b>Referral Hospital Address:</b> <span>${safe(referralHospitalAddress || patient.address || 'Not recorded')}</span></div>` : '';
+  const bpHtml = (patient.systolicBP || patient.diastolicBP) ? `<div><b>Blood Pressure:</b> <span>${safe(patient.systolicBP || '—')}/${safe(patient.diastolicBP || '—')} mmHg</span></div>` : '';
   const collectionDateStr = stamp(patient.collectionDate || patient.registrationDate || patient.createdDate || report.createdDate);
   const reportDateStr = stamp(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || new Date());
 
@@ -391,45 +390,283 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   <meta charset="utf-8">
   <title>ETU Diagnostic Laboratory Report</title>
   <style>
-    @page { size: A4 portrait; margin: 8mm 10mm; }
+    @page {
+      size: A4 portrait;
+      margin-top: ${showFooter ? '10mm' : '42mm'};
+      margin-bottom: ${showFooter ? '12mm' : '22mm'};
+      margin-left: 12mm;
+      margin-right: 12mm;
+    }
     *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; padding: 0; background: #e2e8f0; color: #0f172a; font: 13px Arial, Helvetica, sans-serif; line-height: 1.5; }
-    .toolbar { padding: 10px; text-align: center; background: #075c91; position: sticky; top: 0; z-index: 100; }
-    .toolbar button { padding: 7px 16px; border: 0; border-radius: 5px; margin: 0 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
-    .toolbar .primary { background: #0b95b7; color: white; }
-    .page { width: 210mm; min-height: 297mm; margin: 12px auto; padding: 12mm 14mm; background: white; box-shadow: 0 4px 25px rgba(0,0,0,0.15); border-radius: 2px; }
-    .header { display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2.5px solid #087ca8; padding-bottom: 8px; margin-bottom: 10px; page-break-inside: avoid; break-inside: avoid; }
-    .header h1 { margin: 2px 0 0; color: #075c91; font-size: 20px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; line-height: 1.2; }
-    .header p.sub { margin: 3px 0 0; font-size: 12px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.8px; }
-    .section { margin-top: 10px; page-break-inside: auto; break-inside: auto; }
-    .section h2 { margin: 0 0 6px; padding: 5px 8px; background: #e8f5fa; color: #075c91; border-left: 4px solid #0b95b7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; page-break-after: avoid; break-after: avoid; }
-    .patient { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 16px; font-size: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
-    .patient div { display: flex; gap: 8px; }
-    .patient b { min-width: 120px; color: #475569; }
-    .result-cat-block { margin-bottom: 14px; page-break-inside: auto; break-inside: auto; }
-    .result-cat-header { margin: 0 0 6px 0; padding: 5px 10px; background: #075c91; color: #ffffff; border-radius: 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; page-break-after: avoid; break-after: avoid; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; page-break-inside: auto; }
-    tr { page-break-inside: avoid; break-inside: avoid; }
-    th { background: #075c91; color: white; text-align: left; padding: 6px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
-    td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
-    tbody tr:nth-child(even) { background: #f8fafc; }
-    td small { display: block; color: #64748b; margin-top: 2px; font-size: 10.5px; }
-    .rich-report-body { padding: 10px 12px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; line-height: 1.55; color: #0f172a; word-break: break-word; page-break-inside: auto; break-inside: auto; }
-    .rich-report-body img { max-width: 100%; height: auto; display: block; margin: 8px auto; border-radius: 4px; page-break-inside: avoid; break-inside: avoid; }
-    .rich-report-body table { width: 100%; border-collapse: collapse; margin: 8px 0; page-break-inside: auto; break-inside: auto; }
-    .rich-report-body table tr { page-break-inside: avoid; break-inside: avoid; }
-    .rich-report-body table th, .rich-report-body table td { border: 1px solid #cbd5e1; padding: 5px 8px; }
-    .signoff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 14px; font-size: 11.5px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; break-inside: avoid; }
-    .signoff-grid div { display: flex; flex-direction: column; gap: 2px; }
-    .signoff-grid b { color: #475569; }
-    .signoff-grid strong { color: #0f172a; }
-    .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px; page-break-inside: avoid; break-inside: avoid; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #e2e8f0;
+      color: #0f172a;
+      font: 13px Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+    }
+    .toolbar {
+      padding: 10px;
+      text-align: center;
+      background: #075c91;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .toolbar button {
+      padding: 7px 16px;
+      border: 0;
+      border-radius: 5px;
+      margin: 0 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .toolbar .primary {
+      background: #0b95b7;
+      color: white;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 12px auto;
+      padding-top: ${showFooter ? '12mm' : '42mm'};
+      padding-bottom: ${showFooter ? '14mm' : '22mm'};
+      padding-left: 14mm;
+      padding-right: 14mm;
+      background: white;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.15);
+      border-radius: 2px;
+      box-sizing: border-box;
+    }
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      border-bottom: 2.5px solid #087ca8;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .header h1 {
+      margin: 2px 0 0;
+      color: #075c91;
+      font-size: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .header p.sub {
+      margin: 3px 0 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #0369a1;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .section {
+      margin-top: 10px;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+    .section h2 {
+      margin: 0 0 6px;
+      padding: 5px 8px;
+      background: #e8f5fa;
+      color: #075c91;
+      border-left: 4px solid #0b95b7;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 800;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    .patient {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px 16px;
+      font-size: 12px;
+      background: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .patient div {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .patient b {
+      min-width: 120px;
+      color: #475569;
+    }
+    .patient .patient-name-row {
+      grid-column: 1 / -1;
+    }
+    .patient .patient-name-row strong {
+      font-size: 13px;
+      color: #0f172a;
+      font-weight: 800;
+      text-transform: uppercase;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+    .result-cat-block {
+      margin-bottom: 14px;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+    .result-cat-header {
+      margin: 0 0 6px 0;
+      padding: 5px 10px;
+      background: #075c91;
+      color: #ffffff;
+      border-radius: 4px;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 6px;
+      page-break-inside: auto;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    th {
+      background: #075c91;
+      color: white;
+      text-align: left;
+      padding: 6px 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 12px;
+    }
+    tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    td small {
+      display: block;
+      color: #64748b;
+      margin-top: 2px;
+      font-size: 10.5px;
+    }
+    .rich-report-body {
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #0f172a;
+      word-break: break-word;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+    .rich-report-body img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 8px auto;
+      border-radius: 4px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .rich-report-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+    .rich-report-body table tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .rich-report-body table th, .rich-report-body table td {
+      border: 1px solid #cbd5e1;
+      padding: 5px 8px;
+    }
+    .signoff-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px 14px;
+      font-size: 11.5px;
+      background: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .signoff-grid div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .signoff-grid b {
+      color: #475569;
+    }
+    .signoff-grid strong {
+      color: #0f172a;
+    }
+    .footer {
+      margin-top: 18px;
+      padding-top: 8px;
+      border-top: 1px solid #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #64748b;
+      font-size: 11px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
     @media print {
-      body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      .toolbar { display: none !important; }
-      .page { margin: 0 !important; width: 100% !important; max-width: 100% !important; min-height: auto !important; height: auto !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
-      .header, .patient, .signoff-grid, .footer, tr, img { page-break-inside: avoid !important; break-inside: avoid !important; }
-      .section, .rich-report-body, table { page-break-inside: auto !important; break-inside: auto !important; }
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .toolbar {
+        display: none !important;
+      }
+      .page {
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        height: auto !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+      .header, .patient, .signoff-grid, .footer, tr, img {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .section, .rich-report-body, table {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+      }
     }
   </style>
 </head>
@@ -447,13 +684,9 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           <p class="sub">${subTitle}</p>
         </div>
       </header>
-    ` : `
-      <div style="border-bottom: 2px solid #075c91; padding-bottom: 6px; margin-bottom: 14px;">
-        <h2 style="margin: 0; color: #075c91; font-size: 18px; text-transform: uppercase;">${subTitle}</h2>
-      </div>
-    `}
+    ` : ''}
 
-    <section class="section" style="margin-top: ${isInternalMedicine ? '6px' : '8px'};">
+    <section class="section" style="margin-top: ${isInternalMedicine ? '6px' : (showFooter ? '8px' : '0px')};">
       <h2>${isInternalMedicine ? 'Basic Information' : 'Patient Information'}</h2>
       ${isInternalMedicine ? `
         <div style="display: flex; gap: 8px; align-items: stretch; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
@@ -470,10 +703,10 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           <table class="imed-a4-table-bordered" style="flex: 1; min-width: 0; width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; border: 1.5px solid #000; font-size: 10.5px; box-sizing: border-box;">
             <tbody>
               <tr>
-                <td style="width: 20%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Name:</td>
-                <td style="width: 30%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase;">${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong></td>
-                <td style="width: 20%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Nationality:</td>
-                <td style="width: 30%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase;">${safe(patient.nationality || report.nationality || 'ETHIOPIA')}</strong></td>
+                <td style="width: 18%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Name:</td>
+                <td style="width: 32%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase; word-break: keep-all; overflow-wrap: break-word;">${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong></td>
+                <td style="width: 18%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Nationality:</td>
+                <td style="width: 32%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase;">${safe(patient.nationality || report.nationality || 'ETHIOPIA')}</strong></td>
               </tr>
               <tr>
                 <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Date of Birth:</td>
@@ -502,14 +735,17 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
         </div>
       ` : `
         <div class="patient">
-          <div><b>Patient Name</b>${safe(patient.name)}</div>
-          <div><b>Patient ID</b>${safe(patient.patientId)}</div>
-          <div><b>Age / Sex</b>${safe(patient.age)} / ${safe(patient.sex)}</div>
-          <div><b>Phone</b>${safe(patient.phone)}</div>
-          <div><b>Examination Type</b>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || 'General Laboratory Investigation')}</div>
-          <div><b>Registration Date</b>${safe(collectionDateStr)}</div>
-          <div><b>Report Date</b>${safe(reportDateStr)}</div>
-          <div><b>Branch</b>📍 ${safe(report.branchName || patient.branchName || 'Main')}</div>
+          <div class="patient-name-row">
+            <b>Patient Name:</b>
+            <strong>${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong>
+          </div>
+          <div><b>Patient ID:</b> <span>${safe(patient.patientId || patient.id || '—')}</span></div>
+          <div><b>Age / Sex:</b> <span>${safe(patient.age ?? report.age ?? '—')} / ${safe(patient.sex || report.sex || '—')}</span></div>
+          <div><b>Phone:</b> <span>${safe(patient.phone || report.phone || '—')}</span></div>
+          <div><b>Examination Type:</b> <span>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || 'General Laboratory Investigation')}</span></div>
+          <div><b>Registration Date:</b> <span>${safe(collectionDateStr)}</span></div>
+          <div><b>Report Date:</b> <span>${safe(reportDateStr)}</span></div>
+          <div><b>Branch:</b> <span>📍 ${safe(report.branchName || patient.branchName || 'Main')}</span></div>
           ${bpHtml}
           ${refHtml}
         </div>
@@ -518,7 +754,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 
     ${mainBodyHtml}
 
-    ${!isInternalMedicine ? `
+    ${(!isInternalMedicine && showFooter) ? `
       <section class="section">
         <h2>Authorization & Sign-off</h2>
         <div class="signoff-grid">
@@ -535,9 +771,41 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 </html>`;
 }
 
-export async function printLabReport(reportOrId, token, user, showFooterOverride) {
-  if (typeof token !== 'string') { user = token || user || getUser(); token = getToken(); }
-  user ||= getUser(); const id = typeof reportOrId === 'string' ? reportOrId : reportOrId?._id;
+export async function printLabReport(reportOrId, arg2, arg3, arg4) {
+  let token = null;
+  let user = null;
+  let showFooterOverride = undefined;
+
+  if (typeof arg2 === 'string') {
+    token = arg2;
+    user = arg3;
+    showFooterOverride = arg4;
+  } else if (typeof arg2 === 'boolean') {
+    showFooterOverride = arg2;
+    token = getToken();
+    user = getUser();
+  } else if (typeof arg2 === 'object' && arg2 !== null) {
+    user = arg2;
+    if (typeof arg3 === 'boolean') {
+      showFooterOverride = arg3;
+      token = getToken();
+    } else if (typeof arg3 === 'string') {
+      token = arg3;
+      showFooterOverride = arg4;
+    } else {
+      token = getToken();
+      showFooterOverride = arg4 !== undefined ? arg4 : (typeof arg3 === 'boolean' ? arg3 : undefined);
+    }
+  } else {
+    token = getToken();
+    user = getUser();
+    showFooterOverride = arg2 !== undefined ? arg2 : (arg3 !== undefined ? arg3 : arg4);
+  }
+
+  token ||= getToken();
+  user ||= getUser();
+
+  const id = typeof reportOrId === 'string' ? reportOrId : reportOrId?._id;
   if (!id) throw new Error('The requested document could not be loaded.');
   const popup = window.open('', '_blank', 'width=980,height=900');
   if (!popup) throw new Error('Print preview was blocked. Please allow pop-ups and try again.');

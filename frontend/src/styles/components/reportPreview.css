@@ -987,8 +987,25 @@ tr:hover td .flag-badge.critical-low * {
 }
 
 
+/* ── 7. PRE-PRINTED PAPER & PATIENT NAME ROW ────────────────────────────── */
+.lab-report-preview.preprinted-paper {
+  padding-top: 42mm !important;
+  padding-bottom: 22mm !important;
+}
+
+.lab-report-preview .patient-name-row {
+  grid-column: 1 / -1 !important;
+}
+
+.lab-report-preview .patient-name-row strong {
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+  font-size: 13px !important;
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   7. PRINT ISOLATION (@media print)
+   8. PRINT ISOLATION (@media print)
    ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
   .report-preview-share-banner,
@@ -1029,4 +1046,5 @@ tr:hover td .flag-badge.critical-low * {
     color: #000000 !important;
   }
 }
+
 

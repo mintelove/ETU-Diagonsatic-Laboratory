@@ -107,6 +107,11 @@
   break-after: avoid;
 }
 
+.a4-document-page.preprinted-paper {
+  padding-top: 42mm !important;
+  padding-bottom: 22mm !important;
+}
+
 .a4-patient-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -123,11 +128,25 @@
 .a4-patient-grid div {
   display: flex;
   gap: 8px;
+  align-items: baseline;
 }
 
 .a4-patient-grid b {
   min-width: 120px;
   color: #475569;
+}
+
+.a4-patient-grid .patient-name-row {
+  grid-column: 1 / -1;
+}
+
+.a4-patient-grid .patient-name-row strong {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 800;
+  text-transform: uppercase;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* Option A Rich Report Content Body */

@@ -124,7 +124,15 @@ export function ReportPreview({ report, showFooter = true }) {
   const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
 
   return (
-    <article className="lab-report-preview a4-document-page">
+    <article
+      className={`lab-report-preview a4-document-page ${!showFooter ? 'preprinted-paper' : ''}`}
+      style={{
+        paddingTop: showFooter ? '12mm' : '42mm',
+        paddingBottom: showFooter ? '14mm' : '22mm',
+        paddingLeft: '14mm',
+        paddingRight: '14mm'
+      }}
+    >
       {/* ── Public Share Link Banner (Screen Only, Hidden in Print) ────── */}
       {isApproved && currentToken && (
         <div className="report-preview-share-banner no-print">
@@ -153,21 +161,17 @@ export function ReportPreview({ report, showFooter = true }) {
         </div>
       )}
 
-      {/* ── Official ETU Header or Clean Medical Subtitle ────────────────── */}
-      {showFooter ? (
+      {/* ── Official ETU Header (Only rendered when showFooter / Digital Header is enabled) ────── */}
+      {showFooter && (
         <header className="report-preview-header a4-header">
           <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" className="report-preview-logo logo-img" />
           <h1 className="report-preview-title">ETU Diagnostic Laboratory</h1>
           <p className="report-preview-subtitle sub">{reportSubTitle}</p>
         </header>
-      ) : (
-        <header className="report-preview-header-clean a4-header-clean">
-          <h2>{reportSubTitle}</h2>
-        </header>
       )}
 
       {/* ── Patient & Examination Information ─────────────────────────── */}
-      <section className="report-preview-section a4-section">
+      <section className="report-preview-section a4-section" style={{ marginTop: isInternalMedicine ? '6px' : (showFooter ? '10px' : '0px') }}>
         <h2 className="report-preview-section-title">
           {isInternalMedicine ? 'Basic Information' : 'Patient Information'}
         </h2>
@@ -186,10 +190,10 @@ export function ReportPreview({ report, showFooter = true }) {
             <table className="imed-a4-table-bordered">
               <tbody>
                 <tr>
-                  <td style={{ width: '20%', fontWeight: 800 }}>Name:</td>
-                  <td style={{ width: '30%' }}><strong style={{ textTransform: 'uppercase' }}>{p.name || p.patientName || report.name || report.patientName || '—'}</strong></td>
-                  <td style={{ width: '20%', fontWeight: 800 }}>Nationality:</td>
-                  <td style={{ width: '30%' }}><strong style={{ textTransform: 'uppercase' }}>{p.nationality || report.nationality || 'ETHIOPIA'}</strong></td>
+                  <td style={{ width: '18%', fontWeight: 800 }}>Name:</td>
+                  <td style={{ width: '32%' }}><strong style={{ textTransform: 'uppercase', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{p.name || p.patientName || report.name || report.patientName || '—'}</strong></td>
+                  <td style={{ width: '18%', fontWeight: 800 }}>Nationality:</td>
+                  <td style={{ width: '32%' }}><strong style={{ textTransform: 'uppercase' }}>{p.nationality || report.nationality || 'ETHIOPIA'}</strong></td>
                 </tr>
                 <tr>
                   <td style={{ fontWeight: 800 }}>Date of Birth:</td>
@@ -218,7 +222,10 @@ export function ReportPreview({ report, showFooter = true }) {
           </div>
         ) : (
           <div className="report-preview-patient-grid a4-patient-grid">
-            <div><b>Patient Name:</b> <strong style={{ textTransform: 'uppercase' }}>{p.name || '—'}</strong></div>
+            <div className="patient-name-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+              <b>Patient Name:</b>
+              <strong style={{ textTransform: 'uppercase', fontSize: '13px', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{p.name || '—'}</strong>
+            </div>
             <div><b>Patient ID:</b> <span>{p.patientId || '—'}</span></div>
             <div><b>Age / Sex:</b> <span>{p.age ?? '—'} YRS / {p.sex || '—'}</span></div>
             {p.phone && <div><b>Phone:</b> <span>{p.phone}</span></div>}
@@ -599,7 +606,7 @@ export function ReportPreview({ report, showFooter = true }) {
       })()}
 
       {/* ── Authorization & Sign-off Section (Standard Lab / Pathology / Radiology) ─────────────────────────── */}
-      {!isInternalMedicine && (
+      {!isInternalMedicine && showFooter && (
         <section className="report-preview-section a4-section">
           <h2 className="report-preview-section-title">Authorization &amp; Sign-off</h2>
           <div className="report-preview-signoff-grid a4-signoff-grid">

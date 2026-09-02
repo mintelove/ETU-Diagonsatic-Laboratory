@@ -17,7 +17,7 @@ const statusOf=report=>report.status==='Submitted'||report.status==='Pending'?'P
 const progress=report=>{const total=report.results?.length||0,complete=report.results?.filter(row=>String(row.result||'').trim()).length||0;return total?`${complete} of ${total} results entered`:'No results entered'};
 function Card({label,value,tone}){return <article className={`enterprise-card ${tone}`}><small>{label}</small><strong>{value}</strong></article>}
 export default function ReportManagementPage(){
- const {token,user}=useAuth(),go=useNavigate(),{subscribe,unsubscribe}=useRealtime(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const {token,user}=useAuth(),go=useNavigate(),{subscribe,unsubscribe}=useRealtime(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[showReportFooter,setShowReportFooter]=useState(true),[message,setMessage]=useState(''),[error,setError]=useState('');
  const load=async()=>{try{const data=await api('/collection/reports',{token});setReports(data.reports)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}};
  useEffect(()=>{load()},[token]);
  useEffect(()=>{subscribe('reports:change',load);return()=>unsubscribe('reports:change',load)},[subscribe,unsubscribe]);
@@ -32,17 +32,27 @@ export default function ReportManagementPage(){
   <section className="table-card">{filtered.length?<table><thead><tr><th>Patient</th><th>Barcode / Tests</th><th>Status</th><th>{tab==='Draft'?'Progress':tab==='Approved'?'Approved by':tab==='Rejected'?'Rejection reason':'Submitted'}</th><th>Last saved / activity</th><th>Actions</th></tr></thead><tbody>{filtered.map(r=>{const desc=getReportTestTypes(r).formattedNames;return <tr key={r._id}><td>{r.patient?.name}<span>{r.patient?.patientId}</span></td><td>{r.patient?.barcode||'—'}<span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span></td><td>{statusOf(r)}</td><td>{tab==='Draft'?progress(r):tab==='Approved'?r.approvedBy?.fullName||'—':tab==='Rejected'?<strong className="danger">{r.rejectionReason}</strong>:date(r.submittedAt||r.submittedDate)}</td><td>{date(r.lastSavedAt||r.updatedDate)}</td><td><button type="button" className="secondary" onClick={()=>setSelected(r)}>{tab==='Draft'?'View Draft':'View Report'}</button>{tab==='Draft'&&<><button type="button" className="primary" onClick={()=>resume(r)}>▶ Continue Report Generation</button><button type="button" className="secondary danger" onClick={()=>remove(r)}>Delete Draft</button></>}{tab==='Rejected'&&<button type="button" className="primary" onClick={()=>resume(r)}>Continue & Generate Again</button>}</td></tr>})}</tbody></table>:<p className="empty">No reports match this view.</p>}</section>
   <ModalPortal isOpen={!!selected} onClose={()=>setSelected(null)}>
     <div className="modal-content" style={{maxWidth:900}} onClick={e=>e.stopPropagation()}>
-      <header className="modal-header">
-        <h2>Laboratory Report</h2>
+      <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h2 style={{ margin: 0 }}>Laboratory Report</h2>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+            <input
+              type="checkbox"
+              checked={showReportFooter}
+              onChange={e => setShowReportFooter(e.target.checked)}
+            />
+            Show Logo &amp; Footer
+          </label>
+        </div>
         <button type="button" className="close-button" onClick={()=>setSelected(null)}>×</button>
       </header>
       <div className="modal-body">
         {selected?.rejectionReason&&<div className="alert error"><strong>Rejection reason:</strong>&nbsp;{selected.rejectionReason}</div>}
-        <ReportPreview report={selected}/>
+        <ReportPreview report={selected} showFooter={showReportFooter}/>
       </div>
       <div className="form-actions" style={{padding:'14px 24px',borderTop:'1px solid var(--color-outline-variant, #e2e8f0)',marginTop:0,display:'flex',gap:'10px',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center'}}>
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
           {['Approved', 'Ready for Printing'].includes(selected?.status) && (
             <button
               type="button"

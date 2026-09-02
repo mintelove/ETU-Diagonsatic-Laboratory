@@ -18,6 +18,7 @@ export default function ReportApprovalsPage() {
   useScrollLock(!!selected);
   const [branchFilter, setBranchFilter] = useState('All');
   const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [showReportFooter, setShowReportFooter] = useState(true);
   const load = async () => { try { const query = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : ''; const [pending, prior] = await Promise.all([api(`/report-approvals/pending${query}`, { token }), api(`/report-approvals/history${query}`, { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } };
   useEffect(() => { load(); }, [token, branchFilter]);
   useEffect(() => { subscribe('reports:change', load); return () => unsubscribe('reports:change', load); }, [subscribe, unsubscribe]);
@@ -53,15 +54,25 @@ export default function ReportApprovalsPage() {
     })}</tbody></table> : <p className="empty">No reports in this view.</p>}</section>
     <ModalPortal isOpen={!!selected} onClose={() => setSelected(null)}>
       <div className="modal-content" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
-        <header className="modal-header">
-          <h2>Report Review</h2>
+        <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <h2 style={{ margin: 0 }}>Report Review</h2>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+              <input
+                type="checkbox"
+                checked={showReportFooter}
+                onChange={e => setShowReportFooter(e.target.checked)}
+              />
+              Show Logo &amp; Footer
+            </label>
+          </div>
           <button type="button" className="close-button" onClick={() => setSelected(null)}>×</button>
         </header>
         <div className="modal-body">
-          <ReportPreview report={selected} />
+          <ReportPreview report={selected} showFooter={showReportFooter} />
         </div>
         <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,user)}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter)}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
           {['Approved', 'Ready for Printing'].includes(selected?.status) && (
             <button
               type="button"
