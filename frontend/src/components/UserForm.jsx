@@ -268,7 +268,7 @@ export default function UserForm({ user, onSuccess, onCancel, onError, busy: par
                   placeholder="e.g. john.doe"
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  disabled={isEditMode}
+                  disabled={Boolean(user?.isDeveloperAccount || user?.username === 'mintex')}
                 />
                 {errors.username && <span className="field-error">{errors.username}</span>}
               </div>

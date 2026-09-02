@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api, isSilentNetworkError } from '../api/client.js';
 import { ModalPortal } from './ModalPortal.jsx';
@@ -6,12 +6,15 @@ import { ModalPortal } from './ModalPortal.jsx';
 export default function AccountSettingsModal({ isOpen, onClose }) {
   const { user, token, updateUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('username'); // 'username' | 'password'
+  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'password'
 
-  // Username form state
+  // Profile form state (Full Name, Username, Phone, Email)
+  const [fullName, setFullName] = useState('');
   const [newUsername, setNewUsername] = useState('');
-  const [usernamePassword, setUsernamePassword] = useState('');
-  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Password form state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -24,9 +27,25 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
   const [success, setSuccess] = useState('');
 
   // Visibility toggles
+  const [showProfilePass, setShowProfilePass] = useState(false);
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
+
+  useEffect(() => {
+    if (user && isOpen) {
+      setFullName(user.fullName || '');
+      setNewUsername(user.username || '');
+      setPhone(user.phone || '');
+      setEmail(user.email || '');
+      setProfilePassword('');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setError('');
+      setSuccess('');
+    }
+  }, [user, isOpen]);
 
   if (!isOpen || !user) return null;
 
@@ -40,20 +59,21 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
     clearFeedback();
   };
 
-  const handleChangeUsername = async (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
     clearFeedback();
 
+    const trimmedFullName = fullName.trim();
     const trimmedUsername = newUsername.trim().toLowerCase();
-    if (!trimmedUsername) {
-      setError('Please enter a new username.');
+    const trimmedPhone = phone.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedFullName || trimmedFullName.length < 2 || trimmedFullName.length > 100) {
+      setError('Full name must be between 2 and 100 characters.');
       return;
     }
-    if (trimmedUsername === user.username?.toLowerCase()) {
-      setError('New username must be different from your current username.');
-      return;
-    }
-    if (trimmedUsername.length < 3 || trimmedUsername.length > 50) {
+
+    if (!trimmedUsername || trimmedUsername.length < 3 || trimmedUsername.length > 50) {
       setError('Username must be between 3 and 50 characters.');
       return;
     }
@@ -61,36 +81,55 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
       setError('Username may contain lowercase letters, numbers, spaces, dots, hyphens, and underscores only.');
       return;
     }
-    if (!usernamePassword) {
+
+    if (!trimmedPhone || !/^\+?[0-9]{7,15}$/.test(trimmedPhone)) {
+      setError('Please provide a valid phone number (7 to 15 digits).');
+      return;
+    }
+
+    if (!profilePassword) {
       setError('Please enter your current password for security verification.');
       return;
     }
 
-    setUsernameLoading(true);
+    const hasChanges =
+      trimmedFullName !== user.fullName ||
+      trimmedUsername !== (user.username || '').toLowerCase() ||
+      trimmedPhone !== (user.phone || '') ||
+      trimmedEmail !== (user.email || '');
+
+    if (!hasChanges) {
+      setError('No changes were made to your profile details.');
+      return;
+    }
+
+    setProfileLoading(true);
     try {
-      const res = await api('/auth/change-username', {
+      const res = await api('/auth/change-profile', {
         method: 'PUT',
         token,
         body: JSON.stringify({
+          currentPassword: profilePassword,
+          newFullName: trimmedFullName,
           newUsername: trimmedUsername,
-          currentPassword: usernamePassword
+          phone: trimmedPhone,
+          email: trimmedEmail || undefined
         })
       });
 
       if (res?.user) {
         updateUser(res.user, res.token || token);
-        setSuccess(`Username successfully updated to "${res.user.username}".`);
-        setNewUsername('');
-        setUsernamePassword('');
+        setSuccess(`Profile and identity successfully updated to "${res.user.fullName}" (@${res.user.username}).`);
+        setProfilePassword('');
       } else {
-        setSuccess('Username updated successfully.');
+        setSuccess('Profile updated successfully.');
       }
     } catch (err) {
       if (!isSilentNetworkError(err)) {
-        setError(err.message || 'Failed to update username.');
+        setError(err.message || 'Failed to update profile details.');
       }
     } finally {
-      setUsernameLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -384,10 +423,10 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
         <div className="account-settings-tabs">
           <button
             type="button"
-            onClick={() => handleTabChange('username')}
-            className={`account-settings-tab-btn ${activeTab === 'username' ? 'active' : ''}`}
+            onClick={() => handleTabChange('profile')}
+            className={`account-settings-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
           >
-            <span>👤</span> Change Username
+            <span>👤</span> Profile &amp; Identity
           </button>
           <button
             type="button"
@@ -414,25 +453,30 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
             </div>
           )}
 
-          {/* TAB 1: CHANGE USERNAME */}
-          {activeTab === 'username' && (
-            <form onSubmit={handleChangeUsername}>
+          {/* TAB 1: PROFILE & IDENTITY (Full Name & Username) */}
+          {activeTab === 'profile' && (
+            <form onSubmit={handleUpdateProfile}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
                   <label className="account-settings-label">
-                    Current Username
+                    Full Name / Display Name <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
-                    disabled
-                    value={user.username}
-                    className="account-settings-input disabled"
+                    required
+                    placeholder="e.g. Dr. Temesgen Fanta"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="account-settings-input"
                   />
+                  <span className="account-settings-hint">
+                    This is your professional name shown across Dashboards, Reports, and Print headers.
+                  </span>
                 </div>
 
                 <div>
                   <label className="account-settings-label">
-                    New Username <span style={{ color: '#ef4444' }}>*</span>
+                    Username <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -447,27 +491,55 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
                   </span>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="account-settings-label">
+                      Phone Number <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+251911223344"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="account-settings-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="account-settings-label">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="user@etulab.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="account-settings-input"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="account-settings-label">
                     Current Password (Verification) <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <div style={{ position: 'relative', width: '100%' }}>
                     <input
-                      type={showCurrentPass ? 'text' : 'password'}
+                      type={showProfilePass ? 'text' : 'password'}
                       required
-                      placeholder="Enter your current password"
-                      value={usernamePassword}
-                      onChange={(e) => setUsernamePassword(e.target.value)}
+                      placeholder="Enter your current password to save changes"
+                      value={profilePassword}
+                      onChange={(e) => setProfilePassword(e.target.value)}
                       className="account-settings-input"
                       style={{ paddingRight: '42px' }}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      onClick={() => setShowProfilePass(!showProfilePass)}
                       className="account-settings-eye-btn"
-                      title={showCurrentPass ? 'Hide password' : 'Show password'}
+                      title={showProfilePass ? 'Hide password' : 'Show password'}
                     >
-                      {showCurrentPass ? '🙈' : '👁️'}
+                      {showProfilePass ? '🙈' : '👁️'}
                     </button>
                   </div>
                 </div>
@@ -482,10 +554,10 @@ export default function AccountSettingsModal({ isOpen, onClose }) {
                   </button>
                   <button
                     type="submit"
-                    disabled={usernameLoading}
+                    disabled={profileLoading}
                     className="account-settings-btn-submit"
                   >
-                    {usernameLoading ? 'Saving...' : 'Update Username'}
+                    {profileLoading ? 'Saving...' : 'Save Profile & Identity'}
                   </button>
                 </div>
               </div>

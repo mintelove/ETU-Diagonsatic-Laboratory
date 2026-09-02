@@ -119,8 +119,9 @@ export function ReportPreview({ report, showFooter = true }) {
     ? 'Internal Medicine Speciality Examination Form'
     : 'LABORATORY TEST REPORT';
 
-  const preparedByName = report.technician?.fullName || report.submittedBy?.fullName || 'Clinical Specialist';
-  const approvedByName = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || 'Pending Specialist Approval';
+  const preparedByName = report.technician?.fullName || report.submittedBy?.fullName || (user?.role === 'Sample Collector' ? user?.fullName : '') || 'Clinical Specialist';
+  const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || (['Approved', 'Ready for Printing'].includes(report.status) && ['Approver', 'Admin', 'Pathologist', 'Radiologist'].includes(user?.role) ? user?.fullName : '');
+  const approvedByName = rawApprover ? (rawApprover.startsWith('Dr.') ? rawApprover.replace(/^Dr\.\s*/, '') : rawApprover) : 'Pending Specialist Approval';
   const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
 
   return (

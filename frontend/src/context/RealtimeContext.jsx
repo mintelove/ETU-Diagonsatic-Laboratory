@@ -35,6 +35,9 @@ export function RealtimeProvider({ children }) {
 
   /** Call all callbacks registered for a given event name */
   const dispatch = useCallback((eventName) => {
+    if (eventName === 'users:change') {
+      window.dispatchEvent(new CustomEvent('etu:user_updated'));
+    }
     const cbs = registry.current.get(eventName);
     if (cbs) cbs.forEach((cb) => { try { cb(); } catch (e) { console.error('[SSE] callback error', e); } });
   }, []);

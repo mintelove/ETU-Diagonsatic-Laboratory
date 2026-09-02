@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { login, me, changeUsername, changePassword } from '../controllers/authController.js';
+import { login, me, changeUsername, changePassword, changeProfile } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { loginSchema, changeUsernameSchema, changePasswordSchema } from '../validators/userValidators.js';
+import { loginSchema, changeUsernameSchema, changePasswordSchema, changeProfileSchema } from '../validators/userValidators.js';
 
 const router = Router();
 const loginLimiter = rateLimit({
@@ -19,6 +19,8 @@ router.post('/login', loginLimiter, validate(loginSchema), login);
 router.get('/me', requireAuth, me);
 router.put('/change-username', requireAuth, validate(changeUsernameSchema), changeUsername);
 router.patch('/change-username', requireAuth, validate(changeUsernameSchema), changeUsername);
+router.put('/change-profile', requireAuth, validate(changeProfileSchema), changeProfile);
+router.patch('/change-profile', requireAuth, validate(changeProfileSchema), changeProfile);
 router.put('/change-password', requireAuth, validate(changePasswordSchema), changePassword);
 router.patch('/change-password', requireAuth, validate(changePasswordSchema), changePassword);
 

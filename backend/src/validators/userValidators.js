@@ -21,7 +21,19 @@ export const resetPasswordSchema = z.object({ password });
 export const statusSchema = z.object({ status: z.enum(['Active', 'Inactive']) });
 export const changeUsernameSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required.'),
-  newUsername: z.string().trim().toLowerCase().min(3).max(50).regex(/^[a-z0-9._\s-]+$/, 'Username may contain lowercase letters, numbers, spaces, dots, hyphens and underscores only.')
+  newUsername: z.string().trim().toLowerCase().min(3).max(50).regex(/^[a-z0-9._\s-]+$/, 'Username may contain lowercase letters, numbers, spaces, dots, hyphens and underscores only.').optional(),
+  newFullName: z.string().trim().min(2).max(100).optional()
+}).refine(data => data.newUsername || data.newFullName, {
+  message: 'Please provide a new username or full name.'
+});
+export const changeProfileSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required.'),
+  newFullName: z.string().trim().min(2).max(100).optional(),
+  newUsername: z.string().trim().toLowerCase().min(3).max(50).regex(/^[a-z0-9._\s-]+$/, 'Username may contain lowercase letters, numbers, spaces, dots, hyphens and underscores only.').optional(),
+  phone: phone.optional(),
+  email: email.optional()
+}).refine(data => data.newFullName || data.newUsername || data.phone || data.email, {
+  message: 'At least one field to update must be provided.'
 });
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required.'),

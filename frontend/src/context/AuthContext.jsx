@@ -82,6 +82,49 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  /**
+   * Refresh current user details from the backend.
+   */
+  const refreshUser = useCallback(async () => {
+    if (!session || !session.token) return;
+    try {
+      const { user } = await getCurrentUser();
+      if (user) {
+        setSessionState((current) => {
+          if (!current) return null;
+          const updated = { ...current, user };
+          setSession(updated, localStorage.getItem('etu_remember') !== 'false');
+          return updated;
+        });
+      }
+    } catch (error) {
+      if (error.status === 401) {
+        console.warn('Session expired. Clearing storage.');
+        clearSession();
+        setSessionState(null);
+      }
+    }
+  }, [session]);
+
+  // Sync across tabs and listen for real-time user updates
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'etu_session' || e.key === 'etu_session_temp') {
+        const latest = getSession();
+        setSessionState(latest);
+      }
+    };
+    const onUserUpdated = () => {
+      refreshUser();
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('etu:user_updated', onUserUpdated);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('etu:user_updated', onUserUpdated);
+    };
+  }, [refreshUser]);
+
   const contextValue = {
     user: session?.user ?? null,
     token: session?.token ?? null,
@@ -89,6 +132,7 @@ export function AuthProvider({ children }) {
     login: loginHandler,
     logout: logoutHandler,
     updateUser: updateUserHandler,
+    refreshUser,
     isAuthenticated: Boolean(session?.token),
   };
 

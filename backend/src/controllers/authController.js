@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import { AppError } from '../utils/appError.js';
 import { signToken } from '../utils/token.js';
 import { recordActivity } from '../services/activityService.js';
+import { emit } from '../services/sseService.js';
 
 export async function login(req, res, next) {
   try {
@@ -32,7 +33,7 @@ export function me(req, res) {
 
 export async function changeUsername(req, res, next) {
   try {
-    const { currentPassword, newUsername } = req.body;
+    const { currentPassword, newUsername, newFullName, fullName } = req.body;
     const user = await User.findById(req.user.id).select('+password');
     if (!user) throw new AppError('User not found.', 404);
 
@@ -41,35 +42,115 @@ export async function changeUsername(req, res, next) {
       throw new AppError('Current password is incorrect.', 400);
     }
 
-    const normalized = newUsername.trim().toLowerCase();
-    if (normalized === user.username) {
-      return res.json({
-        message: 'Username is unchanged.',
-        user: user.toSafeObject(),
-        token: signToken(user.id)
-      });
-    }
-
-    const existing = await User.findOne({ username: normalized, _id: { $ne: user._id } });
-    if (existing || (normalized === 'mintex' && !user.isDeveloperAccount)) {
-      throw new AppError('This username is already taken.', 409);
-    }
-
+    let modified = false;
     const oldUsername = user.username;
-    user.username = normalized;
-    await user.save();
+    const oldFullName = user.fullName;
 
-    await recordActivity(
-      user.id,
-      'Self username change',
-      'User',
-      user.id,
-      `Username updated from ${oldUsername} to ${normalized}`,
-      { role: user.role, ipAddress: req.ip }
-    );
+    if (newUsername) {
+      const normalized = newUsername.trim().toLowerCase();
+      if (normalized !== user.username) {
+        const existing = await User.findOne({ username: normalized, _id: { $ne: user._id } });
+        if (existing || (normalized === 'mintex' && !user.isDeveloperAccount)) {
+          throw new AppError('This username is already taken.', 409);
+        }
+        user.username = normalized;
+        modified = true;
+      }
+    }
+
+    const targetFullName = newFullName || fullName;
+    if (targetFullName && targetFullName.trim() && targetFullName.trim() !== user.fullName) {
+      user.fullName = targetFullName.trim();
+      modified = true;
+    }
+
+    if (modified) {
+      await user.save();
+      await recordActivity(
+        user.id,
+        'Self username/name change',
+        'User',
+        user.id,
+        `Identity updated from (username: ${oldUsername}, name: ${oldFullName}) to (username: ${user.username}, name: ${user.fullName})`,
+        { role: user.role, ipAddress: req.ip }
+      );
+      emit('users:change', { action: 'updated', userId: user.id });
+    }
 
     res.json({
-      message: 'Username updated successfully.',
+      message: 'Account details updated successfully.',
+      user: user.toSafeObject(),
+      token: signToken(user.id)
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function changeProfile(req, res, next) {
+  try {
+    const { currentPassword, newFullName, newUsername, phone, email } = req.body;
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) throw new AppError('User not found.', 404);
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      throw new AppError('Current password is incorrect.', 400);
+    }
+
+    let modified = false;
+    const oldUsername = user.username;
+    const oldFullName = user.fullName;
+
+    if (newUsername) {
+      const normalized = newUsername.trim().toLowerCase();
+      if (normalized !== user.username) {
+        const existing = await User.findOne({ username: normalized, _id: { $ne: user._id } });
+        if (existing || (normalized === 'mintex' && !user.isDeveloperAccount)) {
+          throw new AppError('This username is already taken.', 409);
+        }
+        user.username = normalized;
+        modified = true;
+      }
+    }
+
+    if (newFullName && newFullName.trim() && newFullName.trim() !== user.fullName) {
+      user.fullName = newFullName.trim();
+      modified = true;
+    }
+
+    if (phone && phone.trim() && phone.trim() !== user.phone) {
+      user.phone = phone.trim();
+      modified = true;
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = email ? email.trim().toLowerCase() : '';
+      if (normalizedEmail !== (user.email || '')) {
+        if (normalizedEmail) {
+          const existingEmail = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+          if (existingEmail) throw new AppError('This email is already associated with another account.', 409);
+        }
+        user.email = normalizedEmail;
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      await user.save();
+      await recordActivity(
+        user.id,
+        'Self profile change',
+        'User',
+        user.id,
+        `Profile updated: ${oldUsername} -> ${user.username}, ${oldFullName} -> ${user.fullName}`,
+        { role: user.role, ipAddress: req.ip }
+      );
+      emit('users:change', { action: 'updated', userId: user.id });
+    }
+
+    res.json({
+      message: 'Profile updated successfully.',
       user: user.toSafeObject(),
       token: signToken(user.id)
     });

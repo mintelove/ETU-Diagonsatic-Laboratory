@@ -314,9 +314,9 @@ export default function DashboardPage() {
           <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-primary)', fontWeight: 700, margin: '0 0 2px' }}>
             ETU Diagnostic Laboratory
           </p>
-          <h1>Admin Dashboard</h1>
+          <h1>Admin Dashboard <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 {user?.fullName} ({user?.branchName || 'Main'})</span></h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-            {clock.toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            Welcome, {user?.fullName || user?.username} · {clock.toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="header-right">

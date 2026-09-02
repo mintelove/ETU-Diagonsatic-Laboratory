@@ -80,7 +80,7 @@ function formatLastLogin(dateStr) {
 }
 
 export default function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshUser } = useAuth();
   const { subscribe, unsubscribe } = useRealtime();
 
   // Data state
@@ -192,6 +192,9 @@ export default function UsersPage() {
   }
 
   function handleFormSuccess(msg) {
+    if (editingUser?.id === currentUser?.id) {
+      refreshUser?.();
+    }
     closeForm();
     setMessage(msg);
     loadUsers();
