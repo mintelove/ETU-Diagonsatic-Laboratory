@@ -2,7 +2,7 @@
  * ETU Diagnostic Laboratory — Public Report Self-Contained Isolated Stylesheet
  *
  * Guarantees 100% text visibility, contrast, and theme isolation for public shared reports.
- * Completely immune to dark/light theme cascade, system dark mode preferences, and mouse hover side effects.
+ * Completely static medical document: ZERO hover effects, ZERO cursor-based highlights, ZERO transitions.
  */
 
 :root:has(.public-report-page),
@@ -19,7 +19,7 @@ body:has(.public-report-page) {
   --card-border: #cbd5e1 !important;
   --table-header-bg: #075c91 !important;
   --table-header-color: #ffffff !important;
-  --table-row-hover: #f1f5f9 !important;
+  --table-row-hover: transparent !important;
   --color-surface: #ffffff !important;
   --color-surface-bright: #ffffff !important;
   --color-on-surface: #0f172a !important;
@@ -41,6 +41,8 @@ body:has(.public-report-page) {
 .public-report-page *::after {
   color-scheme: light !important;
   box-sizing: border-box !important;
+  transition: none !important;
+  animation: none !important;
 }
 
 /* ── Container & Card ──────────────────────────────────────────────────────── */
@@ -50,11 +52,23 @@ body:has(.public-report-page) {
   border: 1px solid #cbd5e1 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06) !important;
   border-radius: 16px !important;
+  cursor: default !important;
 }
 
-/* ── Section Titles & Headers ──────────────────────────────────────────────── */
+.public-report-main,
+.public-report-main * {
+  cursor: default !important;
+}
+
+.public-report-actions button {
+  cursor: pointer !important;
+}
+
+/* ── Section Titles & Headers (Static, Zero Hover Mutation) ────────────────── */
 .public-report-page .public-section-title,
-.public-report-page h3 {
+.public-report-page h3,
+.public-report-page .public-section-title:hover,
+.public-report-page h3:hover {
   background-color: #e8f5fa !important;
   color: #075c91 !important;
   border-left: 4px solid #0b95b7 !important;
@@ -66,10 +80,15 @@ body:has(.public-report-page) {
   font-weight: 700 !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page .public-category-header,
-.public-report-page h4 {
+.public-report-page h4,
+.public-report-page .public-category-header:hover,
+.public-report-page h4:hover {
+  background: #075c91 !important;
   background-color: #075c91 !important;
   color: #ffffff !important;
   margin: 0 0 8px 0 !important;
@@ -81,10 +100,15 @@ body:has(.public-report-page) {
   font-weight: 700 !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
+  border: none !important;
 }
 
 .public-report-page .public-subcategory-header,
-.public-report-page h5 {
+.public-report-page h5,
+.public-report-page .public-subcategory-header:hover,
+.public-report-page h5:hover {
   background-color: #e8f5fa !important;
   color: #075c91 !important;
   margin: 4px 0 6px 0 !important;
@@ -96,10 +120,14 @@ body:has(.public-report-page) {
   font-weight: 700 !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
+  border: none !important;
 }
 
 /* ── Patient & Information Grids ───────────────────────────────────────────── */
-.public-report-page .public-info-grid {
+.public-report-page .public-info-grid,
+.public-report-page .public-info-grid:hover {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
   gap: 10px 20px !important;
@@ -108,9 +136,12 @@ body:has(.public-report-page) {
   padding: 14px 16px !important;
   border-radius: 8px !important;
   border: 1px solid #cbd5e1 !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-.public-report-page .public-info-grid strong {
+.public-report-page .public-info-grid strong,
+.public-report-page .public-info-grid strong:hover {
   color: #475569 !important;
   min-width: 100px !important;
   display: inline-block !important;
@@ -119,16 +150,19 @@ body:has(.public-report-page) {
   visibility: visible !important;
 }
 
-.public-report-page .public-info-grid span {
+.public-report-page .public-info-grid span,
+.public-report-page .public-info-grid span:hover {
   color: #0f172a !important;
   font-weight: 600 !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
 
-/* ── Tables & Results ──────────────────────────────────────────────────────── */
+/* ── Tables & Results (100% Static, Zero Hover Effects) ────────────────────── */
 .public-report-page table,
-.public-report-main table {
+.public-report-main table,
+.public-report-page table:hover,
+.public-report-main table:hover {
   width: 100% !important;
   min-width: 520px !important;
   border-collapse: collapse !important;
@@ -137,16 +171,25 @@ body:has(.public-report-page) {
   margin-bottom: 6px !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page table thead tr,
-.public-report-main table thead tr {
+.public-report-main table thead tr,
+.public-report-page table thead tr:hover,
+.public-report-main table thead tr:hover {
   background-color: #075c91 !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page table th,
 .public-report-main table th,
-.public-report-page th {
+.public-report-page th,
+.public-report-page table th:hover,
+.public-report-main table th:hover,
+.public-report-page th:hover {
   background-color: #075c91 !important;
   color: #ffffff !important;
   font-size: 0.8rem !important;
@@ -157,6 +200,8 @@ body:has(.public-report-page) {
   text-align: left !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page table th:last-child,
@@ -164,57 +209,132 @@ body:has(.public-report-page) {
   text-align: center !important;
 }
 
+/* Table Rows: Permanent Static Striping, Zero Hover Shift */
 .public-report-page table tbody tr,
-.public-report-main table tbody tr {
+.public-report-main table tbody tr,
+.public-report-page table tbody tr:hover,
+.public-report-main table tbody tr:hover {
   border-bottom: 1px solid #d6e2e7 !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-.public-report-page table tbody tr:nth-child(even) {
+.public-report-page table tbody tr:nth-child(even),
+.public-report-page table tbody tr:nth-child(even) td,
+.public-report-page table tbody tr:nth-child(even):hover,
+.public-report-page table tbody tr:nth-child(even):hover td,
+.public-report-main table tbody tr:nth-child(even),
+.public-report-main table tbody tr:nth-child(even) td,
+.public-report-main table tbody tr:nth-child(even):hover,
+.public-report-main table tbody tr:nth-child(even):hover td {
   background-color: #f8fafc !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-.public-report-page table tbody tr:nth-child(odd) {
+.public-report-page table tbody tr:nth-child(odd),
+.public-report-page table tbody tr:nth-child(odd) td,
+.public-report-page table tbody tr:nth-child(odd):hover,
+.public-report-page table tbody tr:nth-child(odd):hover td,
+.public-report-main table tbody tr:nth-child(odd),
+.public-report-main table tbody tr:nth-child(odd) td,
+.public-report-main table tbody tr:nth-child(odd):hover,
+.public-report-main table tbody tr:nth-child(odd):hover td {
   background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-/* Cells */
+/* Table Cells */
 .public-report-page table td,
 .public-report-main table td,
-.public-report-page td {
+.public-report-page td,
+.public-report-page table td:hover,
+.public-report-main table td:hover,
+.public-report-page td:hover {
   padding: 9px !important;
   font-size: 0.88rem !important;
   color: #0f172a !important;
   border-bottom: 1px solid #d6e2e7 !important;
-  background-color: transparent !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
+/* Cell Elements: Parameter Names (Static bold, Zero hover bolding) */
 .public-report-page table td strong,
 .public-report-main table td strong,
 .public-report-page td strong,
-.public-report-page td b {
+.public-report-page td b,
+.public-report-page table td strong:hover,
+.public-report-main table td strong:hover,
+.public-report-page td strong:hover,
+.public-report-page td b:hover,
+.public-report-page table tr:hover td strong,
+.public-report-main table tr:hover td strong,
+.public-report-page tr:hover td strong,
+.public-report-page tr:hover td b {
   color: #0f172a !important;
   font-weight: 700 !important;
+  font-size: inherit !important;
+  letter-spacing: normal !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
+/* Results Values */
 .public-report-page table td .public-result-val,
 .public-report-page table td:nth-child(2),
-.public-report-main table td:nth-child(2) {
+.public-report-main table td:nth-child(2),
+.public-report-page table td .public-result-val:hover,
+.public-report-page table td:nth-child(2):hover,
+.public-report-main table td:nth-child(2):hover,
+.public-report-page table tr:hover td .public-result-val,
+.public-report-page table tr:hover td:nth-child(2),
+.public-report-main table tr:hover td .public-result-val,
+.public-report-main table tr:hover td:nth-child(2) {
   color: #075c91 !important;
   font-weight: 700 !important;
+  font-size: inherit !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
+/* SI Units & Reference Ranges */
 .public-report-page table td:nth-child(3),
 .public-report-page table td:nth-child(4),
 .public-report-main table td:nth-child(3),
-.public-report-main table td:nth-child(4) {
+.public-report-main table td:nth-child(4),
+.public-report-page table td:nth-child(3):hover,
+.public-report-page table td:nth-child(4):hover,
+.public-report-main table td:nth-child(3):hover,
+.public-report-main table td:nth-child(4):hover,
+.public-report-page table tr:hover td:nth-child(3),
+.public-report-page table tr:hover td:nth-child(4),
+.public-report-main table tr:hover td:nth-child(3),
+.public-report-main table tr:hover td:nth-child(4) {
+  color: #475569 !important;
+  font-weight: 500 !important;
+  font-size: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.public-report-page table td span:not(.flag-badge):not(.flag-badge *),
+.public-report-main table td span:not(.flag-badge):not(.flag-badge *),
+.public-report-page table tr:hover td span:not(.flag-badge):not(.flag-badge *),
+.public-report-main table tr:hover td span:not(.flag-badge):not(.flag-badge *) {
   color: #475569 !important;
   font-weight: 500 !important;
   opacity: 1 !important;
@@ -223,13 +343,20 @@ body:has(.public-report-page) {
 
 .public-report-page table td small,
 .public-report-main table td small,
-.public-report-page td small {
+.public-report-page td small,
+.public-report-page table td small:hover,
+.public-report-main table td small:hover,
+.public-report-page table tr:hover td small,
+.public-report-main table tr:hover td small {
   color: #657d87 !important;
   display: block !important;
   margin-top: 2px !important;
   font-size: 0.75rem !important;
+  font-weight: 400 !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page table td:last-child,
@@ -237,92 +364,70 @@ body:has(.public-report-page) {
   text-align: center !important;
 }
 
-/* ── Total Hover Immunity: Zero Hover-Based Content or Style Mutation ─────── */
-.public-report-page *,
-.public-report-page *::before,
-.public-report-page *::after {
-  transition: none !important;
-  animation: none !important;
-}
-
-.public-report-page table tbody tr:nth-child(even):hover td,
-.public-report-main table tbody tr:nth-child(even):hover td {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
-}
-
-.public-report-page table tbody tr:nth-child(odd):hover td,
-.public-report-main table tbody tr:nth-child(odd):hover td {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-
-.public-report-page table tr:hover td strong,
-.public-report-main table tr:hover td strong,
-.public-report-page tr:hover td strong {
-  color: #0f172a !important;
-  opacity: 1 !important;
-}
-
-.public-report-page table tr:hover td span:not(.flag-badge):not(.flag-badge *),
-.public-report-main table tr:hover td span:not(.flag-badge):not(.flag-badge *) {
-  color: #475569 !important;
-  opacity: 1 !important;
-}
-
-.public-report-page table tr:hover td small,
-.public-report-main table tr:hover td small {
-  color: #657d87 !important;
-  opacity: 1 !important;
-}
-
-.public-report-page table tr:hover td .public-result-val,
-.public-report-page table tr:hover td:nth-child(2) {
-  color: #075c91 !important;
-  opacity: 1 !important;
-}
-
 /* ── Clinical Interpretation & Remarks ─────────────────────────────────────── */
-.public-report-page .public-interpretation-box {
+.public-report-page .public-interpretation-box,
+.public-report-page .public-interpretation-box:hover {
   margin: 6px 0 14px 0 !important;
   padding: 8px 12px !important;
   background-color: #f0f7fa !important;
   border-left: 4px solid #075c91 !important;
   border-radius: 4px !important;
   color: #203640 !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page .public-interpretation-box b {
   color: #075c91 !important;
   font-size: 0.78rem !important;
   text-transform: uppercase !important;
+  font-weight: 700 !important;
 }
 
 .public-report-page .public-interpretation-box strong {
   color: #0f172a !important;
+  font-weight: 700 !important;
 }
 
-.public-report-page .public-remarks-box {
+.public-report-page .public-remarks-box,
+.public-report-page .public-remarks-box:hover {
   padding: 12px 16px !important;
   background-color: #f8fafc !important;
   border-radius: 8px !important;
   border: 1px solid #cbd5e1 !important;
   margin-bottom: 20px !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .public-report-page .public-remarks-box strong {
   color: #075c91 !important;
   font-size: 0.85rem !important;
+  font-weight: 700 !important;
 }
 
 .public-report-page .public-remarks-box p {
   margin: 4px 0 0 !important;
   color: #334155 !important;
   font-size: 0.88rem !important;
+  font-weight: 400 !important;
 }
 
-/* ── Flag Badges ───────────────────────────────────────────────────────────── */
-.public-report-page .flag-badge {
+/* ── Flag Badges (100% Static, Zero Hover Alteration) ──────────────────────── */
+.public-report-page .flag-badge,
+.public-report-page .flag-badge *,
+.public-report-page .flag-badge:hover,
+.public-report-page .flag-badge:hover *,
+.public-report-page tr:hover .flag-badge,
+.public-report-page tr:hover .flag-badge *,
+.public-report-page tr:hover td .flag-badge,
+.public-report-page tr:hover td .flag-badge *,
+.public-report-main .flag-badge,
+.public-report-main .flag-badge *,
+.public-report-main .flag-badge:hover,
+.public-report-main .flag-badge:hover *,
+.public-report-main tr:hover .flag-badge,
+.public-report-main tr:hover .flag-badge * {
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
@@ -335,35 +440,65 @@ body:has(.public-report-page) {
   z-index: 2 !important;
   opacity: 1 !important;
   visibility: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: default !important;
 }
 
-.public-report-page .flag-badge.N {
+.public-report-page .flag-badge.N,
+.public-report-page .flag-badge.N *,
+.public-report-page .flag-badge.N:hover,
+.public-report-page .flag-badge.N:hover *,
+.public-report-page tr:hover .flag-badge.N,
+.public-report-page tr:hover .flag-badge.N * {
   background-color: #ddf6e7 !important;
   color: #14733e !important;
   border: 1px solid #a3e4bc !important;
 }
 
-.public-report-page .flag-badge.L {
+.public-report-page .flag-badge.L,
+.public-report-page .flag-badge.L *,
+.public-report-page .flag-badge.L:hover,
+.public-report-page .flag-badge.L:hover *,
+.public-report-page tr:hover .flag-badge.L,
+.public-report-page tr:hover .flag-badge.L * {
   background-color: #fff5c8 !important;
   color: #8c6900 !important;
   border: 1px solid #fce38a !important;
 }
 
-.public-report-page .flag-badge.H {
+.public-report-page .flag-badge.H,
+.public-report-page .flag-badge.H *,
+.public-report-page .flag-badge.H:hover,
+.public-report-page .flag-badge.H:hover *,
+.public-report-page tr:hover .flag-badge.H,
+.public-report-page tr:hover .flag-badge.H * {
   background-color: #ffe3e3 !important;
   color: #be2525 !important;
   border: 1px solid #f8b4b4 !important;
 }
 
 .public-report-page .flag-badge.critical-high,
-.public-report-page .flag-badge.CH {
+.public-report-page .flag-badge.CH,
+.public-report-page .flag-badge.critical-high *,
+.public-report-page .flag-badge.CH *,
+.public-report-page .flag-badge.critical-high:hover,
+.public-report-page .flag-badge.CH:hover *,
+.public-report-page tr:hover .flag-badge.critical-high,
+.public-report-page tr:hover .flag-badge.CH * {
   background-color: #dc2626 !important;
   color: #ffffff !important;
   border: 1px solid #b91c1c !important;
 }
 
 .public-report-page .flag-badge.critical-low,
-.public-report-page .flag-badge.CL {
+.public-report-page .flag-badge.CL,
+.public-report-page .flag-badge.critical-low *,
+.public-report-page .flag-badge.CL *,
+.public-report-page .flag-badge.critical-low:hover,
+.public-report-page .flag-badge.CL:hover *,
+.public-report-page tr:hover .flag-badge.critical-low,
+.public-report-page tr:hover .flag-badge.CL * {
   background-color: #991b1b !important;
   color: #ffffff !important;
   border: 1px solid #7f1d1d !important;

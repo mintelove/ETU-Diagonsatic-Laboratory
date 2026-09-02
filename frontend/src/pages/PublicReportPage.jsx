@@ -207,51 +207,62 @@ export function PublicReportViewer() {
         .public-report-page *::after {
           color-scheme: light !important;
           box-sizing: border-box !important;
+          transition: none !important;
+          animation: none !important;
         }
         .public-report-page {
           background-color: #f1f3f5 !important;
           color: #0f172a !important;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         }
-        .public-report-page input,
-        .public-report-page select,
-        .public-report-page textarea,
-        .public-report-page button,
-        .public-report-page table,
-        .public-report-page th,
-        .public-report-page td,
-        .public-report-page div,
-        .public-report-page span,
-        .public-report-page p,
-        .public-report-page h1,
-        .public-report-page h2,
-        .public-report-page h3,
-        .public-report-page h4,
-        .public-report-page h5 {
-          color-scheme: light !important;
+        .public-report-main,
+        .public-report-main * {
+          cursor: default !important;
         }
         .public-report-main {
           background-color: #ffffff !important;
           color: #0f172a !important;
           border-color: #cbd5e1 !important;
         }
+        .public-report-page .public-category-header,
+        .public-report-page h4 {
+          background-color: #075c91 !important;
+          color: #ffffff !important;
+          font-weight: 700 !important;
+        }
+        .public-report-page .public-category-header:hover,
+        .public-report-page h4:hover {
+          background-color: #075c91 !important;
+          color: #ffffff !important;
+          font-weight: 700 !important;
+        }
         .public-report-page table {
           background-color: #ffffff !important;
           color: #0f172a !important;
         }
-        .public-report-page table th {
+        .public-report-page table th,
+        .public-report-page table th:hover {
           background-color: #075c91 !important;
           color: #ffffff !important;
+          font-weight: 700 !important;
         }
         .public-report-page table td {
           color: #0f172a !important;
           border-bottom-color: #d6e2e7 !important;
         }
-        .public-report-page table tr:nth-child(even) td {
+        .public-report-page table tr:nth-child(even) td,
+        .public-report-page table tr:nth-child(even):hover td {
           background-color: #f8fafc !important;
+          color: #0f172a !important;
         }
-        .public-report-page table tr:nth-child(odd) td {
+        .public-report-page table tr:nth-child(odd) td,
+        .public-report-page table tr:nth-child(odd):hover td {
           background-color: #ffffff !important;
+          color: #0f172a !important;
+        }
+        .public-report-page table tr:hover td strong {
+          color: #0f172a !important;
+          font-weight: 700 !important;
         }
         @media print {
           .public-report-actions { display: none !important; }
