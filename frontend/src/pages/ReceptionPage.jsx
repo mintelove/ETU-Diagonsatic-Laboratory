@@ -273,7 +273,17 @@ function ManualStockUpdateModal({ patient, stockItems, token, onClose, setToast 
 }
 
 // POS 80mm Thermal Receipt Component
-function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, token, cbcGroupPrice = 150, testCategories = [] }) {
+function ThermalReceiptModal({
+  patientData,
+  total,
+  paymentDetails,
+  onClose,
+  token,
+  cbcGroupPrice = 150,
+  urineChemicalPrice = 300,
+  urineMicroscopyPrice = 300,
+  testCategories = []
+}) {
   const [printing, setPrinting] = useState(false);
   if (!patientData) return null;
 
@@ -282,11 +292,11 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
     return preparePOS80ReceiptData(patientData, {
       testCategories,
       cbcGroupPrice,
-      urineChemicalPrice: testSettings?.urineChemicalPrice ?? 300,
-      urineMicroscopyPrice: testSettings?.urineMicroscopyPrice ?? 300,
+      urineChemicalPrice,
+      urineMicroscopyPrice,
       paymentDetails
     });
-  }, [patientData, testCategories, cbcGroupPrice, paymentDetails]);
+  }, [patientData, testCategories, cbcGroupPrice, urineChemicalPrice, urineMicroscopyPrice, paymentDetails]);
 
   const handlePrint = async () => {
     if (printing) return;
@@ -302,6 +312,8 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
     printPOS80ThermalReceipt(patientData, {
       testCategories,
       cbcGroupPrice,
+      urineChemicalPrice,
+      urineMicroscopyPrice,
       paymentDetails
     });
     setPrinting(false);
@@ -344,7 +356,7 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
               {cat.items.map((item) => {
                 if (item.isCbcParent) {
                   return (
-                    <div key="cbc-parent-group" style={{ marginBottom: '4px' }}>
+                    <div key={item._id || item.name || 'cbc-parent-group'} style={{ marginBottom: '4px' }}>
                       <div className="item-row cbc-main-row">
                         <span className="item-name">{item.name}</span>
                         <span className="item-price">{formatETB(item.price)}</span>
@@ -2888,6 +2900,8 @@ export default function ReceptionPage() {
           token={token}
           onClose={handleCloseReceipt}
           cbcGroupPrice={testSettings?.cbcGroupPrice ?? 150}
+          urineChemicalPrice={testSettings?.urineChemicalPrice ?? 300}
+          urineMicroscopyPrice={testSettings?.urineMicroscopyPrice ?? 300}
           testCategories={testCategories}
         />
       )}

@@ -8,6 +8,7 @@
  */
 
 import { normalizeCategoryName } from './categoryHelper.js';
+import { formatETB } from './currencyHelper.js';
 
 // Recognized CBC parameter names/acronyms in the laboratory catalog
 const CBC_PARAM_KEYWORDS = [
@@ -396,7 +397,6 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
   };
 }
 
-import { formatETB } from './currencyHelper.js';
 
 /**
  * Generates standalone clean HTML for 80mm thermal receipt printing.
@@ -697,20 +697,26 @@ export function printPOS80ThermalReceipt(receiptData, options = {}) {
   const receipt = preparePOS80ReceiptData(receiptData, options);
   const html = generateThermalReceiptHtml(receipt);
 
-  // Hidden dedicated print iframe
+  // Dedicated print iframe with clean teardown
   let iframe = document.getElementById('pos80-thermal-frame');
-  if (!iframe) {
-    iframe = document.createElement('iframe');
-    iframe.id = 'pos80-thermal-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0px';
-    iframe.style.height = '0px';
-    iframe.style.border = 'none';
-    iframe.style.zIndex = '-1000';
-    document.body.appendChild(iframe);
+  if (iframe) {
+    try {
+      iframe.remove();
+    } catch (e) {}
   }
+
+  iframe = document.createElement('iframe');
+  iframe.id = 'pos80-thermal-frame';
+  iframe.style.position = 'fixed';
+  iframe.style.left = '0';
+  iframe.style.top = '0';
+  iframe.style.width = '80mm';
+  iframe.style.height = '100px';
+  iframe.style.opacity = '0';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.border = 'none';
+  iframe.style.zIndex = '-9999';
+  document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow.document;
   doc.open();
