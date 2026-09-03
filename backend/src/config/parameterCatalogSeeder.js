@@ -85,7 +85,8 @@ export const MASTER_LAB_CATEGORIES = [
       { parameterName: 'Lipase', unit: 'U/L', referenceValue: '10–140', normalMin: 10, normalMax: 140, displayOrder: 34, defaultPrice: 600, aliases: ['LIPASE'] },
       { parameterName: 'CK (Creatine Kinase)', unit: 'U/L', referenceValue: '24–195', normalMin: 24, normalMax: 195, displayOrder: 35, defaultPrice: 600, aliases: ['CK', 'CK (CREATINE KINASE)'] },
       { parameterName: 'CK-MB', unit: 'U/L', referenceValue: '0–25', normalMin: 0, normalMax: 25, displayOrder: 36, defaultPrice: 1300, aliases: ['CK-MB'] },
-      { parameterName: 'Troponin I', unit: 'ng/mL', referenceValue: '0.00–0.04', normalMin: 0.0, normalMax: 0.04, displayOrder: 37, defaultPrice: 1300, aliases: ['Troponin', 'TROPONIN I'] }
+      { parameterName: 'Troponin I', unit: 'ng/mL', referenceValue: '0.00–0.04', normalMin: 0.0, normalMax: 0.04, displayOrder: 37, defaultPrice: 1300, aliases: ['Troponin', 'TROPONIN I'] },
+      { parameterName: 'Magnesium', unit: 'mg/dL', referenceValue: '1.6 - 2.6', normalMin: 1.6, normalMax: 2.6, displayOrder: 38, defaultPrice: 1000, aliases: ['MAGNESIUM', 'Mg', 'Magnesium (Mg)', 'MAGNESIUM (Mg)'] }
     ]
   },
 
@@ -115,8 +116,7 @@ export const MASTER_LAB_CATEGORIES = [
       { parameterName: 'CALCIUM ION++', unit: 'mmol/L', referenceValue: '1.1–1.35', normalMin: 1.1, normalMax: 1.35, displayOrder: 6, defaultPrice: 1000, aliases: ['CALCIUM ION++', 'Ionized Calcium'] },
       { parameterName: 'nCALCIUM', unit: 'mmol/L', referenceValue: '1.0–1.28', normalMin: 1.0, normalMax: 1.28, displayOrder: 7, defaultPrice: 1000 },
       { parameterName: 'PHOSPHORUS', unit: 'mg/dL', referenceValue: '2.7–4.5', normalMin: 2.7, normalMax: 4.5, displayOrder: 8, defaultPrice: 1000, aliases: ['PHOSPHORUS', 'Phosphate', 'Phosphorus'] },
-      { parameterName: 'MAGNESIUM', unit: 'mg/dL', referenceValue: '1.7–2.2', normalMin: 1.7, normalMax: 2.2, displayOrder: 9, defaultPrice: 1000, aliases: ['MAGNESIUM', 'Mg', 'Magnesium'] },
-      { parameterName: 'pH', unit: '', referenceValue: '7.35–7.45', normalMin: 7.35, normalMax: 7.45, displayOrder: 10, defaultPrice: 1000 }
+      { parameterName: 'pH', unit: '', referenceValue: '7.35–7.45', normalMin: 7.35, normalMax: 7.45, displayOrder: 9, defaultPrice: 1000 }
     ]
   },
 
@@ -194,36 +194,43 @@ export const MASTER_LAB_CATEGORIES = [
     category: 'URINALYSIS',
     subcategory: 'Chemical Analysis',
     parameters: [
-      { parameterName: 'Urinalysis (Routine)', unit: '', referenceValue: 'Normal', normalMin: null, normalMax: null, displayOrder: 1, defaultPrice: 300, aliases: ['Urinalysis', 'Routine Urinalysis', 'Urine Analysis', 'URINALYSIS'] },
-      { parameterName: 'Specific Gravity', unit: '', referenceValue: '1.005–1.030', normalMin: 1.005, normalMax: 1.030, displayOrder: 2, defaultPrice: 300 },
-      { parameterName: 'Leukocyte Esterase', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 3, defaultPrice: 300 },
-      { parameterName: 'pH', unit: '', referenceValue: '5.0–8.0', normalMin: 5.0, normalMax: 8.0, displayOrder: 4, defaultPrice: 300 },
-      { parameterName: 'Nitrite', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 5, defaultPrice: 300 },
-      { parameterName: 'Glucose', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 6, defaultPrice: 300 },
-      { parameterName: 'Protein', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 7, defaultPrice: 300 },
-      { parameterName: 'Blood', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 8, defaultPrice: 300 },
-      { parameterName: 'Ketone', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 9, defaultPrice: 300 },
-      { parameterName: 'Bilirubin', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 10, defaultPrice: 300 },
-      { parameterName: 'Urobilinogen', unit: '', referenceValue: 'Normal (0.2–1.0 mg/dL)', normalMin: 0.2, normalMax: 1.0, displayOrder: 11, defaultPrice: 300 },
-      { parameterName: 'Pregnancy Test (HCG)', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 12, defaultPrice: 200 }
+      { parameterName: 'Chemical Analysis', unit: '', referenceValue: 'Normal', normalMin: null, normalMax: null, displayOrder: 1, defaultPrice: 300, isBundle: true, billableIndividually: true, aliases: ['Urinalysis (Routine)', 'Urinalysis', 'Routine Urinalysis', 'Urine Analysis', 'URINALYSIS', 'Chemical Analysis', 'Routine Urine', 'Routine Urine Examination'] },
+      { parameterName: 'Specific Gravity', unit: '', referenceValue: '1.005–1.030', normalMin: 1.005, normalMax: 1.030, displayOrder: 2, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Leukocyte Esterase', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 3, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'pH', unit: '', referenceValue: '5.0–8.0', normalMin: 5.0, normalMax: 8.0, displayOrder: 4, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Nitrite', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 5, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Glucose', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 6, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Protein', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 7, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Blood', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 8, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Ketone', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 9, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Bilirubin', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 10, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' },
+      { parameterName: 'Urobilinogen', unit: '', referenceValue: 'Normal (0.2–1.0 mg/dL)', normalMin: 0.2, normalMax: 1.0, displayOrder: 11, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Chemical Analysis' }
+    ]
+  },
+  {
+    category: 'URINALYSIS',
+    subcategory: 'Pregnancy Test [HCG]',
+    parameters: [
+      { parameterName: 'Pregnancy Test (HCG)', unit: '', referenceValue: 'Negative', normalMin: null, normalMax: null, displayOrder: 12, defaultPrice: 200, isBundle: false, billableIndividually: true, includedInBundle: false, aliases: ['Pregnancy Test', 'Pregnancy Test (HCG)', 'Pregnancy Test [HCG]', 'HCG', 'Urine HCG', 'Urine Pregnancy Test', 'HCG (Urine)'] }
     ]
   },
   {
     category: 'URINALYSIS',
     subcategory: 'Urine Microscopy',
     parameters: [
-      { parameterName: 'WBC', unit: '/HPF', referenceValue: '0–5', normalMin: 0, normalMax: 5, defaultPrice: 300 },
-      { parameterName: 'RBC', unit: '/HPF', referenceValue: '0–3', normalMin: 0, normalMax: 3, defaultPrice: 300 },
-      { parameterName: 'Epithelial Cells', unit: '/HPF', referenceValue: '0–5', normalMin: 0, normalMax: 5, defaultPrice: 300 },
-      { parameterName: 'WBC Casts', unit: '/LPF', referenceValue: 'None seen', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'RBC Casts', unit: '/LPF', referenceValue: 'None seen', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Granular Casts', unit: '/LPF', referenceValue: 'None seen', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Amorphous Phosphate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Amorphous Urate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Calcium Oxalate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Triple Phosphate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Bacteria', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, defaultPrice: 300 },
-      { parameterName: 'Others', unit: '', referenceValue: '—', normalMin: null, normalMax: null, defaultPrice: 300 }
+      { parameterName: 'Urine Microscopy', unit: '', referenceValue: 'Normal', normalMin: null, normalMax: null, displayOrder: 13, defaultPrice: 300, isBundle: true, billableIndividually: true, aliases: ['Microscopy', 'Urine Microscopy', 'Microscopic Examination', 'Microscopic Exam'] },
+      { parameterName: 'WBC', unit: 'HPF', referenceValue: '0–5 /HPF', normalMin: 0, normalMax: 5, displayOrder: 14, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'RBC', unit: 'HPF', referenceValue: '0–2 /HPF', normalMin: 0, normalMax: 2, displayOrder: 15, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Epithelial Cells', unit: '/HPF', referenceValue: '0–5', normalMin: 0, normalMax: 5, displayOrder: 16, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'WBC Casts', unit: '/LPF', referenceValue: 'None seen', normalMin: null, normalMax: null, displayOrder: 17, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'RBC Casts', unit: '/LPF', referenceValue: 'None seen', normalMin: null, normalMax: null, displayOrder: 18, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Granular Casts', unit: '/LPF', referenceValue: 'None seen', normalMin: null, normalMax: null, displayOrder: 19, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Amorphous Phosphate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, displayOrder: 20, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Amorphous Urate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, displayOrder: 21, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Calcium Oxalate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, displayOrder: 22, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Triple Phosphate Crystal', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, displayOrder: 23, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Bacteria', unit: '', referenceValue: 'None to Few', normalMin: null, normalMax: null, displayOrder: 24, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' },
+      { parameterName: 'Others', unit: '', referenceValue: '—', normalMin: null, normalMax: null, displayOrder: 25, defaultPrice: 0, isBundle: false, billableIndividually: false, includedInBundle: true, parentBundle: 'Urine Microscopy' }
     ]
   },
 
@@ -377,8 +384,17 @@ export async function seedParameterCatalog(force = false) {
       const ft4Exists = await LabTestParameter.findOne({ category: 'HORMONE', parameterName: /ft4/i });
       const fshExists = await LabTestParameter.findOne({ category: 'HORMONE', parameterName: /^FSH$/i });
       const bloodGroupExists = await LabTestParameter.findOne({ category: 'BLOOD GROUP' });
+      const magnesiumExists = await LabTestParameter.findOne({
+        category: 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+        parameterName: /^magnesium$/i
+      });
+      const urineHcgExists = await LabTestParameter.findOne({
+        category: 'URINALYSIS',
+        parameterName: /pregnancy test/i,
+        subcategory: 'Pregnancy Test [HCG]'
+      });
       const totalCount = await LabTestParameter.countDocuments();
-      if (totalCount > 0 && referralCount > 0 && ft3Exists && ft4Exists && fshExists && bloodGroupExists) return;
+      if (totalCount > 0 && referralCount > 0 && ft3Exists && ft4Exists && fshExists && bloodGroupExists && magnesiumExists && urineHcgExists) return;
     }
     let count = 0;
     let fallbackOrder = 1;
@@ -397,6 +413,45 @@ export async function seedParameterCatalog(force = false) {
       { $set: { category: 'URINE AND BODY FLUID ANALYSIS' } }
     );
 
+    // Update Pregnancy Test (HCG) in URINALYSIS to subcategory 'Pregnancy Test [HCG]' and price 200
+    await LabTestParameter.updateMany(
+      { category: 'URINALYSIS', parameterName: /pregnancy test/i },
+      {
+        $set: {
+          subcategory: 'Pregnancy Test [HCG]',
+          defaultPrice: 200
+        }
+      }
+    );
+
+    // Update any Urine Microscopy parameters incorrectly set to 800 to 300 ETB
+    await LabTestParameter.updateMany(
+      {
+        $or: [
+          { category: 'URINALYSIS', parameterName: { $not: /pregnancy test/i } },
+          { subcategory: /urine microscopy|microscopy/i },
+          { parameterName: /urine microscopy|microscopic/i }
+        ],
+        defaultPrice: { $in: [800, '800'] }
+      },
+      { $set: { defaultPrice: 300 } }
+    );
+
+    // Update any existing Magnesium parameter in any category to Clinical Chemistry with reference range 1.6 - 2.6
+    await LabTestParameter.updateMany(
+      { parameterName: new RegExp('^magnesium$', 'i') },
+      {
+        $set: {
+          category: 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
+          subcategory: 'OTHER CHEMISTRY TESTS',
+          referenceValue: '1.6 - 2.6',
+          normalMin: 1.6,
+          normalMax: 2.6,
+          displayOrder: 38
+        }
+      }
+    );
+
     for (const catGroup of MASTER_LAB_CATEGORIES) {
       if (['HEMATOLOGY', 'SEROLOGY AND IMMUNOHEMATOLOGY', 'BLOOD SUGAR TEST (RBS/FBS) / DIABETIC (DM) CHECKUP', 'SERUM ELECTROLYTE', 'STOOL EXAMINATION', 'HORMONE', 'BLOOD GROUP'].includes(catGroup.category)) {
         const validNames = catGroup.parameters.map(p => p.parameterName);
@@ -412,19 +467,25 @@ export async function seedParameterCatalog(force = false) {
         const targetSubcat = catGroup.subcategory || p.subcategory || '';
         const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-        const existing = await LabTestParameter.findOne({
+        let existing = await LabTestParameter.findOne({
           category: catGroup.category,
           $or: searchNames.map(n => ({ parameterName: new RegExp(`^${escapeRegex(n)}$`, 'i') }))
         });
+
+        if (!existing) {
+          existing = await LabTestParameter.findOne({
+            $or: searchNames.map(n => ({ parameterName: new RegExp(`^${escapeRegex(n)}$`, 'i') }))
+          });
+        }
 
         if (existing) {
           existing.parameterName = p.parameterName;
           existing.category = catGroup.category;
           existing.subcategory = targetSubcat;
           existing.unit = p.unit || '';
-          if (!existing.referenceValue || force) existing.referenceValue = p.referenceValue || '';
-          if (existing.normalMin === null || force) existing.normalMin = p.normalMin ?? null;
-          if (existing.normalMax === null || force) existing.normalMax = p.normalMax ?? null;
+          if (!existing.referenceValue || force || p.parameterName === 'Magnesium') existing.referenceValue = p.referenceValue || '';
+          if (existing.normalMin === null || force || p.parameterName === 'Magnesium') existing.normalMin = p.normalMin ?? null;
+          if (existing.normalMax === null || force || p.parameterName === 'Magnesium') existing.normalMax = p.normalMax ?? null;
           existing.displayOrder = order;
           existing.editable = true;
           existing.status = 'Active';

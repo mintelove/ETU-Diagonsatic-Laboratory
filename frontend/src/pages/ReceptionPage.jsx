@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 import { useScrollLock } from '../utils/useScrollLock.js';
-import { preparePOS80ReceiptData, isCbcParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
+import { preparePOS80ReceiptData, isCbcParameter, isUrineChemicalParameter, isUrineMicroscopyParameter, isHcgParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import ReportPreview from '../components/ReportPreview.jsx';
@@ -282,6 +282,8 @@ function ThermalReceiptModal({ patientData, total, paymentDetails, onClose, toke
     return preparePOS80ReceiptData(patientData, {
       testCategories,
       cbcGroupPrice,
+      urineChemicalPrice: testSettings?.urineChemicalPrice ?? 300,
+      urineMicroscopyPrice: testSettings?.urineMicroscopyPrice ?? 300,
       paymentDetails
     });
   }, [patientData, testCategories, cbcGroupPrice, paymentDetails]);
@@ -618,8 +620,28 @@ export default function ReceptionPage() {
 
   // Bill Calculations
   const isCbcTest = useCallback((t) => {
-    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    if (!t) return false;
+    if (t.parentBundle === 'Urine Microscopy' || t.parentBundle === 'Chemical Analysis') return false;
+    const sub = (t.subcategory || '').trim().toUpperCase();
+    if (sub === 'URINE MICROSCOPY' || sub === 'CHEMICAL ANALYSIS' || /MICROSCOP/i.test(sub) || /^CHEM/i.test(sub)) return false;
+    const catName = (t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '').trim().toUpperCase();
+    if (catName === 'URINALYSIS' || /^URIN/i.test(catName) || catName.includes('URINE')) return false;
     return isCbcParameter(t, catName);
+  }, []);
+
+  const isUrineChemTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isUrineChemicalParameter(t, catName);
+  }, []);
+
+  const isUrineMicroTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isUrineMicroscopyParameter(t, catName);
+  }, []);
+
+  const isHcgTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isHcgParameter(t, catName);
   }, []);
 
   const selectedSamples = useMemo(() => {
@@ -634,32 +656,45 @@ export default function ReceptionPage() {
 
   const calcCategoryTotal = useCallback((catTests) => {
     const selected = catTests.filter(t => selectedSampleIds.includes(t._id));
+    const microTests = selected.filter(isUrineMicroTest);
+    const chemTests = selected.filter(isUrineChemTest);
+    const hcgTests = selected.filter(isHcgTest);
     const cbcTests = selected.filter(isCbcTest);
-    const nonCbcTests = selected.filter(t => !isCbcTest(t));
-    let total = nonCbcTests.reduce((sum, t) => sum + (t.price || 0), 0);
-    if (cbcTests.length > 0) {
-      total += Number(testSettings.cbcGroupPrice ?? 150);
-    }
+    const otherTests = selected.filter(t => !isUrineMicroTest(t) && !isUrineChemTest(t) && !isHcgTest(t) && !isCbcTest(t) && t.billableIndividually !== false && !t.includedInBundle);
+
+    let total = otherTests.reduce((sum, t) => sum + (t.price || 0), 0);
+    if (cbcTests.length > 0) total += Number(testSettings.cbcGroupPrice ?? 150);
+    if (chemTests.length > 0) total += Number(testSettings.urineChemicalPrice ?? 300);
+    if (microTests.length > 0) total += Number(testSettings.urineMicroscopyPrice ?? 300);
+    hcgTests.forEach(t => { total += (t.price || 200); });
     return total;
-  }, [selectedSampleIds, testSettings, isCbcTest]);
+  }, [selectedSampleIds, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest]);
 
   const billSubtotal = useMemo(() => {
     const cbcGroupPrice = Number(testSettings.cbcGroupPrice ?? 150);
+    const chemGroupPrice = Number(testSettings.urineChemicalPrice ?? 300);
+    const microGroupPrice = Number(testSettings.urineMicroscopyPrice ?? 300);
     const cbcTests = [];
+    const chemTests = [];
+    const microTests = [];
+    const hcgTests = [];
     const otherTests = [];
+
     selectedSamples.forEach(s => {
-      if (isCbcTest(s)) {
-        cbcTests.push(s);
-      } else {
-        otherTests.push(s);
-      }
+      if (isUrineMicroTest(s)) microTests.push(s);
+      else if (isUrineChemTest(s)) chemTests.push(s);
+      else if (isHcgTest(s)) hcgTests.push(s);
+      else if (isCbcTest(s)) cbcTests.push(s);
+      else if (s.billableIndividually !== false && !s.includedInBundle) otherTests.push(s);
     });
+
     let subtotal = otherTests.reduce((sum, s) => sum + (s.price || 0), 0);
-    if (cbcTests.length > 0) {
-      subtotal += cbcGroupPrice;
-    }
+    if (cbcTests.length > 0) subtotal += cbcGroupPrice;
+    if (chemTests.length > 0) subtotal += chemGroupPrice;
+    if (microTests.length > 0) subtotal += microGroupPrice;
+    hcgTests.forEach(t => { subtotal += (t.price || 200); });
     return subtotal;
-  }, [selectedSamples, testSettings, isCbcTest]);
+  }, [selectedSamples, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest]);
   const discountPercent = serviceDiscountType === 'Staff Member' ? Number(testSettings.staffDiscount || 20) : serviceDiscountType === 'Collaborator' ? Number(testSettings.collaboratorDiscount || 20) : 0;
   const discountAmount = serviceDiscountType === 'Counseling Only' ? 0 : billSubtotal * discountPercent / 100;
   const billTotal = serviceDiscountType === 'Counseling Only' ? (testSettings.counselingStatus === 'Paid' ? Number(testSettings.counselingPrice || 0) : 0) : billSubtotal - discountAmount;
@@ -671,9 +706,80 @@ export default function ReceptionPage() {
 
   // Toggle selection
   const handleToggleSample = (id) => {
-    setSelectedSampleIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+    const test = samples.find(s => s._id === id);
+    if (!test) {
+      setSelectedSampleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+      return;
+    }
+
+    const isMicroChild = isUrineMicroTest(test) && test.name !== 'Urine Microscopy' && !test.isBundle;
+    const isChemChild = isUrineChemTest(test) && test.name !== 'Chemical Analysis' && !test.isBundle && !isHcgTest(test);
+    const isCbcChild = isCbcTest(test) && test.name !== 'CBC' && test.name !== 'Complete Blood Count (CBC)' && !test.isBundle;
+
+    const microParent = (isMicroChild || test.name === 'Urine Microscopy')
+      ? samples.find(s => (s.isBundle && s.name === 'Urine Microscopy') || (s.subcategory === 'Urine Microscopy' && s.name === 'Urine Microscopy'))
+      : null;
+
+    const chemParent = (isChemChild || test.name === 'Chemical Analysis')
+      ? samples.find(s => (s.isBundle && s.name === 'Chemical Analysis') || (s.subcategory === 'Chemical Analysis' && s.name === 'Chemical Analysis'))
+      : null;
+
+    const cbcParent = (isCbcChild || test.name === 'CBC')
+      ? samples.find(s => (s.isBundle && s.name === 'CBC') || (s.subcategory === 'CBC' && s.name === 'CBC'))
+      : null;
+
+    setSelectedSampleIds(prev => {
+      const isAlreadySelected = prev.includes(id);
+      if (isAlreadySelected) {
+        // Deselecting this test
+        const next = prev.filter(x => x !== id);
+
+        // If deselecting a child and no other children of that bundle are selected, also remove parent bundle
+        if (isMicroChild && microParent) {
+          const hasOtherMicroSelected = next.some(x => {
+            const t = samples.find(s => s._id === x);
+            return t && isUrineMicroTest(t) && t._id !== microParent._id;
+          });
+          if (!hasOtherMicroSelected) {
+            return next.filter(x => x !== microParent._id);
+          }
+        }
+        if (isChemChild && chemParent) {
+          const hasOtherChemSelected = next.some(x => {
+            const t = samples.find(s => s._id === x);
+            return t && isUrineChemTest(t) && t._id !== chemParent._id;
+          });
+          if (!hasOtherChemSelected) {
+            return next.filter(x => x !== chemParent._id);
+          }
+        }
+        if (isCbcChild && cbcParent) {
+          const hasOtherCbcSelected = next.some(x => {
+            const t = samples.find(s => s._id === x);
+            return t && isCbcTest(t) && t._id !== cbcParent._id;
+          });
+          if (!hasOtherCbcSelected) {
+            return next.filter(x => x !== cbcParent._id);
+          }
+        }
+        return next;
+      } else {
+        // Selecting this test
+        const next = [...prev, id];
+
+        // If selecting a child parameter, automatically associate / activate its parent bundle
+        if (isMicroChild && microParent && !next.includes(microParent._id)) {
+          next.push(microParent._id);
+        }
+        if (isChemChild && chemParent && !next.includes(chemParent._id)) {
+          next.push(chemParent._id);
+        }
+        if (isCbcChild && cbcParent && !next.includes(cbcParent._id)) {
+          next.push(cbcParent._id);
+        }
+        return next;
+      }
+    });
   };
 
   const handleToggleCbcGroup = (subTests) => {
@@ -1866,12 +1972,14 @@ export default function ReceptionPage() {
                                 )}
                               </div>
                               <div className="lab-v2-cat-stats">
-                                <span className="lab-v2-cat-stat">
-                                  Showing <strong>{filteredTests.length}</strong> of {totalTests}
-                                </span>
+                                {!(/^URINALYSIS$/i.test(category.name) || /^URINE/i.test(category.name)) && (
+                                  <span className="lab-v2-cat-stat">
+                                    Showing <strong>{filteredTests.length}</strong> of {totalTests}
+                                  </span>
+                                )}
                                 {selectedCount > 0 && (
                                   <span className="lab-v2-cat-stat selected">
-                                    {/^HEMATOLOGY$/i.test(category.name) ? (
+                                    {(/^HEMATOLOGY$/i.test(category.name) || /^URINALYSIS$/i.test(category.name) || /^URINE/i.test(category.name)) ? (
                                       <strong>{selectedCount} selected</strong>
                                     ) : (
                                       <>
@@ -1891,6 +1999,9 @@ export default function ReceptionPage() {
                                   <div className="lab-v2-tests-grid">
                                     {filteredTests.map(test => {
                                       const isSelected = selectedSampleIds.includes(test._id);
+                                      const isHcg = isHcgTest(test);
+                                      const isBundleParent = test.isBundle || test.name === 'Urine Microscopy' || test.name === 'Chemical Analysis' || test.name === 'CBC';
+                                      const isIncludedChild = (test.includedInBundle || test.billableIndividually === false || isUrineMicroTest(test) || (isUrineChemTest(test) && !isHcg) || isCbcTest(test)) && !isBundleParent;
                                       return (
                                         <label key={test._id} className={`lab-v2-test-card ${isSelected ? 'selected' : ''}`}>
                                           <div className={`lab-v2-checkbox ${isSelected ? 'checked' : ''}`}>
@@ -1901,7 +2012,19 @@ export default function ReceptionPage() {
                                             <strong>{test.name}</strong>
                                             {test.description && <small>{test.description}</small>}
                                           </div>
-                                          <div className="lab-v2-test-price">{formatETB(test.price)}</div>
+                                          <div className="lab-v2-test-price">
+                                            {isBundleParent && (
+                                              <span style={{ fontSize: '0.8rem', color: '#0f766e', fontWeight: 700 }}>
+                                                {formatETB(test.name === 'Chemical Analysis' ? (testSettings.urineChemicalPrice ?? 300) : test.name === 'Urine Microscopy' ? (testSettings.urineMicroscopyPrice ?? 300) : (testSettings.cbcGroupPrice ?? 150))} (Bundle)
+                                              </span>
+                                            )}
+                                            {isIncludedChild && (
+                                              <span style={{ fontSize: '0.75rem', color: isCbcTest(test) ? '#64748b' : '#0d9488', fontWeight: 600 }}>
+                                                {isCbcTest(test) ? 'Included in CBC · Non-billable' : isUrineMicroTest(test) ? 'Included in Microscopy · Non-billable' : 'Included in Chemical Analysis · Non-billable'}
+                                              </span>
+                                            )}
+                                            {(!isBundleParent && !isIncludedChild) && formatETB(test.price || (isHcg ? 200 : 0))}
+                                          </div>
                                         </label>
                                       );
                                     })}
@@ -1919,8 +2042,15 @@ export default function ReceptionPage() {
 
                               return Array.from(subMap.entries()).map(([subName, subTests]) => {
                                 const isCbcSub = /^CBC$/i.test(subName) && /^HEMATOLOGY$/i.test(category.name);
-                                const allCbcSelected = subTests.length > 0 && subTests.every(t => selectedSampleIds.includes(t._id));
+                                const isChemSub = (/^Chemical Analysis$/i.test(subName) || /^Chemical$/i.test(subName)) && (/^URINALYSIS$/i.test(category.name) || /^URINE/i.test(category.name));
+                                const isMicroSub = (/^Urine Microscopy$/i.test(subName) || /^Microscopy$/i.test(subName)) && (/^URINALYSIS$/i.test(category.name) || /^URINE/i.test(category.name));
+                                
+                                // For Chemical Analysis bundle, filter out any HCG test
+                                const bundleTests = isChemSub ? subTests.filter(t => !isHcgTest(t)) : subTests;
+                                const bundleTestIds = bundleTests.map(t => t._id);
+                                const allBundleSelected = bundleTestIds.length > 0 && bundleTestIds.every(id => selectedSampleIds.includes(id));
                                 const subSelected = subTests.filter(t => selectedSampleIds.includes(t._id)).length;
+
                                 return (
                                   <div key={subName} className="lab-v2-subcat-group">
                                     <div className="lab-v2-subcat-header">
@@ -1929,31 +2059,33 @@ export default function ReceptionPage() {
                                       <span className="lab-v2-subcat-count">{subTests.length} test{subTests.length !== 1 ? 's' : ''}</span>
                                       {subSelected > 0 && <span className="lab-v2-subcat-selected">{subSelected} selected</span>}
                                     </div>
+
+                                    {/* CBC Complete Group Card */}
                                     {isCbcSub && (
                                       <div
-                                        className={`lab-v2-test-card ${allCbcSelected ? 'selected' : ''}`}
+                                        className={`lab-v2-test-card ${allBundleSelected ? 'selected' : ''}`}
                                         style={{
                                           margin: '8px 12px 14px 12px',
                                           padding: '12px 16px',
-                                          border: allCbcSelected ? '2px solid var(--color-primary, #075c91)' : '2px dashed #0284c7',
-                                          background: allCbcSelected ? '#e0f2fe' : '#f0f9ff',
+                                          border: allBundleSelected ? '2px solid var(--color-primary, #075c91)' : '2px dashed #0284c7',
+                                          background: allBundleSelected ? '#e0f2fe' : '#f0f9ff',
                                           borderRadius: '10px',
                                           display: 'flex',
                                           alignItems: 'center',
                                           justifyContent: 'space-between',
                                           cursor: 'pointer',
-                                          boxShadow: allCbcSelected ? '0 2px 8px rgba(7, 92, 145, 0.15)' : 'none'
+                                          boxShadow: allBundleSelected ? '0 2px 8px rgba(7, 92, 145, 0.15)' : 'none'
                                         }}
-                                        onClick={() => handleToggleCbcGroup(subTests)}
+                                        onClick={() => handleToggleCbcGroup(bundleTests)}
                                       >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                          <div className={`lab-v2-checkbox ${allCbcSelected ? 'checked' : ''}`}>
+                                          <div className={`lab-v2-checkbox ${allBundleSelected ? 'checked' : ''}`}>
                                             <input
                                               type="checkbox"
-                                              checked={allCbcSelected}
-                                              onChange={() => handleToggleCbcGroup(subTests)}
+                                              checked={allBundleSelected}
+                                              onChange={() => handleToggleCbcGroup(bundleTests)}
                                             />
-                                            {allCbcSelected && (
+                                            {allBundleSelected && (
                                               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                                 <path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                               </svg>
@@ -1964,7 +2096,7 @@ export default function ReceptionPage() {
                                               🩸 CBC — Complete Blood Count (Complete Group)
                                             </strong>
                                             <small style={{ color: 'var(--color-on-surface-variant, #475569)', display: 'block', marginTop: '2px' }}>
-                                              Single fixed price · Automatically includes all {subTests.length} CBC sub-test parameters for result entry &amp; reports
+                                              Single fixed price · Automatically includes all {bundleTests.length} CBC sub-test parameters for result entry &amp; reports
                                             </small>
                                           </div>
                                         </div>
@@ -1973,9 +2105,105 @@ export default function ReceptionPage() {
                                         </div>
                                       </div>
                                     )}
+
+                                    {/* Chemical Analysis Complete Bundle Card */}
+                                    {isChemSub && (
+                                      <div
+                                        className={`lab-v2-test-card ${allBundleSelected ? 'selected' : ''}`}
+                                        style={{
+                                          margin: '8px 12px 14px 12px',
+                                          padding: '12px 16px',
+                                          border: allBundleSelected ? '2px solid #0d9488' : '2px dashed #0d9488',
+                                          background: allBundleSelected ? '#ccfbf1' : '#f0fdfa',
+                                          borderRadius: '10px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          cursor: 'pointer',
+                                          boxShadow: allBundleSelected ? '0 2px 8px rgba(13, 148, 136, 0.15)' : 'none'
+                                        }}
+                                        onClick={() => handleToggleCbcGroup(bundleTests)}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                          <div className={`lab-v2-checkbox ${allBundleSelected ? 'checked' : ''}`}>
+                                            <input
+                                              type="checkbox"
+                                              checked={allBundleSelected}
+                                              onChange={() => handleToggleCbcGroup(bundleTests)}
+                                            />
+                                            {allBundleSelected && (
+                                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                                <path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <div className="lab-v2-test-info">
+                                            <strong style={{ fontSize: '1.02rem', color: '#0f766e' }}>
+                                              🧪 Chemical Analysis (Complete Group)
+                                            </strong>
+                                            <small style={{ color: 'var(--color-on-surface-variant, #475569)', display: 'block', marginTop: '2px' }}>
+                                              Single fixed price ({testSettings.urineChemicalPrice ?? 300} ETB) · Automatically includes all {bundleTests.length} Chemical Analysis sub-test parameters
+                                            </small>
+                                          </div>
+                                        </div>
+                                        <div className="lab-v2-test-price" style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f766e' }}>
+                                          {formatETB(Number(testSettings.urineChemicalPrice ?? 300))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Urine Microscopy Complete Bundle Card */}
+                                    {isMicroSub && (
+                                      <div
+                                        className={`lab-v2-test-card ${allBundleSelected ? 'selected' : ''}`}
+                                        style={{
+                                          margin: '8px 12px 14px 12px',
+                                          padding: '12px 16px',
+                                          border: allBundleSelected ? '2px solid #0d9488' : '2px dashed #0d9488',
+                                          background: allBundleSelected ? '#ccfbf1' : '#f0fdfa',
+                                          borderRadius: '10px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          cursor: 'pointer',
+                                          boxShadow: allBundleSelected ? '0 2px 8px rgba(13, 148, 136, 0.15)' : 'none'
+                                        }}
+                                        onClick={() => handleToggleCbcGroup(bundleTests)}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                          <div className={`lab-v2-checkbox ${allBundleSelected ? 'checked' : ''}`}>
+                                            <input
+                                              type="checkbox"
+                                              checked={allBundleSelected}
+                                              onChange={() => handleToggleCbcGroup(bundleTests)}
+                                            />
+                                            {allBundleSelected && (
+                                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                                <path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <div className="lab-v2-test-info">
+                                            <strong style={{ fontSize: '1.02rem', color: '#0f766e' }}>
+                                              🔬 Urine Microscopy (Complete Group)
+                                            </strong>
+                                            <small style={{ color: 'var(--color-on-surface-variant, #475569)', display: 'block', marginTop: '2px' }}>
+                                              Single fixed price ({testSettings.urineMicroscopyPrice ?? 300} ETB) · Automatically includes all {bundleTests.length} Microscopy sub-test parameters
+                                            </small>
+                                          </div>
+                                        </div>
+                                        <div className="lab-v2-test-price" style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f766e' }}>
+                                          {formatETB(Number(testSettings.urineMicroscopyPrice ?? 300))}
+                                        </div>
+                                      </div>
+                                    )}
+
                                     <div className="lab-v2-tests-grid">
                                       {subTests.map(test => {
                                         const isSelected = selectedSampleIds.includes(test._id);
+                                        const isHcg = isHcgTest(test);
+                                        const isBundleParent = test.isBundle || test.name === 'Urine Microscopy' || test.name === 'Chemical Analysis' || test.name === 'CBC';
+                                        const isIncludedChild = (isCbcSub || isChemSub || isMicroSub || test.includedInBundle || test.billableIndividually === false) && !isBundleParent && !isHcg;
                                         return (
                                           <label key={test._id} className={`lab-v2-test-card ${isSelected ? 'selected' : ''}`}>
                                             <div className={`lab-v2-checkbox ${isSelected ? 'checked' : ''}`}>
@@ -1986,7 +2214,19 @@ export default function ReceptionPage() {
                                               <strong>{test.name}</strong>
                                               {test.description && <small>{test.description}</small>}
                                             </div>
-                                            <div className="lab-v2-test-price">{isCbcSub ? <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Included in CBC</span> : formatETB(test.price)}</div>
+                                            <div className="lab-v2-test-price">
+                                              {isBundleParent && (
+                                                <span style={{ fontSize: '0.8rem', color: '#0f766e', fontWeight: 700 }}>
+                                                  {formatETB(test.name === 'Chemical Analysis' ? (testSettings.urineChemicalPrice ?? 300) : test.name === 'Urine Microscopy' ? (testSettings.urineMicroscopyPrice ?? 300) : (testSettings.cbcGroupPrice ?? 150))} (Bundle)
+                                                </span>
+                                              )}
+                                              {isIncludedChild && (
+                                                <span style={{ fontSize: '0.75rem', color: isCbcSub ? '#64748b' : '#0d9488', fontWeight: 600 }}>
+                                                  {isCbcSub ? 'Included in CBC · Non-billable' : isChemSub ? 'Included in Chemical Analysis · Non-billable' : 'Included in Microscopy · Non-billable'}
+                                                </span>
+                                              )}
+                                              {(!isBundleParent && !isIncludedChild) && formatETB(test.price || (isHcg ? 200 : 0))}
+                                            </div>
                                           </label>
                                         );
                                       })}
@@ -2156,8 +2396,28 @@ export default function ReceptionPage() {
                   return Array.from(grouped.entries()).map(([catName, tests]) => {
                     const catTheme = getCatTheme(catName);
                     const isHematology = /^HEMATOLOGY$/i.test(catName);
+                    const isUrinalysis = /^URINALYSIS$/i.test(catName) || /^URINE/i.test(catName);
+
+                    // HEMATOLOGY: CBC bundle
                     const cbcTests = isHematology ? tests.filter(isCbcTest) : [];
-                    const nonCbcTests = isHematology ? tests.filter(t => !isCbcTest(t)) : tests;
+                    // URINALYSIS: Chemical Analysis bundle, Urine Microscopy bundle, HCG standalone
+                    const chemTests = isUrinalysis ? tests.filter(isUrineChemTest) : [];
+                    const microTests = isUrinalysis ? tests.filter(isUrineMicroTest) : [];
+                    const hcgTests = isUrinalysis ? tests.filter(isHcgTest) : [];
+                    // Everything else (not bundled)
+                    const otherTests = tests.filter(t => {
+                      if (isHematology && isCbcTest(t)) return false;
+                      if (isUrinalysis && (isUrineChemTest(t) || isUrineMicroTest(t) || isHcgTest(t))) return false;
+                      if (isCbcTest(t) || isUrineChemTest(t) || isUrineMicroTest(t) || isHcgTest(t)) return false;
+                      if (t.billableIndividually === false || t.includedInBundle === true) return false;
+                      return true;
+                    });
+
+                    // Count billable line items for the badge
+                    let billableCount = otherTests.length + hcgTests.length;
+                    if (cbcTests.length > 0) billableCount++;
+                    if (chemTests.length > 0) billableCount++;
+                    if (microTests.length > 0) billableCount++;
 
                     return (
                       <div key={catName} className="lab-v2-bill-cat-group">
@@ -2165,7 +2425,7 @@ export default function ReceptionPage() {
                           <span className="lab-v2-bill-cat-dot" style={{ background: catTheme.accent }}></span>
                           <span>{catName}</span>
                           <span className="lab-v2-bill-cat-count">
-                            {cbcTests.length > 0 ? (nonCbcTests.length + 1) : tests.length}
+                            {billableCount}
                           </span>
                         </div>
                         {cbcTests.length > 0 && (
@@ -2178,7 +2438,33 @@ export default function ReceptionPage() {
                             </strong>
                           </div>
                         )}
-                        {nonCbcTests.map(s => (
+                        {chemTests.length > 0 && (
+                          <div className="lab-v2-bill-item" style={{ background: '#f0fdfa', borderRadius: '6px', padding: '6px 10px', borderLeft: '3px solid #0d9488' }}>
+                            <span className="lab-v2-bill-item-name" style={{ fontWeight: 700, color: '#0f766e' }}>
+                              🧪 Chemical Analysis ({chemTests.length} parameters)
+                            </span>
+                            <strong style={{ color: '#0f766e' }}>
+                              {formatETB(Number(testSettings.urineChemicalPrice ?? 300))}
+                            </strong>
+                          </div>
+                        )}
+                        {microTests.length > 0 && (
+                          <div className="lab-v2-bill-item" style={{ background: '#f0fdfa', borderRadius: '6px', padding: '6px 10px', borderLeft: '3px solid #0d9488' }}>
+                            <span className="lab-v2-bill-item-name" style={{ fontWeight: 700, color: '#0f766e' }}>
+                              🔬 Urine Microscopy ({microTests.length} parameters)
+                            </span>
+                            <strong style={{ color: '#0f766e' }}>
+                              {formatETB(Number(testSettings.urineMicroscopyPrice ?? 300))}
+                            </strong>
+                          </div>
+                        )}
+                        {hcgTests.map(s => (
+                          <div key={s._id} className="lab-v2-bill-item">
+                            <span className="lab-v2-bill-item-name">{s.name}</span>
+                            <strong>{formatETB(s.price || 200)}</strong>
+                          </div>
+                        ))}
+                        {otherTests.map(s => (
                           <div key={s._id} className="lab-v2-bill-item">
                             <span className="lab-v2-bill-item-name">{s.name}</span>
                             <strong>{formatETB(s.price)}</strong>

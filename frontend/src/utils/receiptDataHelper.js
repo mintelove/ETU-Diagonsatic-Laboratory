@@ -22,8 +22,12 @@ const CBC_PARAM_KEYWORDS = [
  */
 export function isCbcParameter(test, categoryName = '') {
   if (!test) return false;
+
+  // Urinalysis bundles & child tests MUST NEVER be classified as CBC
+  if (test.parentBundle === 'Urine Microscopy' || test.parentBundle === 'Chemical Analysis') return false;
   const sub = (test.subcategory || '').trim().toUpperCase();
-  const name = (test.name || '').trim().toUpperCase();
+  if (sub === 'URINE MICROSCOPY' || sub === 'CHEMICAL ANALYSIS' || /MICROSCOP/i.test(sub) || /^CHEM/i.test(sub)) return false;
+
   const cat = normalizeCategoryName(
     categoryName ||
     (typeof test.category === 'object' ? test.category?.name : test.category) ||
@@ -31,8 +35,12 @@ export function isCbcParameter(test, categoryName = '') {
     ''
   ).toUpperCase();
 
-  // Explicit CBC subcategory
-  if (sub === 'CBC') return true;
+  if (cat === 'URINALYSIS' || /^URIN/i.test(cat) || cat.includes('URINE')) return false;
+
+  // Explicit CBC subcategory or parent bundle
+  if (sub === 'CBC' || test.parentBundle === 'CBC') return true;
+
+  const name = (test.name || '').trim().toUpperCase();
 
   // Under HEMATOLOGY category
   if (cat === 'HEMATOLOGY' || /^HEMATO/i.test(cat)) {
@@ -45,9 +53,80 @@ export function isCbcParameter(test, categoryName = '') {
     return CBC_PARAM_KEYWORDS.some(k => name.includes(k));
   }
 
-  // Parameter name check if category is unassigned/other
-  if (sub === 'CBC' || name.startsWith('CBC') || name.includes('(CBC)')) return true;
-  if (['WBC', 'RBC', 'HGB', 'HCT', 'MCV', 'MCH', 'MCHC', 'PLT'].includes(name)) return true;
+  // Explicit CBC prefix or indicator
+  if (name.startsWith('CBC') || name.includes('(CBC)')) return true;
+
+  return false;
+}
+
+/**
+ * Checks whether a given test is Pregnancy Test [HCG].
+ * HCG is strictly independent (200 ETB) and never bundled.
+ */
+export function isHcgParameter(test, categoryName = '') {
+  if (!test) return false;
+  const name = (test.name || '').trim().toUpperCase();
+  const sub = (test.subcategory || '').trim().toUpperCase();
+  return /PREGNANCY/i.test(name) || /HCG/i.test(name) || /PREGNANCY/i.test(sub);
+}
+
+/**
+ * Checks whether a given test belongs to Urinalysis Chemical Analysis bundle (300 ETB).
+ * Strictly excludes Pregnancy Test [HCG].
+ */
+export function isUrineChemicalParameter(test, categoryName = '') {
+  if (!test) return false;
+  if (isHcgParameter(test, categoryName)) return false;
+  const sub = (test.subcategory || '').trim().toUpperCase();
+  const name = (test.name || '').trim().toUpperCase();
+  const cat = normalizeCategoryName(
+    categoryName ||
+    (typeof test.category === 'object' ? test.category?.name : test.category) ||
+    test.categoryName ||
+    ''
+  ).toUpperCase();
+
+  if (test.parentBundle === 'Chemical Analysis') return true;
+  if (sub === 'CHEMICAL ANALYSIS' || sub === 'CHEMICAL' || /^CHEMICAL/i.test(sub)) return true;
+  if (name === 'URINALYSIS (ROUTINE)' || name === 'CHEMICAL ANALYSIS' || name === 'URINALYSIS' || name === 'ROUTINE URINALYSIS') return true;
+
+  const chemParams = ['SPECIFIC GRAVITY', 'LEUKOCYTE ESTERASE', 'PH', 'NITRITE', 'GLUCOSE', 'PROTEIN', 'BLOOD', 'KETONE', 'BILIRUBIN', 'UROBILINOGEN'];
+
+  if (cat === 'URINALYSIS' || /^URIN/i.test(cat) || test.parentBundle === 'Chemical Analysis') {
+    return chemParams.includes(name);
+  }
+
+  if (chemParams.includes(name) && (/CHEM/i.test(sub) || /URIN/i.test(cat))) return true;
+
+  return false;
+}
+
+/**
+ * Checks whether a given test belongs to Urinalysis Urine Microscopy bundle (300 ETB).
+ */
+export function isUrineMicroscopyParameter(test, categoryName = '') {
+  if (!test) return false;
+  if (isHcgParameter(test, categoryName)) return false;
+  const sub = (test.subcategory || '').trim().toUpperCase();
+  const name = (test.name || '').trim().toUpperCase();
+  const cat = normalizeCategoryName(
+    categoryName ||
+    (typeof test.category === 'object' ? test.category?.name : test.category) ||
+    test.categoryName ||
+    ''
+  ).toUpperCase();
+
+  if (test.parentBundle === 'Urine Microscopy') return true;
+  if (sub === 'URINE MICROSCOPY' || sub === 'MICROSCOPY' || /MICROSCOP/i.test(sub)) return true;
+  if (name === 'URINE MICROSCOPY' || name === 'MICROSCOPY') return true;
+
+  const microParams = ['WBC', 'RBC', 'EPITHELIAL CELLS', 'WBC CASTS', 'RBC CASTS', 'GRANULAR CASTS', 'AMORPHOUS PHOSPHATE CRYSTAL', 'AMORPHOUS URATE CRYSTAL', 'CALCIUM OXALATE CRYSTAL', 'TRIPLE PHOSPHATE CRYSTAL', 'BACTERIA', 'OTHERS'];
+
+  if (cat === 'URINALYSIS' || /^URIN/i.test(cat) || test.parentBundle === 'Urine Microscopy') {
+    return microParams.includes(name);
+  }
+
+  if (microParams.includes(name) && (/MICROSCOP/i.test(sub) || /URIN/i.test(cat))) return true;
 
   return false;
 }
@@ -87,9 +166,17 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
   // Build a test catalog lookup map for quick resolution
   const catalogMap = new Map();
   testCategories.forEach(cat => {
+    const catUpper = (cat.name || '').trim().toUpperCase();
     (cat.tests || []).forEach(t => {
       if (t._id) catalogMap.set(String(t._id), { ...t, categoryName: cat.name });
-      if (t.name) catalogMap.set(t.name.trim().toUpperCase(), { ...t, categoryName: cat.name });
+      if (t.name) {
+        const tNameUpper = t.name.trim().toUpperCase();
+        // Category-scoped key to prevent collisions (e.g. URINALYSIS::RBC vs HEMATOLOGY::RBC)
+        catalogMap.set(`${catUpper}::${tNameUpper}`, { ...t, categoryName: cat.name });
+        if (!catalogMap.has(tNameUpper)) {
+          catalogMap.set(tNameUpper, { ...t, categoryName: cat.name });
+        }
+      }
     });
   });
 
@@ -101,7 +188,15 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
     if (typeof item === 'string') {
       catalogTest = catalogMap.get(String(item));
     } else {
-      catalogTest = catalogMap.get(String(item._id)) || catalogMap.get((item.name || '').trim().toUpperCase());
+      const itemCat = (
+        (typeof item.category === 'object' ? item.category?.name : item.category) ||
+        item.categoryName ||
+        ''
+      ).trim().toUpperCase();
+      const itemName = (item.name || '').trim().toUpperCase();
+      catalogTest = catalogMap.get(String(item._id)) ||
+        (itemCat && itemName ? catalogMap.get(`${itemCat}::${itemName}`) : null) ||
+        catalogMap.get(itemName);
     }
 
     const testId = item._id || catalogTest?._id || String(Math.random());
@@ -114,7 +209,7 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
       ''
     );
     const categoryName = normalizeCategoryName(rawCat || 'GENERAL LABORATORY');
-    const price = Number(catalogTest?.price ?? item.price ?? 0);
+    let price = Number(catalogTest?.price ?? item.price ?? 0);
 
     normalizedTests.push({
       _id: testId,
@@ -139,39 +234,112 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
 
   categoryMap.forEach((tests, catName) => {
     const isHematology = /^HEMATOLOGY$/i.test(catName);
-    const cbcChildren = isHematology ? tests.filter(t => isCbcParameter(t, catName)) : [];
-    const nonCbcTests = isHematology ? tests.filter(t => !isCbcParameter(t, catName)) : tests;
+    const isUrinalysis = /^URINALYSIS$/i.test(catName) || /^URINE/i.test(catName);
 
     const items = [];
 
-    // CBC Complete Group: One parent billable item + children with NO price
-    if (isHematology && cbcChildren.length > 0) {
-      const fixedCbcPrice = Number(cbcGroupPrice ?? 150);
-      computedSubtotal += fixedCbcPrice;
+    if (isHematology) {
+      const cbcChildren = tests.filter(t => isCbcParameter(t, catName));
+      const nonCbcTests = tests.filter(t => !isCbcParameter(t, catName));
 
-      items.push({
-        isCbcParent: true,
-        name: 'CBC — Complete Blood Count',
-        price: fixedCbcPrice,
-        children: cbcChildren.map(c => ({
-          _id: c._id,
-          name: c.name,
-          included: true
-          // NO price property on children!
-        }))
+      // CBC Complete Group: One parent billable item + children with NO price
+      if (cbcChildren.length > 0) {
+        const fixedCbcPrice = Number(cbcGroupPrice ?? 150);
+        computedSubtotal += fixedCbcPrice;
+
+        items.push({
+          isCbcParent: true,
+          name: 'CBC — Complete Blood Count',
+          price: fixedCbcPrice,
+          children: cbcChildren.map(c => ({
+            _id: c._id,
+            name: c.name,
+            included: true
+          }))
+        });
+      }
+
+      nonCbcTests.forEach(test => {
+        computedSubtotal += (test.price || 0);
+        items.push({
+          _id: test._id,
+          isCbcParent: false,
+          name: test.name,
+          price: test.price || 0
+        });
+      });
+    } else if (isUrinalysis) {
+      const chemChildren = tests.filter(t => isUrineChemicalParameter(t, catName));
+      const microChildren = tests.filter(t => isUrineMicroscopyParameter(t, catName));
+      const hcgTests = tests.filter(t => isHcgParameter(t, catName));
+      const otherUrineTests = tests.filter(t => !isUrineChemicalParameter(t, catName) && !isUrineMicroscopyParameter(t, catName) && !isHcgParameter(t, catName));
+
+      // Chemical Analysis Bundle (300 ETB)
+      if (chemChildren.length > 0) {
+        const chemBundlePrice = Number(options.urineChemicalPrice ?? 300);
+        computedSubtotal += chemBundlePrice;
+        items.push({
+          isCbcParent: true,
+          name: 'Chemical Analysis',
+          price: chemBundlePrice,
+          children: chemChildren.map(c => ({
+            _id: c._id,
+            name: c.name,
+            included: true
+          }))
+        });
+      }
+
+      // Urine Microscopy Bundle (300 ETB)
+      if (microChildren.length > 0) {
+        const microBundlePrice = Number(options.urineMicroscopyPrice ?? 300);
+        computedSubtotal += microBundlePrice;
+        items.push({
+          isCbcParent: true,
+          name: 'Urine Microscopy',
+          price: microBundlePrice,
+          children: microChildren.map(c => ({
+            _id: c._id,
+            name: c.name,
+            included: true
+          }))
+        });
+      }
+
+      // Standalone Pregnancy Test [HCG] (200 ETB)
+      hcgTests.forEach(test => {
+        const hcgPrice = test.price || 200;
+        computedSubtotal += hcgPrice;
+        items.push({
+          _id: test._id,
+          isCbcParent: false,
+          name: test.name,
+          price: hcgPrice
+        });
+      });
+
+      // Other Urinalysis Tests
+      otherUrineTests.forEach(test => {
+        computedSubtotal += (test.price || 0);
+        items.push({
+          _id: test._id,
+          isCbcParent: false,
+          name: test.name,
+          price: test.price || 0
+        });
+      });
+    } else {
+      // Standard Non-bundled categories (regular billable items)
+      tests.forEach(test => {
+        computedSubtotal += (test.price || 0);
+        items.push({
+          _id: test._id,
+          isCbcParent: false,
+          name: test.name,
+          price: test.price || 0
+        });
       });
     }
-
-    // Standard Non-CBC items (regular billable items)
-    nonCbcTests.forEach(test => {
-      computedSubtotal += (test.price || 0);
-      items.push({
-        _id: test._id,
-        isCbcParent: false,
-        name: test.name,
-        price: test.price || 0
-      });
-    });
 
     if (items.length > 0) {
       categories.push({

@@ -135,6 +135,11 @@ export function ReportPreview({ report, showFooter = true }) {
         paddingRight: '14mm'
       }}
     >
+      {/* ── Official Diagonal Watermark Overlay ───────────────────────── */}
+      <div className="report-watermark-overlay" aria-hidden="true">
+        <span className="report-watermark-text">ETU Diagnostic Laboratory</span>
+      </div>
+
       {/* ── Public Share Link Banner (Screen Only, Hidden in Print) ────── */}
       {isApproved && currentToken && (
         <div className="report-preview-share-banner no-print">

@@ -1004,8 +1004,63 @@ tr:hover td .flag-badge.critical-low * {
 }
 
 
+/* ── 8. WATERMARK OVERLAY (ETU DIAGNOSTIC LABORATORY) ──────────────────────── */
+.lab-report-preview .report-watermark-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  z-index: 0 !important;
+  overflow: hidden !important;
+}
+
+.lab-report-preview .report-watermark-text {
+  font-size: 4.2rem !important;
+  font-weight: 700 !important;
+  color: #075c91 !important;
+  opacity: 0.07 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.22em !important;
+  transform: rotate(-35deg) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif !important;
+  text-shadow: 0 0 0 transparent !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+:root[data-theme='dark'] .lab-report-preview .report-watermark-text,
+[data-theme='dark'] .lab-report-preview .report-watermark-text {
+  color: #38bdf8 !important;
+  opacity: 0.06 !important;
+}
+
+.lab-report-preview .report-preview-header,
+.lab-report-preview .report-preview-section,
+.lab-report-preview .report-preview-results-wrapper,
+.lab-report-preview .report-preview-footer,
+.lab-report-preview .imed-a4-patient-section,
+.lab-report-preview .imed-a4-two-tables,
+.lab-report-preview .imed-a4-vitals-box,
+.lab-report-preview .imed-a4-result-box,
+.lab-report-preview .imed-a4-decl-box {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   8. PRINT ISOLATION (@media print)
+   9. PRINT ISOLATION (@media print)
    ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
   .report-preview-share-banner,
@@ -1014,18 +1069,55 @@ tr:hover td .flag-badge.critical-low * {
   }
 
   .lab-report-preview {
-    background: #ffffff !important;
+    background: transparent !important;
     color: #000000 !important;
     box-shadow: none !important;
     border: none !important;
     padding: 0 !important;
     max-width: 100% !important;
+    position: relative !important;
   }
 
-  .lab-report-preview * {
+  .lab-report-preview *:not(.report-watermark-overlay):not(.report-watermark-text) {
     color: #000000 !important;
     background: transparent !important;
     box-shadow: none !important;
+  }
+
+  .lab-report-preview .report-watermark-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    z-index: 0 !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .lab-report-preview .report-watermark-text {
+    font-size: 52pt !important;
+    font-weight: 700 !important;
+    color: #075c91 !important;
+    opacity: 0.07 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 8px !important;
+    transform: rotate(-35deg) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .lab-report-preview .report-preview-title,

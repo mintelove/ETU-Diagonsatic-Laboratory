@@ -220,9 +220,45 @@ export function PublicReportViewer() {
           cursor: default !important;
         }
         .public-report-main {
+          position: relative !important;
+          overflow: hidden !important;
           background-color: #ffffff !important;
           color: #0f172a !important;
           border-color: #cbd5e1 !important;
+        }
+        .public-report-watermark {
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          pointer-events: none !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          z-index: 0 !important;
+          overflow: hidden !important;
+        }
+        .public-report-watermark span {
+          font-size: 4.2rem !important;
+          font-weight: 700 !important;
+          color: #075c91 !important;
+          opacity: 0.07 !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.22em !important;
+          transform: rotate(-35deg) !important;
+          white-space: nowrap !important;
+          pointer-events: none !important;
+          user-select: none !important;
+          font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .public-report-main > *:not(.public-report-watermark) {
+          position: relative !important;
+          z-index: 1 !important;
         }
         .public-report-page .public-category-header,
         .public-report-page h4 {
@@ -268,6 +304,34 @@ export function PublicReportViewer() {
           .public-report-actions { display: none !important; }
           .public-report-page { background: #ffffff !important; padding: 0 !important; }
           .public-report-main { box-shadow: none !important; border: none !important; padding: 0 !important; }
+          .public-report-watermark {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            pointer-events: none !important;
+            z-index: 0 !important;
+            overflow: hidden !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .public-report-watermark span {
+            font-size: 52pt !important;
+            font-weight: 700 !important;
+            color: #075c91 !important;
+            opacity: 0.07 !important;
+            transform: rotate(-35deg) !important;
+            letter-spacing: 8px !important;
+            font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
         }
       `}</style>
       <div style={{ maxWidth: '850px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -303,7 +367,12 @@ export function PublicReportViewer() {
         </header>
 
         {/* Main A4 Document Preview (100% Static Document — Zero Hover/Cursor Reaction) */}
-        <main className="public-report-main" style={{ background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word', pointerEvents: 'none', userSelect: 'text', cursor: 'default' }}>
+        <main className="public-report-main" style={{ position: 'relative', overflow: 'hidden', background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word', pointerEvents: 'none', userSelect: 'text', cursor: 'default' }}>
+          
+          {/* Official Diagonal Watermark */}
+          <div className="public-report-watermark" aria-hidden="true">
+            <span>ETU Diagnostic Laboratory</span>
+          </div>
           
           {/* Header */}
           <div style={{ textAlign: 'center', borderBottom: '3px solid #087ca8', paddingBottom: '16px', marginBottom: '20px' }}>

@@ -494,92 +494,128 @@ export default function LaboratoryResultEditor({
     return combined;
   }, [catalog, labTestCatalog]);
 
-  // Map patient's receptionist-selected tests & categories with precision
-  const requestedInfo = useMemo(() => {
-    const selectedTestIds = [];
-    const selectedTestNames = [];
-    const selectedTestCategories = [];
+    // Map patient's receptionist-selected tests & categories with precision
+    const requestedInfo = useMemo(() => {
+      const selectedTestIds = [];
+      const selectedTestNames = [];
+      const selectedTestCategories = [];
 
-    const names = new Set();
-    const categories = new Set();
+      const names = new Set();
+      const categories = new Set();
+      const categoryScopedNames = new Map(); // catNorm -> Set of parameter names
 
-    if (!patient) {
-      return { selectedTestIds, selectedTestNames, selectedTestCategories, names, categories };
-    }
+      if (!patient) {
+        return { selectedTestIds, selectedTestNames, selectedTestCategories, names, categories, categoryScopedNames };
+      }
 
-    const addTestItem = (t) => {
-      if (!t) return;
-      if (typeof t === 'string' && t.trim()) {
-        const u = t.trim().toUpperCase();
-        selectedTestNames.push(u);
-        names.add(u);
-      } else if (typeof t === 'object') {
-        const tid = String(t._id || t.id || '');
-        if (tid) selectedTestIds.push(tid);
+      const requestedTestsList = [];
 
-        const nameVal = t.name || t.parameterName || t.sampleName;
-        if (nameVal && typeof nameVal === 'string') {
-          const u = nameVal.trim().toUpperCase();
+      const addTestItem = (t) => {
+        if (!t) return;
+        if (typeof t === 'string' && t.trim()) {
+          const u = t.trim().toUpperCase();
           selectedTestNames.push(u);
           names.add(u);
-        }
-        const catVal = (typeof t.category === 'object' && t.category?.name)
-          ? t.category.name
-          : (typeof t.category === 'string' ? t.category : '');
-        if (catVal && typeof catVal === 'string') {
-          const normCat = normalizeCategoryName(catVal);
-          selectedTestCategories.push(normCat);
-          categories.add(normCat);
-        }
-      }
-    };
+          requestedTestsList.push({ id: '', name: u, normCat: '', sub: '' });
+        } else if (typeof t === 'object') {
+          const tid = String(t._id || t.id || '');
+          if (tid) selectedTestIds.push(tid);
 
-    // Strictly check laboratoryTests and requestedTests (DO NOT include sampleTypes container names)
-    if (Array.isArray(patient.laboratoryTests)) {
-      patient.laboratoryTests.forEach(addTestItem);
-    }
-    if (Array.isArray(patient.requestedTests)) {
-      patient.requestedTests.forEach(addTestItem);
-    }
-    if (patient.registrationType === 'Referral') {
-      categories.add('REFERRAL');
-    }
+          const nameVal = t.name || t.parameterName || t.sampleName;
+          const subVal = (t.subcategory || '').trim().toUpperCase();
+          const catVal = (typeof t.category === 'object' && t.category?.name)
+            ? t.category.name
+            : (typeof t.category === 'string' ? t.category : '');
+          const normCat = catVal ? normalizeCategoryName(catVal) : '';
 
-    // Match catalog parameters against receptionist-selected test names strictly
-    if (names.size > 0 && Array.isArray(effectiveCatalog)) {
-      effectiveCatalog.forEach(param => {
-        const pName = (param.parameterName || '').trim().toUpperCase();
-        const pSub = (param.subcategory || '').trim().toUpperCase();
-        const pCat = (param.category || '').trim().toUpperCase();
-        const pId = String(param._id || '');
-        const normCat = normalizeCategoryName(pCat);
-        const pAliases = Array.isArray(param.aliases) ? param.aliases.map(a => String(a).trim().toUpperCase()) : [];
-
-        names.forEach(nUpper => {
-          if (
-            (pId && selectedTestIds.includes(pId)) ||
-            pName === nUpper ||
-            pSub === nUpper ||
-            pAliases.includes(nUpper) ||
-            (nUpper.length > 2 && pName.includes(`(${nUpper})`)) ||
-            (nUpper.length > 2 && (pName.startsWith(`${nUpper} `) || pName.endsWith(` ${nUpper}`)))
-          ) {
-            if (normCat) categories.add(normCat);
-            if (pName) names.add(pName);
+          if (nameVal && typeof nameVal === 'string') {
+            const u = nameVal.trim().toUpperCase();
+            selectedTestNames.push(u);
+            names.add(u);
+            if (normCat) {
+              if (!categoryScopedNames.has(normCat)) categoryScopedNames.set(normCat, new Set());
+              categoryScopedNames.get(normCat).add(u);
+            }
+            requestedTestsList.push({ id: tid, name: u, normCat, sub: subVal });
           }
+          if (normCat) {
+            selectedTestCategories.push(normCat);
+            categories.add(normCat);
+          }
+        }
+      };
+
+      // Strictly check laboratoryTests and requestedTests (DO NOT include sampleTypes container names)
+      if (Array.isArray(patient.laboratoryTests)) {
+        patient.laboratoryTests.forEach(addTestItem);
+      }
+      if (Array.isArray(patient.requestedTests)) {
+        patient.requestedTests.forEach(addTestItem);
+      }
+      if (patient.registrationType === 'Referral') {
+        categories.add('REFERRAL');
+      }
+
+      // Match catalog parameters against receptionist-selected test names strictly WITHIN THEIR CATEGORY
+      if (requestedTestsList.length > 0 && Array.isArray(effectiveCatalog)) {
+        effectiveCatalog.forEach(param => {
+          const pName = (param.parameterName || '').trim().toUpperCase();
+          const pSub = (param.subcategory || '').trim().toUpperCase();
+          const pCat = (param.category || '').trim().toUpperCase();
+          const pId = String(param._id || '');
+          const normCat = normalizeCategoryName(pCat);
+          const pAliases = Array.isArray(param.aliases) ? param.aliases.map(a => String(a).trim().toUpperCase()) : [];
+
+          requestedTestsList.forEach(reqT => {
+            // Direct ID match
+            const idMatch = Boolean(pId && reqT.id && pId === reqT.id);
+
+            // Category match: if reqT has a known category, param must match that category
+            const catMatch = !reqT.normCat || (normCat && normCat === reqT.normCat);
+
+            if (idMatch) {
+              if (normCat) {
+                categories.add(normCat);
+                if (!categoryScopedNames.has(normCat)) categoryScopedNames.set(normCat, new Set());
+                categoryScopedNames.get(normCat).add(pName);
+              }
+              if (pName) names.add(pName);
+              return;
+            }
+
+            if (catMatch) {
+              const nUpper = reqT.name;
+              const isNameMatch = pName === nUpper ||
+                pSub === nUpper ||
+                pAliases.includes(nUpper) ||
+                (nUpper.length > 2 && pName.includes(`(${nUpper})`)) ||
+                (nUpper.length > 2 && (pName.startsWith(`${nUpper} `) || pName.endsWith(` ${nUpper}`))) ||
+                (nUpper === 'URINE MICROSCOPY' && (pSub === 'URINE MICROSCOPY' || /MICROSCOP/i.test(pSub))) ||
+                (nUpper === 'CHEMICAL ANALYSIS' && (pSub === 'CHEMICAL ANALYSIS' || /^CHEM/i.test(pSub))) ||
+                (nUpper === 'CBC' && (pSub === 'CBC' || normCat === 'HEMATOLOGY'));
+
+              if (isNameMatch) {
+                if (normCat) {
+                  categories.add(normCat);
+                  if (!categoryScopedNames.has(normCat)) categoryScopedNames.set(normCat, new Set());
+                  categoryScopedNames.get(normCat).add(pName);
+                }
+                if (pName) names.add(pName);
+              }
+            }
+          });
         });
-      });
-    }
+      }
 
-    // Console Debug Logging as required by prompt
-    console.log('=== LIMS RESULT EDITOR DEBUG ===');
-    console.log('Receptionist selected laboratory test IDs:', selectedTestIds);
-    console.log('Main category of each selected test:', selectedTestCategories);
-    console.log('Selected test names:', selectedTestNames);
-    console.log('Categories marked as Requested:', Array.from(categories));
+      // Console Debug Logging as required by prompt
+      console.log('=== LIMS RESULT EDITOR DEBUG ===');
+      console.log('Receptionist selected laboratory test IDs:', selectedTestIds);
+      console.log('Main category of each selected test:', selectedTestCategories);
+      console.log('Selected test names:', selectedTestNames);
+      console.log('Categories marked as Requested:', Array.from(categories));
 
-    return { selectedTestIds, selectedTestNames, selectedTestCategories, names, categories };
-  }, [patient, effectiveCatalog]);
+      return { selectedTestIds, selectedTestNames, selectedTestCategories, names, categories, categoryScopedNames };
+    }, [patient, effectiveCatalog]);
 
   // Group ALL catalog parameters by category — ALWAYS INCLUDE ALL CATEGORIES
   const categoriesGrouped = useMemo(() => {
@@ -656,11 +692,11 @@ export default function LaboratoryResultEditor({
 
       const reqCats = categoryList.filter(catName => {
         const paramsInCat = categoriesGrouped.get(catName) || [];
+        const catScopedSet = requestedInfo.categoryScopedNames?.get(catName);
         const hasReqParam = paramsInCat.some(p => {
           const pName = (p.parameterName || '').trim().toUpperCase();
           const pSub = (p.subcategory || '').trim().toUpperCase();
-          return (pName && requestedInfo.names.has(pName)) ||
-            (pSub && requestedInfo.names.has(pSub)) ||
+          return (catScopedSet && (catScopedSet.has(pName) || catScopedSet.has(pSub))) ||
             enteredNames.has(pName);
         });
         const hasReqCat = Array.from(requestedInfo.categories).some(rc =>
@@ -682,7 +718,7 @@ export default function LaboratoryResultEditor({
   // Handle result changes
   const handleResultChange = (paramName, field, value, defaultUnit = '', defaultRef = '', catName = '', subcatName = '') => {
     const results = Array.isArray(reportData?.results) ? [...reportData.results] : [];
-    const index = results.findIndex(r => r.sampleName === paramName);
+    const index = results.findIndex(r => r.sampleName === paramName && (!catName || !r.category || r.category === catName));
 
     if (index >= 0) {
       const updated = { ...results[index], [field]: value };
@@ -723,8 +759,8 @@ export default function LaboratoryResultEditor({
   };
 
   // Quick lookup helper for result item
-  const getResultItem = (paramName, defaultUnit = '', defaultRef = '') => {
-    const item = (reportData?.results || []).find(r => r.sampleName === paramName);
+  const getResultItem = (paramName, defaultUnit = '', defaultRef = '', catName = '') => {
+    const item = (reportData?.results || []).find(r => r.sampleName === paramName && (!catName || !r.category || r.category === catName));
     return {
       result: item?.result || '',
       unit: item?.unit || defaultUnit,
@@ -923,15 +959,15 @@ export default function LaboratoryResultEditor({
                   .map(r => (r.sampleName || '').trim().toUpperCase())
                   .filter(Boolean)
               );
+              const catScopedSet = requestedInfo.categoryScopedNames?.get(catName);
               const requestedParamsCount = paramsInCat.filter(p => {
                 const pName = (p.parameterName || '').trim().toUpperCase();
                 const pSub = (p.subcategory || '').trim().toUpperCase();
-                return (pName && requestedInfo.names.has(pName)) ||
-                  (pSub && requestedInfo.names.has(pSub)) ||
+                return (catScopedSet && (catScopedSet.has(pName) || catScopedSet.has(pSub))) ||
                   enteredNames.has(pName);
               }).length;
               const isRequested = requestedParamsCount > 0 ||
-                Array.from(requestedInfo.categories).some(rc => catName.toUpperCase().includes(rc) || rc.includes(catName.toUpperCase()));
+                Array.from(requestedInfo.categories).some(rc => catName.toUpperCase() === rc || catName.toUpperCase().includes(rc) || rc.includes(catName.toUpperCase()));
 
               return (
                 <button
@@ -978,11 +1014,12 @@ export default function LaboratoryResultEditor({
               const requestedParams = [];
               const otherParams = [];
 
+              const catScopedSet = requestedInfo.categoryScopedNames?.get(catName);
               rawParams.forEach(p => {
                 const pName = (p.parameterName || '').trim().toUpperCase();
                 const pSub = (p.subcategory || '').trim().toUpperCase();
-                const isReq = (pName && requestedInfo.names.has(pName)) ||
-                  (pSub && requestedInfo.names.has(pSub)) ||
+                const isReq = (catScopedSet && (catScopedSet.has(pName) || catScopedSet.has(pSub))) ||
+                  (pName && requestedInfo.names.has(pName) && (!catScopedSet || catScopedSet.has(pName))) ||
                   enteredNames.has(pName);
                 if (isReq) {
                   requestedParams.push(p);
@@ -1067,7 +1104,7 @@ export default function LaboratoryResultEditor({
                           <tbody>
                             {requestedParams.map(paramObj => {
                               const pName = paramObj.parameterName;
-                              const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue);
+                              const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue, catName);
                               const currentIndex = inputCounter++;
                               return (
                                 <tr key={pName} className="lims-param-row is-ordered" style={{ background: 'color-mix(in srgb, #10b981 8%, transparent)' }}>
@@ -1152,7 +1189,7 @@ export default function LaboratoryResultEditor({
                               <tbody>
                                 {otherParams.map(paramObj => {
                                   const pName = paramObj.parameterName;
-                                  const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue);
+                                  const rowData = getResultItem(pName, paramObj.unit, paramObj.referenceValue, catName);
                                   const currentIndex = inputCounter++;
                                   return (
                                     <tr key={pName} className="lims-param-row">

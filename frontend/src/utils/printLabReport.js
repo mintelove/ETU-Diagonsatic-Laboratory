@@ -429,6 +429,8 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       color: white;
     }
     .page {
+      position: relative;
+      overflow: hidden;
       width: 210mm;
       min-height: 297mm;
       margin: 12px auto;
@@ -440,6 +442,42 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       box-shadow: 0 4px 25px rgba(0,0,0,0.15);
       border-radius: 2px;
       box-sizing: border-box;
+    }
+    .a4-watermark-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .a4-watermark-text {
+      font-size: 48pt;
+      font-weight: 700;
+      color: #075c91;
+      opacity: 0.07;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      transform: rotate(-35deg);
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+      font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .header, .section, .patient, .signoff-grid, .footer, .imed-a4-two-tables, .imed-a4-vitals-box, .imed-a4-result-box, .imed-a4-decl-box {
+      position: relative;
+      z-index: 1;
     }
     .header {
       display: flex;
@@ -642,7 +680,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     }
     @media print {
       body {
-        background: #fff !important;
+        background: transparent !important;
         color: #000 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -657,8 +695,44 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
         min-height: auto !important;
         height: auto !important;
         padding: 0 !important;
+        background: transparent !important;
         box-shadow: none !important;
         border-radius: 0 !important;
+        position: relative !important;
+      }
+      .a4-watermark-overlay {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        pointer-events: none !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        z-index: 0 !important;
+        overflow: hidden !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .a4-watermark-text {
+        font-size: 52pt !important;
+        font-weight: 700 !important;
+        color: #075c91 !important;
+        opacity: 0.07 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 8px !important;
+        transform: rotate(-35deg) !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        user-select: none !important;
+        font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       .header, .patient, .signoff-grid, .footer, tr, img {
         page-break-inside: avoid !important;
@@ -677,6 +751,9 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     <button class="primary" onclick="window.print()">Print / Export PDF</button>
   </nav>
   <main class="page">
+    <div class="a4-watermark-overlay" aria-hidden="true">
+      <span class="a4-watermark-text">ETU Diagnostic Laboratory</span>
+    </div>
     ${showFooter ? `
       <header class="header">
         ${logoHeader}

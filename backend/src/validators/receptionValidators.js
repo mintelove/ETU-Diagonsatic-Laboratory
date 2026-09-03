@@ -18,7 +18,7 @@ export const patientSchema = z.object({
   customRadiologyExamName: z.string().trim().max(200).optional().default(''),
   registrationType: z.enum(['Self', 'Referral', 'Self Aware']),
   referralHospital: z.string().trim().max(120).optional().default(''),
-  laboratoryTests: z.array(id).max(30).default([]),
+  laboratoryTests: z.array(id).default([]),
   patientCategory: z.enum(['Regular Patient', 'Staff Member', 'Collaborator']).default('Regular Patient'),
   paymentMethod: z.enum(['Cash', 'Card', 'Mobile Payment']).default('Cash'),
   serviceType: z.enum(['Laboratory Test', 'Counseling Only']).default('Laboratory Test'),

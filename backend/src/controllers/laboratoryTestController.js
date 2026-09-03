@@ -58,14 +58,30 @@ async function seedReferralTests() {
 
 export async function seedLaboratoryTests(force = false) {
   try {
+    const hormoneCat = await LaboratoryTestCategory.findOne({ name: /^HORMONE/i });
+    const bloodGroupCat = await LaboratoryTestCategory.findOne({ name: /^BLOOD GROUP$/i });
+    const chemCat = await LaboratoryTestCategory.findOne({ name: /clinical chemistry/i });
+    const urineCat = await LaboratoryTestCategory.findOne({ name: /^URINALYSIS/i });
+
     if (!force) {
-      const hormoneCat = await LaboratoryTestCategory.findOne({ name: /^HORMONE/i });
-      const bloodGroupCat = await LaboratoryTestCategory.findOne({ name: /^BLOOD GROUP$/i });
       const fshExists = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /^fsh$/i }) : false;
       const ft3Test = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft3/i }) : false;
       const ft4Test = hormoneCat ? await LaboratoryTest.findOne({ category: hormoneCat._id, name: /ft4/i }) : false;
+      const magnesiumTest = chemCat ? await LaboratoryTest.findOne({ category: chemCat._id, name: /^magnesium$/i }) : false;
+      const urineHcgTest = urineCat ? await LaboratoryTest.findOne({ category: urineCat._id, name: /pregnancy test/i, price: 200 }) : false;
+      const urineMicroBundle = urineCat ? await LaboratoryTest.findOne({ category: urineCat._id, name: 'Urine Microscopy', isBundle: true, price: 300 }) : false;
+      const urineChemBundle = urineCat ? await LaboratoryTest.findOne({ category: urineCat._id, name: 'Chemical Analysis', isBundle: true, price: 300 }) : false;
+      const invalidUrineChildExists = urineCat ? await LaboratoryTest.exists({
+        category: urineCat._id,
+        name: { $nin: ['Chemical Analysis', 'Urine Microscopy', 'Pregnancy Test (HCG)', 'Pregnancy Test [HCG]'] },
+        $or: [
+          { price: { $gt: 0 } },
+          { billableIndividually: true },
+          { includedInBundle: false }
+        ]
+      }) : true;
       const existingTestCount = await LaboratoryTest.countDocuments();
-      if (existingTestCount > 0 && bloodGroupCat && fshExists && ft3Test && ft4Test && ft3Test.price === 1300 && ft4Test.price === 1300) {
+      if (existingTestCount > 0 && bloodGroupCat && fshExists && ft3Test && ft4Test && ft3Test.price === 1300 && ft4Test.price === 1300 && magnesiumTest && magnesiumTest.price === 1000 && urineHcgTest && urineMicroBundle && urineChemBundle && !invalidUrineChildExists) {
         return;
       }
     }
@@ -150,7 +166,11 @@ export async function seedLaboratoryTests(force = false) {
       for (const p of catGroup.parameters) {
         const testName = p.parameterName;
         const aliases = p.aliases || [];
-        const expectedPrice = p.defaultPrice || 600;
+        const expectedPrice = p.defaultPrice !== undefined ? Number(p.defaultPrice) : 600;
+        const isBundle = Boolean(p.isBundle);
+        const billableIndividually = p.billableIndividually !== false;
+        const includedInBundle = Boolean(p.includedInBundle);
+        const parentBundle = p.parentBundle || '';
 
         const categoryScopedQueries = [
           { category: catDoc._id, name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
@@ -160,11 +180,11 @@ export async function seedLaboratoryTests(force = false) {
         let matches = await LaboratoryTest.find({ $or: categoryScopedQueries });
 
         if (matches.length === 0) {
-          const unassignedQueries = [
-            { category: { $in: [null, undefined] }, name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
-            ...aliases.map(a => ({ category: { $in: [null, undefined] }, name: new RegExp(`^${escapeRegex(a)}$`, 'i') }))
+          const anyCategoryQueries = [
+            { name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
+            ...aliases.map(a => ({ name: new RegExp(`^${escapeRegex(a)}$`, 'i') }))
           ];
-          matches = await LaboratoryTest.find({ $or: unassignedQueries });
+          matches = await LaboratoryTest.find({ $or: anyCategoryQueries });
         }
 
         if (matches.length > 0) {
@@ -175,6 +195,10 @@ export async function seedLaboratoryTests(force = false) {
           primary.status = 'Active';
           primary.displayOrder = testOrder++;
           primary.price = expectedPrice;
+          primary.isBundle = isBundle;
+          primary.billableIndividually = billableIndividually;
+          primary.includedInBundle = includedInBundle;
+          primary.parentBundle = parentBundle;
           if (sampleId && (!primary.requiredSampleTypes || !primary.requiredSampleTypes.length)) {
             primary.requiredSampleTypes = [sampleId];
           }
@@ -182,9 +206,7 @@ export async function seedLaboratoryTests(force = false) {
 
           if (matches.length > 1) {
             for (let d = 1; d < matches.length; d++) {
-              if (String(matches[d].category) === String(catDoc._id)) {
-                await LaboratoryTest.findByIdAndDelete(matches[d]._id);
-              }
+              await LaboratoryTest.findByIdAndDelete(matches[d]._id);
             }
           }
         } else {
@@ -193,6 +215,10 @@ export async function seedLaboratoryTests(force = false) {
             category: catDoc._id,
             subcategory: subcatName,
             price: expectedPrice,
+            isBundle,
+            billableIndividually,
+            includedInBundle,
+            parentBundle,
             status: 'Active',
             displayOrder: testOrder++,
             description: `${catGroup.category} laboratory investigation`,
@@ -200,6 +226,136 @@ export async function seedLaboratoryTests(force = false) {
           });
         }
       }
+    }
+
+    // Explicitly enforce bundle structure and non-billable child parameters for Urinalysis
+    const urineCatDoc = categoryMap.get('URINALYSIS') || await LaboratoryTestCategory.findOne({ name: /^URIN/i });
+    if (urineCatDoc) {
+      // 1. Ensure Urine Microscopy bundle parent (300 ETB, isBundle: true, billable: true)
+      await LaboratoryTest.findOneAndUpdate(
+        { category: urineCatDoc._id, name: 'Urine Microscopy' },
+        {
+          $set: {
+            category: urineCatDoc._id,
+            subcategory: 'Urine Microscopy',
+            price: 300,
+            isBundle: true,
+            billableIndividually: true,
+            includedInBundle: false,
+            parentBundle: '',
+            status: 'Active',
+            description: 'Urine Microscopy complete examination bundle (300 ETB fixed price)'
+          },
+          $setOnInsert: {
+            requiredSampleTypes: urineSample ? [urineSample] : [],
+            displayOrder: 13
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      // 2. Ensure all child parameters of Urine Microscopy exist and are marked as non-billable (price: 0, billableIndividually: false)
+      const microscopyParams = [
+        { name: 'WBC', displayOrder: 14 },
+        { name: 'RBC', displayOrder: 15 },
+        { name: 'Epithelial Cells', displayOrder: 16 },
+        { name: 'WBC Casts', displayOrder: 17 },
+        { name: 'RBC Casts', displayOrder: 18 },
+        { name: 'Granular Casts', displayOrder: 19 },
+        { name: 'Amorphous Phosphate Crystal', displayOrder: 20 },
+        { name: 'Amorphous Urate Crystal', displayOrder: 21 },
+        { name: 'Calcium Oxalate Crystal', displayOrder: 22 },
+        { name: 'Triple Phosphate Crystal', displayOrder: 23 },
+        { name: 'Bacteria', displayOrder: 24 },
+        { name: 'Others', displayOrder: 25 }
+      ];
+
+      for (const p of microscopyParams) {
+        await LaboratoryTest.findOneAndUpdate(
+          { category: urineCatDoc._id, name: p.name },
+          {
+            $set: {
+              category: urineCatDoc._id,
+              subcategory: 'Urine Microscopy',
+              price: 0,
+              isBundle: false,
+              billableIndividually: false,
+              includedInBundle: true,
+              parentBundle: 'Urine Microscopy',
+              status: 'Active',
+              description: 'URINALYSIS laboratory investigation'
+            },
+            $setOnInsert: {
+              requiredSampleTypes: urineSample ? [urineSample] : [],
+              displayOrder: p.displayOrder
+            }
+          },
+          { upsert: true, new: true }
+        );
+      }
+
+      // 3. Ensure Chemical Analysis bundle parent (300 ETB, isBundle: true, billable: true)
+      await LaboratoryTest.findOneAndUpdate(
+        { category: urineCatDoc._id, name: 'Chemical Analysis' },
+        {
+          $set: {
+            category: urineCatDoc._id,
+            subcategory: 'Chemical Analysis',
+            price: 300,
+            isBundle: true,
+            billableIndividually: true,
+            includedInBundle: false,
+            parentBundle: '',
+            status: 'Active',
+            description: 'Chemical Analysis complete examination bundle (300 ETB fixed price)'
+          },
+          $setOnInsert: {
+            requiredSampleTypes: urineSample ? [urineSample] : [],
+            displayOrder: 1
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      // 4. Mark all child parameters of Chemical Analysis as non-billable (price: 0, billableIndividually: false)
+      await LaboratoryTest.updateMany(
+        {
+          category: urineCatDoc._id,
+          name: { $nin: ['Chemical Analysis', 'Pregnancy Test (HCG)', 'Pregnancy Test [HCG]'] },
+          $or: [
+            { subcategory: /^chemical/i },
+            { name: { $in: ['Specific Gravity', 'Leukocyte Esterase', 'pH', 'Nitrite', 'Glucose', 'Protein', 'Blood', 'Ketone', 'Bilirubin', 'Urobilinogen', 'Urinalysis (Routine)'] } }
+          ]
+        },
+        {
+          $set: {
+            subcategory: 'Chemical Analysis',
+            price: 0,
+            isBundle: false,
+            billableIndividually: false,
+            includedInBundle: true,
+            parentBundle: 'Chemical Analysis'
+          }
+        }
+      );
+
+      // 5. Ensure Pregnancy Test [HCG] is independent (200 ETB, billableIndividually: true, isBundle: false)
+      await LaboratoryTest.updateMany(
+        {
+          category: urineCatDoc._id,
+          name: /pregnancy test|hcg/i
+        },
+        {
+          $set: {
+            subcategory: 'Pregnancy Test [HCG]',
+            price: 200,
+            isBundle: false,
+            billableIndividually: true,
+            includedInBundle: false,
+            parentBundle: ''
+          }
+        }
+      );
     }
 
     await seedReferralTests();
@@ -218,7 +374,10 @@ export async function seedLaboratoryTests(force = false) {
 
     await LaboratorySettings.findOneAndUpdate(
       { key: 'default' },
-      { $set: { cbcGroupPrice: 500 }, $setOnInsert: { key: 'default' } },
+      {
+        $setOnInsert: { key: 'default', cbcGroupPrice: 500, counselingPrice: 0 },
+        $set: { urineChemicalPrice: 300, urineMicroscopyPrice: 300 }
+      },
       { upsert: true }
     );
   } catch (err) {
@@ -259,4 +418,24 @@ export async function createTest(req,res,next){try{const {name,category}=req.bod
 export async function updateTest(req,res,next){try{const test=await LaboratoryTest.findByIdAndUpdate(req.params.id,req.body,{new:true,runValidators:true});if(!test)throw new AppError('Laboratory test not found.',404);emit('laboratory-tests:change',{});res.json({test})}catch(e){next(e)}}
 export async function deleteTest(req,res,next){try{await LaboratoryTest.findByIdAndDelete(req.params.id);emit('laboratory-tests:change',{});res.status(204).send()}catch(e){next(e)}}
 export async function getSettings(req,res,next){try{const settings=await LaboratorySettings.findOne({key:'default'});res.json({settings:settings||{}})}catch(e){next(e)}}
-export async function updateSettings(req,res,next){try{const settings=await LaboratorySettings.findOneAndUpdate({key:'default'},req.body,{new:true,upsert:true,runValidators:true});emit('laboratory-tests:change',{});res.json({settings})}catch(e){next(e)}}
+export async function updateSettings(req,res,next){
+  try{
+    const settings=await LaboratorySettings.findOneAndUpdate({key:'default'},req.body,{new:true,upsert:true,runValidators:true});
+    // Sync bundle prices to LaboratoryTest documents if updated
+    if (req.body.urineMicroscopyPrice !== undefined) {
+      const urineCat = await LaboratoryTestCategory.findOne({ name: /^URIN/i });
+      if (urineCat) {
+        await LaboratoryTest.updateMany({ category: urineCat._id, name: 'Urine Microscopy', isBundle: true }, { $set: { price: Number(req.body.urineMicroscopyPrice) } });
+      }
+    }
+    if (req.body.urineChemicalPrice !== undefined) {
+      const urineCat = await LaboratoryTestCategory.findOne({ name: /^URIN/i });
+      if (urineCat) {
+        await LaboratoryTest.updateMany({ category: urineCat._id, name: 'Chemical Analysis', isBundle: true }, { $set: { price: Number(req.body.urineChemicalPrice) } });
+      }
+    }
+    emit('laboratory-tests:change',{});
+    res.json({settings});
+  }catch(e){next(e)}
+}
+
