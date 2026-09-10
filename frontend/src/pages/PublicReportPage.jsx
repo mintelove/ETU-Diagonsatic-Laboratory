@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
 import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
@@ -11,7 +11,10 @@ import '../styles/pages/publicReport.css';
 
 export function PublicReportViewer() {
   const { token } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStampParam = searchParams.get('stamp') || searchParams.get('stampType');
   const [report, setReport] = useState(null);
+  const [selectedStamp, setSelectedStamp] = useState(initialStampParam || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -64,6 +67,9 @@ export function PublicReportViewer() {
         }
 
         setReport(data.report);
+        if (!initialStampParam && data.report?.stampType) {
+          setSelectedStamp(data.report.stampType);
+        }
       } catch (err) {
         if (isSilentNetworkError(err)) {
           // Do not show connection failed banners
@@ -78,6 +84,23 @@ export function PublicReportViewer() {
     fetchPublicReport();
   }, [token]);
 
+  const activeStamp = selectedStamp !== undefined && selectedStamp !== null ? selectedStamp : report?.stampType;
+  const stampSrc = activeStamp === 'lab' ? labStampImg : (activeStamp === 'clinic' ? clinicStampImg : null);
+  const stampAlt = activeStamp === 'clinic' ? 'ETU Clinic Stamp' : 'ETU Lab Stamp';
+
+  const handleToggleStamp = (type) => {
+    const next = activeStamp === type ? null : type;
+    setSelectedStamp(next);
+    const newParams = new URLSearchParams(searchParams);
+    if (next) {
+      newParams.set('stamp', next);
+    } else {
+      newParams.delete('stamp');
+      newParams.delete('stampType');
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
   const copyUrl = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
@@ -87,7 +110,8 @@ export function PublicReportViewer() {
 
   const handleDownloadPdf = () => {
     const apiBase = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
-    window.open(`${apiBase}/reports/public/${token}/pdf`, '_blank');
+    const stampParam = activeStamp ? `?stampType=${activeStamp}` : '';
+    window.open(`${apiBase}/reports/public/${token}/pdf${stampParam}`, '_blank');
   };
 
   if (loading) {
@@ -194,8 +218,6 @@ export function PublicReportViewer() {
     );
     return match?.interpretations || [];
   };
-
-  const stampSrc = report.stampType === 'lab' ? labStampImg : (report.stampType === 'clinic' ? clinicStampImg : null);
 
   return (
     <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: '#f1f3f5', color: '#0f172a', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
@@ -352,13 +374,66 @@ export function PublicReportViewer() {
             <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Laboratory Test Report</p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Stamp Selection Checkboxes (Just like approved lab report) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <label style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                color: activeStamp === 'lab' ? '#0284c7' : '#334155',
+                cursor: 'pointer',
+                background: activeStamp === 'lab' ? '#e0f2fe' : '#f1f5f9',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: `1px solid ${activeStamp === 'lab' ? '#0284c7' : '#cbd5e1'}`,
+                transition: 'all 0.15s ease'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={activeStamp === 'lab'}
+                  onChange={() => handleToggleStamp('lab')}
+                />
+                Add Stamp for Lab
+              </label>
+              <label style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                color: activeStamp === 'clinic' ? '#0284c7' : '#334155',
+                cursor: 'pointer',
+                background: activeStamp === 'clinic' ? '#e0f2fe' : '#f1f5f9',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: `1px solid ${activeStamp === 'clinic' ? '#0284c7' : '#cbd5e1'}`,
+                transition: 'all 0.15s ease'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={activeStamp === 'clinic'}
+                  onChange={() => handleToggleStamp('clinic')}
+                />
+                Add Stamp for Clinic
+              </label>
+            </div>
+
             <button
               type="button"
               onClick={copyUrl}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', background: copied ? '#10b981' : '#f1f5f9', color: copied ? '#fff' : '#334155', border: 'none', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', background: copied ? '#10b981' : '#f1f5f9', color: copied ? '#fff' : '#334155', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}
             >
               {copied ? '✓ Link Copied!' : '🔗 Copy Share Link'}
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', background: '#f8fafc', color: '#075c91', border: '1px solid #075c91', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              🖨 Print Report
             </button>
             {report.allowPdfDownload !== false && (
               <button
@@ -531,7 +606,7 @@ export function PublicReportViewer() {
                 }}>
                   <img
                     src={stampSrc}
-                    alt={report.stampType === 'clinic' ? 'ETU Clinic Stamp' : 'ETU Lab Stamp'}
+                    alt={stampAlt}
                     style={{
                       width: '114px',
                       height: '114px',

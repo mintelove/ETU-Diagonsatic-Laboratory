@@ -154,7 +154,7 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
             <div style={{ minWidth: 0 }}>
               <strong style={{ fontSize: '12px', display: 'block' }}>Public / Shareable Report Link</strong>
               <span style={{ fontSize: '11px', wordBreak: 'break-all', userSelect: 'all' }}>
-                {buildPublicReportUrl(currentToken)}
+                {buildPublicReportUrl(currentToken, activeStamp)}
               </span>
             </div>
           </div>
@@ -162,7 +162,7 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
             type="button"
             className="primary"
             onClick={() => {
-              const link = buildPublicReportUrl(currentToken);
+              const link = buildPublicReportUrl(currentToken, activeStamp);
               navigator.clipboard.writeText(link);
               setCopiedLink(true);
               setTimeout(() => setCopiedLink(false), 3000);

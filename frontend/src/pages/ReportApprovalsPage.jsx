@@ -19,6 +19,7 @@ export default function ReportApprovalsPage() {
   const [branchFilter, setBranchFilter] = useState('All');
   const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [showReportFooter, setShowReportFooter] = useState(true);
+  const [reportStampType, setReportStampType] = useState(null);
   const load = async () => { try { const query = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : ''; const [pending, prior] = await Promise.all([api(`/report-approvals/pending${query}`, { token }), api(`/report-approvals/history${query}`, { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } };
   useEffect(() => { load(); }, [token, branchFilter]);
   useEffect(() => { subscribe('reports:change', load); return () => unsubscribe('reports:change', load); }, [subscribe, unsubscribe]);
@@ -26,7 +27,7 @@ export default function ReportApprovalsPage() {
     if (!selected || busy) return;
     if (status === 'Rejected' && !reason.trim()) { setError('A reason for rejection is required.'); return; }
     setBusy(true); setError('');
-    try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } finally { setBusy(false); }
+    try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason, stampType: reportStampType }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } finally { setBusy(false); }
   };
   const list = tab === 'pending' ? reports : history;
   return <section className="page approval-workspace"><header className="page-title"><div><p className="eyebrow">Laboratory quality control</p><h1>Pending Laboratory Reports <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 Branch: {user?.branchName || 'Main'}</span></h1><p className="intro">Review results before releasing approved reports to Reception.</p></div></header>
@@ -50,12 +51,12 @@ export default function ReportApprovalsPage() {
       const tests = (report.patient?.laboratoryTests || []).map(x => x?.name).filter(Boolean);
       const specimens = (report.patient?.sampleTypes || []).map(x => x?.name).filter(Boolean);
       const displayText = tests.length ? tests.join(', ') : (specimens.join(', ') || '—');
-      return <tr key={report._id}><td>{report.patient?.name}<span>{report.patient?.patientId}</span></td><td>{report.patient?.barcode || report.patient?.patientId}</td><td><strong>📍 {report.branchName || report.patient?.branchName || 'Main'}</strong></td><td>{report.technician?.fullName || '—'}</td><td>{displayText}</td><td>{new Date(report.submittedDate || report.updatedDate).toLocaleString()}</td><td>{report.priority || 'Routine'}</td><td>{report.status === 'Submitted' ? 'Pending Approval' : report.status}</td><td><button type="button" className="primary" onClick={() => { setSelected(report); setReason(report.rejectionReason || ''); }}>Review</button></td></tr>;
+      return <tr key={report._id}><td>{report.patient?.name}<span>{report.patient?.patientId}</span></td><td>{report.patient?.barcode || report.patient?.patientId}</td><td><strong>📍 {report.branchName || report.patient?.branchName || 'Main'}</strong></td><td>{report.technician?.fullName || '—'}</td><td>{displayText}</td><td>{new Date(report.submittedDate || report.updatedDate).toLocaleString()}</td><td>{report.priority || 'Routine'}</td><td>{report.status === 'Submitted' ? 'Pending Approval' : report.status}</td><td><button type="button" className="primary" onClick={() => { setSelected(report); setReportStampType(report.stampType || null); setReason(report.rejectionReason || ''); }}>Review</button></td></tr>;
     })}</tbody></table> : <p className="empty">No reports in this view.</p>}</section>
     <ModalPortal isOpen={!!selected} onClose={() => setSelected(null)}>
       <div className="modal-content" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
         <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0 }}>Report Review</h2>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
               <input
@@ -65,14 +66,30 @@ export default function ReportApprovalsPage() {
               />
               Show Logo &amp; Footer
             </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'lab' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : '#cbd5e1'}` }}>
+              <input
+                type="checkbox"
+                checked={reportStampType === 'lab'}
+                onChange={() => setReportStampType(prev => prev === 'lab' ? null : 'lab')}
+              />
+              Add Stamp for Lab
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'clinic' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'clinic' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'clinic' ? '#0284c7' : '#cbd5e1'}` }}>
+              <input
+                type="checkbox"
+                checked={reportStampType === 'clinic'}
+                onChange={() => setReportStampType(prev => prev === 'clinic' ? null : 'clinic')}
+              />
+              Add Stamp for Clinic
+            </label>
           </div>
           <button type="button" className="close-button" onClick={() => setSelected(null)}>×</button>
         </header>
         <div className="modal-body">
-          <ReportPreview report={selected} showFooter={showReportFooter} />
+          <ReportPreview report={selected} showFooter={showReportFooter} stampType={reportStampType} />
         </div>
         <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter)}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter,reportStampType)}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
           {['Approved', 'Ready for Printing'].includes(selected?.status) && (
             <button
               type="button"
@@ -86,7 +103,7 @@ export default function ReportApprovalsPage() {
                   } catch (err) {}
                 }
                 if (tok) {
-                  const link = buildPublicReportUrl(tok);
+                  const link = buildPublicReportUrl(tok, reportStampType);
                   navigator.clipboard.writeText(link);
                   setMessage('Public report link copied to clipboard!');
                 }

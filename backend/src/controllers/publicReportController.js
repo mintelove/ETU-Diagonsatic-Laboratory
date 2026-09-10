@@ -250,9 +250,9 @@ export async function downloadPublicPdf(req, res, next) {
     d.fillColor('#1f3640').fontSize(11)
       .text(`Collected by: ${fullReport.technician?.fullName || 'Not recorded'}`, 46, y + 28)
       .text(`Approved by: ${fullReport.approvedBy?.fullName || 'Not recorded'}`, 46, y + 46)
-      .text(`Date and time: ${new Date(fullReport.approvedDate || fullReport.updatedDate).toLocaleString()}`, 46, y + 64);
-    if (fullReport.stampType) {
-      const stampFileName = fullReport.stampType === 'clinic' ? 'etu_cli.png' : 'etu_lab.png';
+    const effectiveStamp = req.query.stampType !== undefined ? req.query.stampType : fullReport.stampType;
+    if (effectiveStamp && effectiveStamp !== 'none' && effectiveStamp !== 'null') {
+      const stampFileName = effectiveStamp === 'clinic' ? 'etu_cli.png' : 'etu_lab.png';
       const stampCandidates = [
         path.resolve(process.cwd(), 'backend', 'src', 'picture', stampFileName),
         path.resolve(process.cwd(), 'src', 'picture', stampFileName),

@@ -13,8 +13,12 @@ export function getPublicAppUrl() {
   return 'https://etu-diagonsatic-laboratory.onrender.com';
 }
 
-export function buildPublicReportUrl(token) {
+export function buildPublicReportUrl(token, stampType) {
   if (!token) return '';
   const baseUrl = getPublicAppUrl();
-  return `${baseUrl}/report/public/${token}`;
+  const url = `${baseUrl}/report/public/${token}`;
+  if (stampType && stampType !== 'none') {
+    return `${url}?stamp=${stampType}`;
+  }
+  return url;
 }

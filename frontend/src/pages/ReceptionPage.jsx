@@ -1457,7 +1457,7 @@ export default function ReceptionPage() {
                         } catch (e) {}
                       }
                       if (tok) {
-                        const link = buildPublicReportUrl(tok);
+                        const link = buildPublicReportUrl(tok, reportStampType);
                         navigator.clipboard.writeText(link);
                         setFeedback('Public report link copied to clipboard!');
                       }

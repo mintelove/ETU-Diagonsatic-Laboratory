@@ -17,7 +17,7 @@ const statusOf=report=>report.status==='Submitted'||report.status==='Pending'?'P
 const progress=report=>{const total=report.results?.length||0,complete=report.results?.filter(row=>String(row.result||'').trim()).length||0;return total?`${complete} of ${total} results entered`:'No results entered'};
 function Card({label,value,tone}){return <article className={`enterprise-card ${tone}`}><small>{label}</small><strong>{value}</strong></article>}
 export default function ReportManagementPage(){
- const {token,user}=useAuth(),go=useNavigate(),{subscribe,unsubscribe}=useRealtime(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[showReportFooter,setShowReportFooter]=useState(true),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const {token,user}=useAuth(),go=useNavigate(),{subscribe,unsubscribe}=useRealtime(),[reports,setReports]=useState([]),[tab,setTab]=useState('Draft'),[q,setQ]=useState(''),[range,setRange]=useState('All'),[selected,setSelected]=useState(),[showReportFooter,setShowReportFooter]=useState(true),[reportStampType,setReportStampType]=useState(null),[message,setMessage]=useState(''),[error,setError]=useState('');
  const load=async()=>{try{const data=await api('/collection/reports',{token});setReports(data.reports)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}};
  useEffect(()=>{load()},[token]);
  useEffect(()=>{subscribe('reports:change',load);return()=>unsubscribe('reports:change',load)},[subscribe,unsubscribe]);
@@ -29,11 +29,11 @@ export default function ReportManagementPage(){
  <div className="enterprise-grid"><Card label="Draft Reports" value={counts.Draft} tone="blue"/><Card label="Pending Approval" value={counts.Pending} tone="purple"/><Card label="Approved Reports" value={counts.Approved} tone="green"/><Card label="Rejected Reports" value={counts.Rejected} tone="orange"/><Card label="Reports Created Today" value={counts.today} tone="teal"/></div>
  <div className="reception-tabs">{[['Draft','Draft Reports'],['Pending','Pending Approval'],['Approved','Approved Reports'],['Rejected','Rejected Reports']].map(([id,label])=><button key={id} type="button" className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
  <div className="table-title"><h2>{tab} reports</h2><div className="form-actions"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search patient, ID, barcode or test/sample"/><select value={range} onChange={e=>setRange(e.target.value)}><option>All</option><option>Today</option><option>This Week</option></select></div></div>
-  <section className="table-card">{filtered.length?<table><thead><tr><th>Patient</th><th>Barcode / Tests</th><th>Status</th><th>{tab==='Draft'?'Progress':tab==='Approved'?'Approved by':tab==='Rejected'?'Rejection reason':'Submitted'}</th><th>Last saved / activity</th><th>Actions</th></tr></thead><tbody>{filtered.map(r=>{const desc=getReportTestTypes(r).formattedNames;return <tr key={r._id}><td>{r.patient?.name}<span>{r.patient?.patientId}</span></td><td>{r.patient?.barcode||'—'}<span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span></td><td>{statusOf(r)}</td><td>{tab==='Draft'?progress(r):tab==='Approved'?r.approvedBy?.fullName||'—':tab==='Rejected'?<strong className="danger">{r.rejectionReason}</strong>:date(r.submittedAt||r.submittedDate)}</td><td>{date(r.lastSavedAt||r.updatedDate)}</td><td><button type="button" className="secondary" onClick={()=>setSelected(r)}>{tab==='Draft'?'View Draft':'View Report'}</button>{tab==='Draft'&&<><button type="button" className="primary" onClick={()=>resume(r)}>▶ Continue Report Generation</button><button type="button" className="secondary danger" onClick={()=>remove(r)}>Delete Draft</button></>}{tab==='Rejected'&&<button type="button" className="primary" onClick={()=>resume(r)}>Continue & Generate Again</button>}</td></tr>})}</tbody></table>:<p className="empty">No reports match this view.</p>}</section>
+  <section className="table-card">{filtered.length?<table><thead><tr><th>Patient</th><th>Barcode / Tests</th><th>Status</th><th>{tab==='Draft'?'Progress':tab==='Approved'?'Approved by':tab==='Rejected'?'Rejection reason':'Submitted'}</th><th>Last saved / activity</th><th>Actions</th></tr></thead><tbody>{filtered.map(r=>{const desc=getReportTestTypes(r).formattedNames;return <tr key={r._id}><td>{r.patient?.name}<span>{r.patient?.patientId}</span></td><td>{r.patient?.barcode||'—'}<span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span></td><td>{statusOf(r)}</td><td>{tab==='Draft'?progress(r):tab==='Approved'?r.approvedBy?.fullName||'—':tab==='Rejected'?<strong className="danger">{r.rejectionReason}</strong>:date(r.submittedAt||r.submittedDate)}</td><td>{date(r.lastSavedAt||r.updatedDate)}</td><td><button type="button" className="secondary" onClick={()=>{setSelected(r);setReportStampType(r.stampType||null);}}>{tab==='Draft'?'View Draft':'View Report'}</button>{tab==='Draft'&&<><button type="button" className="primary" onClick={()=>resume(r)}>▶ Continue Report Generation</button><button type="button" className="secondary danger" onClick={()=>remove(r)}>Delete Draft</button></>}{tab==='Rejected'&&<button type="button" className="primary" onClick={()=>resume(r)}>Continue & Generate Again</button>}</td></tr>})}</tbody></table>:<p className="empty">No reports match this view.</p>}</section>
   <ModalPortal isOpen={!!selected} onClose={()=>setSelected(null)}>
     <div className="modal-content" style={{maxWidth:900}} onClick={e=>e.stopPropagation()}>
       <header className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0 }}>Laboratory Report</h2>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
             <input
@@ -43,16 +43,32 @@ export default function ReportManagementPage(){
             />
             Show Logo &amp; Footer
           </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'lab' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : '#cbd5e1'}` }}>
+            <input
+              type="checkbox"
+              checked={reportStampType === 'lab'}
+              onChange={() => setReportStampType(prev => prev === 'lab' ? null : 'lab')}
+            />
+            Add Stamp for Lab
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'clinic' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'clinic' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'clinic' ? '#0284c7' : '#cbd5e1'}` }}>
+            <input
+              type="checkbox"
+              checked={reportStampType === 'clinic'}
+              onChange={() => setReportStampType(prev => prev === 'clinic' ? null : 'clinic')}
+            />
+            Add Stamp for Clinic
+          </label>
         </div>
         <button type="button" className="close-button" onClick={()=>setSelected(null)}>×</button>
       </header>
       <div className="modal-body">
         {selected?.rejectionReason&&<div className="alert error"><strong>Rejection reason:</strong>&nbsp;{selected.rejectionReason}</div>}
-        <ReportPreview report={selected} showFooter={showReportFooter}/>
+        <ReportPreview report={selected} showFooter={showReportFooter} stampType={reportStampType}/>
       </div>
       <div className="form-actions" style={{padding:'14px 24px',borderTop:'1px solid var(--color-outline-variant, #e2e8f0)',marginTop:0,display:'flex',gap:'10px',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center'}}>
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter,reportStampType)}catch(e){if(!isSilentNetworkError(e))setError(e.message)}}}>🖨 Print Report</button>
           {['Approved', 'Ready for Printing'].includes(selected?.status) && (
             <button
               type="button"
@@ -66,7 +82,7 @@ export default function ReportManagementPage(){
                   } catch (err) {}
                 }
                 if (tok) {
-                  const link = buildPublicReportUrl(tok);
+                  const link = buildPublicReportUrl(tok, reportStampType);
                   navigator.clipboard.writeText(link);
                   setMessage('Public report link copied to clipboard!');
                 }
