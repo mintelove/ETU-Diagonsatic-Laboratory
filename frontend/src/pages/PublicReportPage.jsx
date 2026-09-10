@@ -11,10 +11,8 @@ import '../styles/pages/publicReport.css';
 
 export function PublicReportViewer() {
   const { token } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialStampParam = searchParams.get('stamp') || searchParams.get('stampType');
+  const [searchParams] = useSearchParams();
   const [report, setReport] = useState(null);
-  const [selectedStamp, setSelectedStamp] = useState(initialStampParam || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -67,9 +65,6 @@ export function PublicReportViewer() {
         }
 
         setReport(data.report);
-        if (!initialStampParam && data.report?.stampType) {
-          setSelectedStamp(data.report.stampType);
-        }
       } catch (err) {
         if (isSilentNetworkError(err)) {
           // Do not show connection failed banners
@@ -84,22 +79,10 @@ export function PublicReportViewer() {
     fetchPublicReport();
   }, [token]);
 
-  const activeStamp = selectedStamp !== undefined && selectedStamp !== null ? selectedStamp : report?.stampType;
+  const urlStamp = searchParams.get('stamp') || searchParams.get('stampType');
+  const activeStamp = urlStamp || report?.stampType || null;
   const stampSrc = activeStamp === 'lab' ? labStampImg : (activeStamp === 'clinic' ? clinicStampImg : null);
   const stampAlt = activeStamp === 'clinic' ? 'ETU Clinic Stamp' : 'ETU Lab Stamp';
-
-  const handleToggleStamp = (type) => {
-    const next = activeStamp === type ? null : type;
-    setSelectedStamp(next);
-    const newParams = new URLSearchParams(searchParams);
-    if (next) {
-      newParams.set('stamp', next);
-    } else {
-      newParams.delete('stamp');
-      newParams.delete('stampType');
-    }
-    setSearchParams(newParams, { replace: true });
-  };
 
   const copyUrl = () => {
     const url = window.location.href;
@@ -375,52 +358,6 @@ export function PublicReportViewer() {
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Stamp Selection Checkboxes (Just like approved lab report) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <label style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12.5px',
-                fontWeight: 600,
-                color: activeStamp === 'lab' ? '#0284c7' : '#334155',
-                cursor: 'pointer',
-                background: activeStamp === 'lab' ? '#e0f2fe' : '#f1f5f9',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: `1px solid ${activeStamp === 'lab' ? '#0284c7' : '#cbd5e1'}`,
-                transition: 'all 0.15s ease'
-              }}>
-                <input
-                  type="checkbox"
-                  checked={activeStamp === 'lab'}
-                  onChange={() => handleToggleStamp('lab')}
-                />
-                Add Stamp for Lab
-              </label>
-              <label style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12.5px',
-                fontWeight: 600,
-                color: activeStamp === 'clinic' ? '#0284c7' : '#334155',
-                cursor: 'pointer',
-                background: activeStamp === 'clinic' ? '#e0f2fe' : '#f1f5f9',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: `1px solid ${activeStamp === 'clinic' ? '#0284c7' : '#cbd5e1'}`,
-                transition: 'all 0.15s ease'
-              }}>
-                <input
-                  type="checkbox"
-                  checked={activeStamp === 'clinic'}
-                  onChange={() => handleToggleStamp('clinic')}
-                />
-                Add Stamp for Clinic
-              </label>
-            </div>
-
             <button
               type="button"
               onClick={copyUrl}
