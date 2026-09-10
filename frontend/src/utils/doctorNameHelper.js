@@ -12,26 +12,49 @@
  * - "Pending Specialist Approval"   -> "Pending Specialist Approval"
  */
 
-export function formatApproverDoctorName(rawName) {
+export function formatApproverDoctorName(rawApprover, role) {
+  if (!rawApprover) return 'Pending Specialist Approval';
+
+  let rawName = '';
+  let approverRole = role || '';
+
+  if (typeof rawApprover === 'object' && rawApprover !== null) {
+    rawName = rawApprover.fullName || rawApprover.name || '';
+    approverRole = approverRole || rawApprover.role || '';
+  } else {
+    rawName = String(rawApprover).trim();
+  }
+
   if (!rawName) return 'Pending Specialist Approval';
-  const str = String(rawName).trim();
-  if (!str) return 'Pending Specialist Approval';
-  
+
   if (
-    str === 'Pending Specialist Approval' ||
-    str.toLowerCase() === 'approved' ||
-    str.toLowerCase().includes('pending')
+    rawName === 'Pending Specialist Approval' ||
+    rawName.toLowerCase() === 'approved' ||
+    rawName.toLowerCase().includes('pending')
   ) {
-    return str;
+    return rawName;
   }
 
   // Strip all leading occurrences of "Dr.", "Dr", "dr.", "dr", "doctor", "DR"
-  let baseName = str;
+  let baseName = rawName.trim();
   while (/^(?:dr\.?|doctor)\s+/i.test(baseName)) {
     baseName = baseName.replace(/^(?:dr\.?|doctor)\s+/i, '').trim();
   }
 
-  if (!baseName) return 'Dr';
+  if (!baseName) return 'Approver';
 
-  return `Dr ${baseName}`;
+  // Check if this approver is Admin Dr Temesgen Fanta
+  const isTemesgenAdmin =
+    /temesgen\s+fanta/i.test(baseName) ||
+    /temesgen\s+fanta/i.test(rawName) ||
+    (String(approverRole).toLowerCase() === 'admin' && /temesgen/i.test(baseName));
+
+  if (isTemesgenAdmin) {
+    // For Admin Dr Temesgen Fanta, cleanly format with Dr title without any trailing 'CEO' suffix
+    const cleanTemesgen = baseName.replace(/\s+CEO$/i, '').trim();
+    return `Dr ${cleanTemesgen || 'Temesgen Fanta'}`;
+  }
+
+  // Normal Approver (e.g. Tarekegn Tamirat) -> exact full name from user account without "Dr"
+  return baseName;
 }

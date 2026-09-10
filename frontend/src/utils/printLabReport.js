@@ -70,9 +70,11 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   let mainBodyHtml = '';
   let subTitle = isInternalMedicine ? 'Internal Medicine Speciality Examination Form' : 'Official Laboratory Test Report';
   let preparedByName = safe(report.technician?.fullName || report.submittedBy?.fullName || user?.fullName || 'Clinical Specialist');
-  const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || (['Approved', 'Ready for Printing'].includes(report.status) ? user?.fullName : '');
-  let approvedByName = safe(formatApproverDoctorName(rawApprover));
-  let approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
+  const approverUser = report.approvedBy || (['Approved', 'Ready for Printing'].includes(report.status) ? user : null);
+  const rawApprover = approverUser?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : '') || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || '';
+  const approverRole = approverUser?.role || report.approverRole || '';
+  let approvedByName = safe(formatApproverDoctorName(rawApprover, approverRole));
+  let approverRoleTitle = isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : (report.approverRole && report.approverRole !== 'Approver' && report.approverRole !== 'Approver / Laboratory Technologist' ? report.approverRole : 'head of etu diagnostic laboratory');
 
   // ── 0. INTERNAL MEDICINE REPORT RENDERING ─────────────────────────────────
   if (isInternalMedicine) {

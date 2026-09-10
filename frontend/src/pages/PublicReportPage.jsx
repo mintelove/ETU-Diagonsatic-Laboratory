@@ -315,6 +315,8 @@ export function PublicReportViewer() {
           .public-report-actions { display: none !important; }
           .public-report-page { background: #ffffff !important; padding: 0 !important; }
           .public-report-main { box-shadow: none !important; border: none !important; padding: 0 !important; }
+          .public-report-header { width: 100% !important; max-width: 100% !important; margin: 0 0 8px 0 !important; border-radius: 0 !important; }
+          .public-report-logo { border-radius: 0 !important; }
           .public-report-watermark {
             position: absolute !important;
             top: 44mm !important;
@@ -394,12 +396,40 @@ export function PublicReportViewer() {
             <span className="public-watermark-row">ETU Diagnostic Laboratory</span>
           </div>
           
-          {/* Header */}
-          <div style={{ textAlign: 'center', borderBottom: '3px solid #087ca8', paddingBottom: '16px', marginBottom: '20px' }}>
-            <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" style={{ maxHeight: '95px', width: 'auto', maxWidth: '100%', objectFit: 'contain', margin: '0 auto 10px', display: 'block' }} />
-            <h2 style={{ margin: 0, color: '#075c91', fontSize: '1.5rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 800 }}>ETU Diagnostic Laboratory</h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '1px' }}>Laboratory Test Report</p>
-          </div>
+          {/* Header — Edge-to-Edge Official ETU Banner Matching Working A4 Approved Report Header */}
+          <header className="public-report-header" style={{
+            display: 'block',
+            width: 'calc(100% + 40px)',
+            maxWidth: 'calc(100% + 40px)',
+            marginLeft: '-20px',
+            marginRight: '-20px',
+            marginTop: '-24px',
+            marginBottom: '16px',
+            padding: 0,
+            border: 'none',
+            borderTopLeftRadius: '15px',
+            borderTopRightRadius: '15px',
+            overflow: 'hidden',
+            boxSizing: 'border-box'
+          }}>
+            <img
+              src={labLogo}
+              alt="ETU Diagnostic Laboratory Logo"
+              className="public-report-logo"
+              style={{
+                width: '100%',
+                maxWidth: '100%',
+                height: 'auto',
+                maxHeight: 'none',
+                display: 'block',
+                margin: 0,
+                padding: 0,
+                objectFit: 'contain',
+                borderTopLeftRadius: '15px',
+                borderTopRightRadius: '15px'
+              }}
+            />
+          </header>
 
           {/* Patient Information Section */}
           <div style={{ marginBottom: '24px' }}>
@@ -531,7 +561,16 @@ export function PublicReportViewer() {
                 <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Title: Head of ETU Diagnostic Laboratory</div>
                 <strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span style={{ color: '#0f172a' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span>
               </div>
-              <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span style={{ color: '#0f172a' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</span></div>
+              <div>
+                <strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong>{' '}
+                <span style={{ color: '#0f172a', fontWeight: 700 }}>
+                  {formatApproverDoctorName(
+                    report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'),
+                    report.approvedBy?.role || report.approverRole
+                  )}
+                </span>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>(head of etu diagnostic laboratory)</div>
+              </div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span style={{ color: '#0f172a' }}>{reportDateStr}</span></div>
               {stampSrc && (
                 <div className="public-report-stamp-container" style={{
@@ -559,7 +598,16 @@ export function PublicReportViewer() {
           {/* Footer Sign-off */}
           <footer style={{ borderTop: '1px solid #c9d9df', paddingTop: '14px', marginTop: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', fontSize: '0.78rem', color: '#59727c', gap: '12px' }}>
             <div>Title: Head of ETU Diagnostic Laboratory<br/>Prepared by: <strong style={{ color: '#203640' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</strong></div>
-            <div>Approved by<br/><strong style={{ color: '#203640' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</strong></div>
+            <div>
+              Approved by<br/>
+              <strong style={{ color: '#203640' }}>
+                {formatApproverDoctorName(
+                  report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'),
+                  report.approvedBy?.role || report.approverRole
+                )}
+              </strong><br/>
+              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>(head of etu diagnostic laboratory)</span>
+            </div>
             <div><br/><strong style={{ color: '#203640' }}>ETU Diagnostic Laboratory</strong></div>
           </footer>
         </main>

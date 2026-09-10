@@ -30,7 +30,7 @@ export async function viewPublicReport(req, res, next) {
         ]
       })
       .populate({ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } })
-      .populate('approvedBy', 'fullName')
+      .populate('approvedBy', 'fullName role')
       .populate('technician', 'fullName');
 
     // 2. Verify existence
@@ -122,7 +122,11 @@ export async function viewPublicReport(req, res, next) {
       sampleCollectorComments: report.sampleCollectorComments || [],
       testInterpretations: report.testInterpretations || [],
       collectorName: report.technician?.fullName || '',
-      approvedBy: report.approvedBy?.fullName || '',
+      approvedBy: report.approvedBy ? {
+        fullName: report.approvedBy.fullName || '',
+        role: report.approvedBy.role || ''
+      } : (typeof report.approvedBy === 'string' ? report.approvedBy : ''),
+      approverRole: report.approvedBy?.role || '',
       approvedDate: report.approvedDate || report.approvalDate || '',
       branchName: report.branchName || 'Main',
       stampType: report.stampType || null,
@@ -166,7 +170,7 @@ export async function downloadPublicPdf(req, res, next) {
         ]
       })
       .populate('technician', 'fullName')
-      .populate('approvedBy', 'fullName');
+      .populate('approvedBy', 'fullName role');
 
     if (!fullReport || !fullReport.patient) throw new AppError('Report data unavailable.', 404);
     const p = fullReport.patient;
@@ -247,9 +251,15 @@ export async function downloadPublicPdf(req, res, next) {
       d.fillColor('#1f3640').fontSize(10.5).text(flagVal, 490, y + 6);
       y += 24;
     });
+    const rawApproverName = fullReport.approvedBy?.fullName || '';
+    const isTemesgen = /temesgen\s+fanta/i.test(rawApproverName) || (fullReport.approvedBy?.role === 'Admin' && /temesgen/i.test(rawApproverName));
+    let cleanApproverName = rawApproverName.replace(/^(?:dr\.?|doctor)\s+/i, '').replace(/\s+CEO$/i, '').trim();
+    const formattedApproverName = !cleanApproverName ? 'Not recorded' : (isTemesgen ? `Dr ${cleanApproverName}` : cleanApproverName);
+
     d.fillColor('#1f3640').fontSize(11)
       .text(`Collected by: ${fullReport.technician?.fullName || 'Not recorded'}`, 46, y + 28)
-      .text(`Approved by: ${fullReport.approvedBy?.fullName || 'Not recorded'}`, 46, y + 46)
+      .text(`Approved by: ${formattedApproverName}`, 46, y + 46)
+      .text(`(head of etu diagnostic laboratory)`, 46, y + 62);
     const effectiveStamp = req.query.stampType !== undefined ? req.query.stampType : fullReport.stampType;
     if (effectiveStamp && effectiveStamp !== 'none' && effectiveStamp !== 'null') {
       const stampFileName = effectiveStamp === 'clinic' ? 'etu_cli.png' : 'etu_lab.png';

@@ -29,27 +29,27 @@ function testTitleFormatting() {
 
   // Test Case A: "Dr Temesgen Fanta CEO"
   const resA = formatApproverDoctorName('Dr Temesgen Fanta CEO');
-  assert(resA === 'Dr Temesgen Fanta CEO', `Case A ("Dr Temesgen Fanta CEO") -> "${resA}" (Expected: "Dr Temesgen Fanta CEO")`);
+  assert(resA === 'Dr Temesgen Fanta', `Case A ("Dr Temesgen Fanta CEO") -> "${resA}" (Expected: "Dr Temesgen Fanta")`);
 
   // Test Case B: "Dr. Temesgen Fanta CEO"
   const resB = formatApproverDoctorName('Dr. Temesgen Fanta CEO');
-  assert(resB === 'Dr Temesgen Fanta CEO', `Case B ("Dr. Temesgen Fanta CEO") -> "${resB}" (Expected: "Dr Temesgen Fanta CEO")`);
+  assert(resB === 'Dr Temesgen Fanta', `Case B ("Dr. Temesgen Fanta CEO") -> "${resB}" (Expected: "Dr Temesgen Fanta")`);
 
   // Test Case C: "Temesgen Fanta CEO" (no title)
   const resC = formatApproverDoctorName('Temesgen Fanta CEO');
-  assert(resC === 'Dr Temesgen Fanta CEO', `Case C ("Temesgen Fanta CEO") -> "${resC}" (Expected: "Dr Temesgen Fanta CEO")`);
+  assert(resC === 'Dr Temesgen Fanta', `Case C ("Temesgen Fanta CEO") -> "${resC}" (Expected: "Dr Temesgen Fanta")`);
 
   // Test Case D: "dr Temesgen Fanta CEO" (lowercase title)
   const resD = formatApproverDoctorName('dr Temesgen Fanta CEO');
-  assert(resD === 'Dr Temesgen Fanta CEO', `Case D ("dr Temesgen Fanta CEO") -> "${resD}" (Expected: "Dr Temesgen Fanta CEO")`);
+  assert(resD === 'Dr Temesgen Fanta', `Case D ("dr Temesgen Fanta CEO") -> "${resD}" (Expected: "Dr Temesgen Fanta")`);
 
   // Test Case E: "Dr Dr Dr Temesgen Fanta CEO" (triple title repetition)
   const resE = formatApproverDoctorName('Dr Dr Dr Temesgen Fanta CEO');
-  assert(resE === 'Dr Temesgen Fanta CEO', `Case E ("Dr Dr Dr Temesgen Fanta CEO") -> "${resE}" (Expected: "Dr Temesgen Fanta CEO")`);
+  assert(resE === 'Dr Temesgen Fanta', `Case E ("Dr Dr Dr Temesgen Fanta CEO") -> "${resE}" (Expected: "Dr Temesgen Fanta")`);
 
   // Test Case F: "Dr. Dr. Dr. Temesgen Fanta CEO" (dotted triple title repetition)
   const resF = formatApproverDoctorName('Dr. Dr. Dr. Temesgen Fanta CEO');
-  assert(resF === 'Dr Temesgen Fanta CEO', `Case F ("Dr. Dr. Dr. Temesgen Fanta CEO") -> "${resF}" (Expected: "Dr Temesgen Fanta CEO")`);
+  assert(resF === 'Dr Temesgen Fanta', `Case F ("Dr. Dr. Dr. Temesgen Fanta CEO") -> "${resF}" (Expected: "Dr Temesgen Fanta")`);
 
   // Test Case G: "doctor Temesgen Fanta"
   const resG = formatApproverDoctorName('doctor Temesgen Fanta');
@@ -59,13 +59,21 @@ function testTitleFormatting() {
   const resH = formatApproverDoctorName('Pending Specialist Approval');
   assert(resH === 'Pending Specialist Approval', `Case H ("Pending Specialist Approval") -> "${resH}" (Expected: "Pending Specialist Approval")`);
 
-  // Test Case I: Other Specialist Names without title
-  const resI = formatApproverDoctorName('Womdachew Tesfaye');
-  assert(resI === 'Dr Womdachew Tesfaye', `Case I ("Womdachew Tesfaye") -> "${resI}" (Expected: "Dr Womdachew Tesfaye")`);
+  // Test Case I: Normal Approver "Tarekegn Tamirat"
+  const resI = formatApproverDoctorName('Tarekegn Tamirat', 'Approver');
+  assert(resI === 'Tarekegn Tamirat', `Case I ("Tarekegn Tamirat", "Approver") -> "${resI}" (Expected: "Tarekegn Tamirat")`);
 
-  // Test Case J: Other Specialist Names with Dr
-  const resJ = formatApproverDoctorName('Dr Womdachew Tesfaye');
-  assert(resJ === 'Dr Womdachew Tesfaye', `Case J ("Dr Womdachew Tesfaye") -> "${resJ}" (Expected: "Dr Womdachew Tesfaye")`);
+  // Test Case J: Normal Approver "Dr Tarekegn Tamirat" (strips Dr)
+  const resJ = formatApproverDoctorName('Dr Tarekegn Tamirat', 'Approver');
+  assert(resJ === 'Tarekegn Tamirat', `Case J ("Dr Tarekegn Tamirat", "Approver") -> "${resJ}" (Expected: "Tarekegn Tamirat")`);
+
+  // Test Case K: Normal Approver "Womdachew Tesfaye"
+  const resK = formatApproverDoctorName('Womdachew Tesfaye');
+  assert(resK === 'Womdachew Tesfaye', `Case K ("Womdachew Tesfaye") -> "${resK}" (Expected: "Womdachew Tesfaye")`);
+
+  // Test Case L: User Object approver { fullName: 'Tarekegn Tamirat', role: 'Approver' }
+  const resL = formatApproverDoctorName({ fullName: 'Tarekegn Tamirat', role: 'Approver' });
+  assert(resL === 'Tarekegn Tamirat', `Case L ({ fullName: "Tarekegn Tamirat", role: "Approver" }) -> "${resL}" (Expected: "Tarekegn Tamirat")`);
 
   console.log('\n================================================================');
   console.log(`🏁 TITLE FORMATTING VERIFICATION: ${passed} PASSED, ${failed} FAILED`);

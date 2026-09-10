@@ -125,9 +125,11 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
     : 'LABORATORY TEST REPORT';
 
   const preparedByName = report.technician?.fullName || report.submittedBy?.fullName || (user?.role === 'Sample Collector' ? user?.fullName : '') || 'Clinical Specialist';
-  const rawApprover = report.approvedBy?.fullName || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || (['Approved', 'Ready for Printing'].includes(report.status) && ['Approver', 'Admin', 'Pathologist', 'Radiologist'].includes(user?.role) ? user?.fullName : '');
-  const approvedByName = formatApproverDoctorName(rawApprover);
-  const approverRoleTitle = report.approverRole || (isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : 'Approver / Laboratory Technologist');
+  const approverUser = report.approvedBy || (['Approved', 'Ready for Printing'].includes(report.status) && ['Approver', 'Admin', 'Pathologist', 'Radiologist'].includes(user?.role) ? user : null);
+  const rawApprover = approverUser?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : '') || report.pathologist?.fullName || report.radiologist?.fullName || report.internalMedicineReport?.declaration?.doctorName || '';
+  const approverRole = approverUser?.role || report.approverRole || '';
+  const approvedByName = formatApproverDoctorName(rawApprover, approverRole);
+  const approverRoleTitle = isPathology ? 'Pathologist' : isRadiology ? 'Radiologist' : isInternalMedicine ? 'Authorized Medical Doctor' : (report.approverRole && report.approverRole !== 'Approver' && report.approverRole !== 'Approver / Laboratory Technologist' ? report.approverRole : 'head of etu diagnostic laboratory');
 
   return (
     <article
