@@ -133,6 +133,32 @@ export function isUrineMicroscopyParameter(test, categoryName = '') {
 }
 
 /**
+ * Checks whether a given test belongs to Serum Electrolyte bundle (1,000 ETB).
+ */
+export function isSerumElectrolyteParameter(test, categoryName = '') {
+  if (!test) return false;
+  const cat = normalizeCategoryName(
+    categoryName ||
+    (typeof test.category === 'object' ? test.category?.name : test.category) ||
+    test.categoryName ||
+    ''
+  ).toUpperCase();
+  if (cat === 'OTHER TESTS' || cat === 'REFERRAL') return false;
+  const sub = (test.subcategory || '').trim().toUpperCase();
+  const name = (test.name || '').trim().toUpperCase();
+  return (
+    cat === 'SERUM ELECTROLYTE' ||
+    /^SERUM ELECTROLYTE$/i.test(cat) ||
+    /^ELECTROLYTE/i.test(cat) ||
+    sub === 'SERUM ELECTROLYTE' ||
+    sub === 'ELECTROLYTE' ||
+    test.parentBundle === 'Serum Electrolyte' ||
+    /^SERUM ELECTROLYTE/i.test(name) ||
+    name.includes('(K-LYTE')
+  );
+}
+
+/**
  * Prepares and structures POS80 receipt data from patient/order records.
  * Both POS80 Preview and POS80 Print use this exact data representation.
  *
@@ -328,6 +354,20 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
           name: test.name,
           price: test.price || 0
         });
+      });
+    } else if (/^SERUM ELECTROLYTE$/i.test(catName) || /^ELECTROLYTE/i.test(catName)) {
+      // Serum Electrolyte Bundle (fixed 1,000 ETB, all children non-billable)
+      const elecBundlePrice = Number(options.serumElectrolytePrice ?? 1000);
+      computedSubtotal += elecBundlePrice;
+      items.push({
+        isCbcParent: true,
+        name: 'Serum Electrolyte',
+        price: elecBundlePrice,
+        children: tests.map(c => ({
+          _id: c._id,
+          name: c.name,
+          included: true
+        }))
       });
     } else {
       // Standard Non-bundled categories (regular billable items)
@@ -642,7 +682,10 @@ export function generateThermalReceiptHtml(receipt) {
   <div class="pos80-container">
     <div class="pos80-header">
       <div class="pos80-title">ETU Diagnostic Lab</div>
-      <div class="pos80-subtitle">Official Payment Receipt</div>
+      <div class="pos80-subtitle">
+        Non-official payout receipt<br />
+        Used for internal auditing only
+      </div>
     </div>
     <hr class="pos80-divider" />
 

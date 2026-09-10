@@ -8,6 +8,7 @@ const schema=new mongoose.Schema({
   cbcGroupPrice:{type:Number,min:0,default:150},
   urineChemicalPrice:{type:Number,min:0,default:300},
   urineMicroscopyPrice:{type:Number,min:0,default:300},
+  serumElectrolytePrice:{type:Number,min:0,default:1000},
   stockManagementMode:{type:String,enum:['Smart','Manual'],default:'Smart'},
   publicReportSharing:{
     enabled:{type:Boolean,default:true},

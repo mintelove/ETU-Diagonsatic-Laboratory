@@ -5,6 +5,8 @@ import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHel
 import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 import { isSilentNetworkError } from '../api/client.js';
 import labLogo from '../assets/etu.jpg';
+import labStampImg from '../assets/etu_lab.png';
+import clinicStampImg from '../assets/etu_cli.png';
 import '../styles/pages/publicReport.css';
 
 export function PublicReportViewer() {
@@ -193,6 +195,8 @@ export function PublicReportViewer() {
     return match?.interpretations || [];
   };
 
+  const stampSrc = report.stampType === 'lab' ? labStampImg : (report.stampType === 'clinic' ? clinicStampImg : null);
+
   return (
     <div className="public-report-page" style={{ minHeight: '100vh', height: 'auto', width: '100%', background: '#f1f3f5', color: '#0f172a', padding: '24px 16px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', boxSizing: 'border-box', overflowX: 'hidden', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
       <style>{`
@@ -228,27 +232,29 @@ export function PublicReportViewer() {
         }
         .public-report-watermark {
           position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          bottom: 0 !important;
+          top: 40px !important;
+          bottom: 40px !important;
+          left: 10px !important;
+          right: 10px !important;
           display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-around !important;
           align-items: center !important;
-          justify-content: center !important;
           pointer-events: none !important;
           user-select: none !important;
           -webkit-user-select: none !important;
           z-index: 0 !important;
           overflow: hidden !important;
         }
-        .public-report-watermark span {
-          font-size: 4.2rem !important;
+        .public-report-watermark span,
+        .public-report-watermark .public-watermark-row {
+          font-size: 2.3rem !important;
           font-weight: 700 !important;
           color: #075c91 !important;
-          opacity: 0.07 !important;
+          opacity: 0.16 !important;
           text-transform: uppercase !important;
-          letter-spacing: 0.22em !important;
-          transform: rotate(-35deg) !important;
+          letter-spacing: 0.18em !important;
+          transform: rotate(-25deg) !important;
           white-space: nowrap !important;
           pointer-events: none !important;
           user-select: none !important;
@@ -305,29 +311,29 @@ export function PublicReportViewer() {
           .public-report-page { background: #ffffff !important; padding: 0 !important; }
           .public-report-main { box-shadow: none !important; border: none !important; padding: 0 !important; }
           .public-report-watermark {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
+            position: absolute !important;
+            top: 44mm !important;
+            bottom: 24mm !important;
+            left: 8mm !important;
+            right: 8mm !important;
             display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-around !important;
             align-items: center !important;
-            justify-content: center !important;
             pointer-events: none !important;
             z-index: 0 !important;
             overflow: hidden !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .public-report-watermark span {
-            font-size: 52pt !important;
+          .public-report-watermark span,
+          .public-report-watermark .public-watermark-row {
+            font-size: 26pt !important;
             font-weight: 700 !important;
             color: #075c91 !important;
-            opacity: 0.07 !important;
-            transform: rotate(-35deg) !important;
-            letter-spacing: 8px !important;
+            opacity: 0.16 !important;
+            transform: rotate(-25deg) !important;
+            letter-spacing: 6px !important;
             font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -369,9 +375,11 @@ export function PublicReportViewer() {
         {/* Main A4 Document Preview (100% Static Document — Zero Hover/Cursor Reaction) */}
         <main className="public-report-main" style={{ position: 'relative', overflow: 'hidden', background: '#ffffff', borderRadius: '16px', padding: '24px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #cbd5e1', boxSizing: 'border-box', overflowWrap: 'break-word', wordBreak: 'break-word', pointerEvents: 'none', userSelect: 'text', cursor: 'default' }}>
           
-          {/* Official Diagonal Watermark */}
+          {/* Official Repeated Diagonal Watermark */}
           <div className="public-report-watermark" aria-hidden="true">
-            <span>ETU Diagnostic Laboratory</span>
+            <span className="public-watermark-row">ETU Diagnostic Laboratory</span>
+            <span className="public-watermark-row">ETU Diagnostic Laboratory</span>
+            <span className="public-watermark-row">ETU Diagnostic Laboratory</span>
           </div>
           
           {/* Header */}
@@ -506,13 +514,33 @@ export function PublicReportViewer() {
             <h3 className="public-section-title" style={{ margin: '0 0 10px 0', padding: '8px 12px', background: '#e8f5fa', color: '#075c91', borderLeft: '4px solid #0b95b7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Authorization
             </h3>
-            <div className="public-info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+            <div className="public-info-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', fontSize: '0.88rem', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', position: 'relative' }}>
               <div>
                 <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Title: Head of ETU Diagnostic Laboratory</div>
                 <strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Prepared By:</strong> <span style={{ color: '#0f172a' }}>{report.technician?.fullName || report.submittedBy?.fullName || report.collectorName || 'Technician'}</span>
               </div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approved By:</strong> <span style={{ color: '#0f172a' }}>{formatApproverDoctorName(report.approvedBy?.fullName || (typeof report.approvedBy === 'string' ? report.approvedBy : 'Approved'))}</span></div>
               <div><strong style={{ color: '#475569', minWidth: '100px', display: 'inline-block' }}>Approval Date:</strong> <span style={{ color: '#0f172a' }}>{reportDateStr}</span></div>
+              {stampSrc && (
+                <div className="public-report-stamp-container" style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '-18px',
+                  pointerEvents: 'none',
+                  zIndex: 2
+                }}>
+                  <img
+                    src={stampSrc}
+                    alt={report.stampType === 'clinic' ? 'ETU Clinic Stamp' : 'ETU Lab Stamp'}
+                    style={{
+                      width: '114px',
+                      height: '114px',
+                      objectFit: 'contain',
+                      display: 'block'
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

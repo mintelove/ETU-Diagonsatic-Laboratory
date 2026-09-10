@@ -125,6 +125,7 @@ export async function viewPublicReport(req, res, next) {
       approvedBy: report.approvedBy?.fullName || '',
       approvedDate: report.approvedDate || report.approvalDate || '',
       branchName: report.branchName || 'Main',
+      stampType: report.stampType || null,
       allowPdfDownload: settings?.publicReportSharing?.allowPdfDownload !== false
     };
 
@@ -250,6 +251,23 @@ export async function downloadPublicPdf(req, res, next) {
       .text(`Collected by: ${fullReport.technician?.fullName || 'Not recorded'}`, 46, y + 28)
       .text(`Approved by: ${fullReport.approvedBy?.fullName || 'Not recorded'}`, 46, y + 46)
       .text(`Date and time: ${new Date(fullReport.approvedDate || fullReport.updatedDate).toLocaleString()}`, 46, y + 64);
+    if (fullReport.stampType) {
+      const stampFileName = fullReport.stampType === 'clinic' ? 'etu_cli.png' : 'etu_lab.png';
+      const stampCandidates = [
+        path.resolve(process.cwd(), 'backend', 'src', 'picture', stampFileName),
+        path.resolve(process.cwd(), 'src', 'picture', stampFileName),
+        path.resolve(__dirname2, '../picture', stampFileName)
+      ];
+      let stampPath = null;
+      for (const sc of stampCandidates) { if (fs.existsSync(sc)) { stampPath = sc; break; } }
+      if (stampPath) {
+        try {
+          d.image(stampPath, 425, y + 10, { width: 100 });
+        } catch (err) {
+          // ignore stamp draw failure
+        }
+      }
+    }
     d.fontSize(10).fillColor('#075c91').text('ETU Diagnostic Laboratory', 46, 788, { align: 'center', width: 503 });
     d.end();
   } catch (e) {

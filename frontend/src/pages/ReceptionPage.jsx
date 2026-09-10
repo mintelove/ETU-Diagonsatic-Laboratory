@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 import { useScrollLock } from '../utils/useScrollLock.js';
-import { preparePOS80ReceiptData, isCbcParameter, isUrineChemicalParameter, isUrineMicroscopyParameter, isHcgParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
+import { preparePOS80ReceiptData, isCbcParameter, isUrineChemicalParameter, isUrineMicroscopyParameter, isHcgParameter, isSerumElectrolyteParameter, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import ReportPreview from '../components/ReportPreview.jsx';
@@ -328,7 +328,10 @@ function ThermalReceiptModal({
         </div>
 
         <div className="receipt-title">ETU Diagnostic Lab</div>
-        <div className="receipt-subtitle">Official Payment Receipt</div>
+        <div className="receipt-subtitle">
+          Non-official payout receipt<br />
+          Used for internal auditing only
+        </div>
         <hr />
         
         <div style={{ fontSize: '9.5px', lineHeight: '1.35' }}>
@@ -471,6 +474,7 @@ export default function ReceptionPage() {
   const [stockItems, setStockItems] = useState([]);
   const [customRadiologyExamName, setCustomRadiologyExamName] = useState('');
   const [showReportFooter, setShowReportFooter] = useState(true);
+  const [reportStampType, setReportStampType] = useState(null);
   const [selectedReportForPreview, setSelectedReportForPreview] = useState(null);
 
   useScrollLock(!!selectedCounselling || !!history || !!receiptData || !!manualStockPatient || !!pendingManualStockPatient || !!selectedReportForPreview);
@@ -641,6 +645,12 @@ export default function ReceptionPage() {
     return isCbcParameter(t, catName);
   }, []);
 
+  const isSerumElectrolyteTest = useCallback((t) => {
+    if (!t) return false;
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isSerumElectrolyteParameter(t, catName);
+  }, []);
+
   const isUrineChemTest = useCallback((t) => {
     const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
     return isUrineChemicalParameter(t, catName);
@@ -672,24 +682,28 @@ export default function ReceptionPage() {
     const chemTests = selected.filter(isUrineChemTest);
     const hcgTests = selected.filter(isHcgTest);
     const cbcTests = selected.filter(isCbcTest);
-    const otherTests = selected.filter(t => !isUrineMicroTest(t) && !isUrineChemTest(t) && !isHcgTest(t) && !isCbcTest(t) && t.billableIndividually !== false && !t.includedInBundle);
+    const elecTests = selected.filter(isSerumElectrolyteTest);
+    const otherTests = selected.filter(t => !isUrineMicroTest(t) && !isUrineChemTest(t) && !isHcgTest(t) && !isCbcTest(t) && !isSerumElectrolyteTest(t) && t.billableIndividually !== false && !t.includedInBundle);
 
     let total = otherTests.reduce((sum, t) => sum + (t.price || 0), 0);
     if (cbcTests.length > 0) total += Number(testSettings.cbcGroupPrice ?? 150);
     if (chemTests.length > 0) total += Number(testSettings.urineChemicalPrice ?? 300);
     if (microTests.length > 0) total += Number(testSettings.urineMicroscopyPrice ?? 300);
+    if (elecTests.length > 0) total += Number(testSettings.serumElectrolytePrice ?? 1000);
     hcgTests.forEach(t => { total += (t.price || 200); });
     return total;
-  }, [selectedSampleIds, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest]);
+  }, [selectedSampleIds, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest, isSerumElectrolyteTest]);
 
   const billSubtotal = useMemo(() => {
     const cbcGroupPrice = Number(testSettings.cbcGroupPrice ?? 150);
     const chemGroupPrice = Number(testSettings.urineChemicalPrice ?? 300);
     const microGroupPrice = Number(testSettings.urineMicroscopyPrice ?? 300);
+    const serumElecPrice = Number(testSettings.serumElectrolytePrice ?? 1000);
     const cbcTests = [];
     const chemTests = [];
     const microTests = [];
     const hcgTests = [];
+    const elecTests = [];
     const otherTests = [];
 
     selectedSamples.forEach(s => {
@@ -697,6 +711,7 @@ export default function ReceptionPage() {
       else if (isUrineChemTest(s)) chemTests.push(s);
       else if (isHcgTest(s)) hcgTests.push(s);
       else if (isCbcTest(s)) cbcTests.push(s);
+      else if (isSerumElectrolyteTest(s)) elecTests.push(s);
       else if (s.billableIndividually !== false && !s.includedInBundle) otherTests.push(s);
     });
 
@@ -704,9 +719,10 @@ export default function ReceptionPage() {
     if (cbcTests.length > 0) subtotal += cbcGroupPrice;
     if (chemTests.length > 0) subtotal += chemGroupPrice;
     if (microTests.length > 0) subtotal += microGroupPrice;
+    if (elecTests.length > 0) subtotal += serumElecPrice;
     hcgTests.forEach(t => { subtotal += (t.price || 200); });
     return subtotal;
-  }, [selectedSamples, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest]);
+  }, [selectedSamples, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest, isSerumElectrolyteTest]);
   const discountPercent = serviceDiscountType === 'Staff Member' ? Number(testSettings.staffDiscount || 20) : serviceDiscountType === 'Collaborator' ? Number(testSettings.collaboratorDiscount || 20) : 0;
   const discountAmount = serviceDiscountType === 'Counseling Only' ? 0 : billSubtotal * discountPercent / 100;
   const billTotal = serviceDiscountType === 'Counseling Only' ? (testSettings.counselingStatus === 'Paid' ? Number(testSettings.counselingPrice || 0) : 0) : billSubtotal - discountAmount;
@@ -724,9 +740,28 @@ export default function ReceptionPage() {
       return;
     }
 
+    const isElectrolyteTest = isSerumElectrolyteTest(test);
+    const isElecParent = isElectrolyteTest && (test.isBundle || /^Serum Electrolyte/i.test(test.name));
+
+    // If clicking Serum Electrolyte parent bundle, automatically toggle ALL 9 electrolyte subtests
+    if (isElecParent) {
+      const allElec = samples.filter(isSerumElectrolyteTest);
+      const allElecIds = allElec.map(s => s._id);
+      setSelectedSampleIds(prev => {
+        const allSelected = allElecIds.length > 0 && allElecIds.every(eid => prev.includes(eid));
+        if (allSelected) {
+          return prev.filter(eid => !allElecIds.includes(eid));
+        } else {
+          return [...new Set([...prev, ...allElecIds])];
+        }
+      });
+      return;
+    }
+
     const isMicroChild = isUrineMicroTest(test) && test.name !== 'Urine Microscopy' && !test.isBundle;
     const isChemChild = isUrineChemTest(test) && test.name !== 'Chemical Analysis' && !test.isBundle && !isHcgTest(test);
     const isCbcChild = isCbcTest(test) && test.name !== 'CBC' && test.name !== 'Complete Blood Count (CBC)' && !test.isBundle;
+    const isElecChild = isElectrolyteTest && !isElecParent;
 
     const microParent = (isMicroChild || test.name === 'Urine Microscopy')
       ? samples.find(s => (s.isBundle && s.name === 'Urine Microscopy') || (s.subcategory === 'Urine Microscopy' && s.name === 'Urine Microscopy'))
@@ -738,6 +773,10 @@ export default function ReceptionPage() {
 
     const cbcParent = (isCbcChild || test.name === 'CBC')
       ? samples.find(s => (s.isBundle && s.name === 'CBC') || (s.subcategory === 'CBC' && s.name === 'CBC'))
+      : null;
+
+    const elecParent = (isElecChild || isElecParent)
+      ? samples.find(s => isSerumElectrolyteTest(s) && (s.isBundle || /^Serum Electrolyte/i.test(s.name)))
       : null;
 
     setSelectedSampleIds(prev => {
@@ -774,6 +813,15 @@ export default function ReceptionPage() {
             return next.filter(x => x !== cbcParent._id);
           }
         }
+        if (isElecChild && elecParent) {
+          const hasOtherElecSelected = next.some(x => {
+            const t = samples.find(s => s._id === x);
+            return t && isSerumElectrolyteTest(t) && t._id !== elecParent._id;
+          });
+          if (!hasOtherElecSelected) {
+            return next.filter(x => x !== elecParent._id);
+          }
+        }
         return next;
       } else {
         // Selecting this test
@@ -788,6 +836,9 @@ export default function ReceptionPage() {
         }
         if (isCbcChild && cbcParent && !next.includes(cbcParent._id)) {
           next.push(cbcParent._id);
+        }
+        if (isElecChild && elecParent && !next.includes(elecParent._id)) {
+          next.push(elecParent._id);
         }
         return next;
       }
@@ -1119,24 +1170,50 @@ export default function ReceptionPage() {
     }
   };
 
-  const handlePrintA4Report = async (id) => {
+  const handlePrintA4Report = async (id, stampTypeOverride) => {
     if (busy) return;
     setBusy(true);
     try {
-      await api(`/reception/reports/${id}/print`, { token, method: 'PATCH' });
-      const report = reports.find(item => item._id === id);
-      if (!report) throw new Error('The requested document could not be loaded.');
-      printLabReport(report, token, user, showReportFooter);
-      setToast({ message: 'A4 report preview opened with the latest report data.', type: 'success' });
+      const report = reports.find(item => item._id === id) || (selectedReportForPreview?._id === id ? selectedReportForPreview : null);
+      if (!report && !id) throw new Error('The requested document could not be loaded.');
+
+      const effectiveStampType = stampTypeOverride !== undefined ? stampTypeOverride : (reportStampType !== undefined ? reportStampType : report?.stampType);
+
+      // Log print count in background and persist selected stampType
+      api(`/reception/reports/${id}/print`, {
+        token,
+        method: 'PATCH',
+        body: { stampType: effectiveStampType }
+      }).catch(e => console.warn('Print log warning (silent):', e));
+
+      await printLabReport(report || id, token, user, showReportFooter, effectiveStampType);
+      setToast({ message: 'A4 print dialog opened.', type: 'success' });
       loadData();
     } catch (e) {
       if (isSilentNetworkError(e)) {
         console.warn('Report print network error (silent):', e);
         return;
       }
-      setToast({ message: e.message || 'Failed to log report print.', type: 'error' });
+      setToast({ message: e.message || 'Failed to open A4 print dialog.', type: 'error' });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleUpdateStampType = async (newType) => {
+    setReportStampType(newType);
+    if (selectedReportForPreview?._id) {
+      try {
+        await api(`/reception/reports/${selectedReportForPreview._id}/stamp`, {
+          token,
+          method: 'PATCH',
+          body: { stampType: newType }
+        });
+        setReports(prev => prev.map(rep => rep._id === selectedReportForPreview._id ? { ...rep, stampType: newType } : rep));
+        setSelectedReportForPreview(prev => prev ? { ...prev, stampType: newType } : prev);
+      } catch (err) {
+        console.warn('Failed to save stamp type:', err);
+      }
     }
   };
 
@@ -1197,6 +1274,22 @@ export default function ReceptionPage() {
                   onChange={e => setShowReportFooter(e.target.checked)}
                 />
                 Show Logo & Footer
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : 'var(--text-secondary)', cursor: 'pointer', background: reportStampType === 'lab' ? 'rgba(2, 132, 199, 0.12)' : 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : 'var(--card-border)'}` }}>
+                <input
+                  type="checkbox"
+                  checked={reportStampType === 'lab'}
+                  onChange={() => setReportStampType(prev => prev === 'lab' ? null : 'lab')}
+                />
+                Add Stamp for Lab
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'clinic' ? '#0284c7' : 'var(--text-secondary)', cursor: 'pointer', background: reportStampType === 'clinic' ? 'rgba(2, 132, 199, 0.12)' : 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'clinic' ? '#0284c7' : 'var(--card-border)'}` }}>
+                <input
+                  type="checkbox"
+                  checked={reportStampType === 'clinic'}
+                  onChange={() => setReportStampType(prev => prev === 'clinic' ? null : 'clinic')}
+                />
+                Add Stamp for Clinic
               </label>
               <div className="export-buttons">
                 <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
@@ -1261,7 +1354,10 @@ export default function ReceptionPage() {
                               type="button"
                               className="secondary-button"
                               style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: 600 }}
-                              onClick={() => setSelectedReportForPreview(r)}
+                              onClick={() => {
+                                setReportStampType(r.stampType || null);
+                                setSelectedReportForPreview(r);
+                              }}
                             >
                               👁️ Preview
                             </button>
@@ -1317,7 +1413,7 @@ export default function ReceptionPage() {
                 gap: '10px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.15rem', color: '#075c91', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>📄</span> A4 Report Preview
                 </h2>
@@ -1328,6 +1424,22 @@ export default function ReceptionPage() {
                     onChange={e => setShowReportFooter(e.target.checked)}
                   />
                   Show Logo & Footer
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'lab' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : '#cbd5e1'}` }}>
+                  <input
+                    type="checkbox"
+                    checked={reportStampType === 'lab'}
+                    onChange={() => handleUpdateStampType(reportStampType === 'lab' ? null : 'lab')}
+                  />
+                  Add Stamp for Lab
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'clinic' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'clinic' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'clinic' ? '#0284c7' : '#cbd5e1'}` }}>
+                  <input
+                    type="checkbox"
+                    checked={reportStampType === 'clinic'}
+                    onChange={() => handleUpdateStampType(reportStampType === 'clinic' ? null : 'clinic')}
+                  />
+                  Add Stamp for Clinic
                 </label>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1373,7 +1485,7 @@ export default function ReceptionPage() {
 
             {/* A4 Document Canvas */}
             <div style={{ padding: '20px 16px', display: 'flex', justifyContent: 'center', background: 'var(--color-surface-container, transparent)' }}>
-              <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} />
+              <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} stampType={reportStampType} />
             </div>
           </div>
         </ModalPortal>
@@ -2005,42 +2117,94 @@ export default function ReceptionPage() {
 
                             {/* Test Items */}
                             {(() => {
+                              const isElecCat = /^SERUM ELECTROLYTE$/i.test(category.name) || /^ELECTROLYTE/i.test(category.name);
+                              const elecTests = category.tests || [];
+                              const allElecSelected = elecTests.length > 0 && elecTests.every(t => selectedSampleIds.includes(t._id));
                               const hasSubcats = filteredTests.some(t => t.subcategory);
                               if (!hasSubcats) {
                                 return (
-                                  <div className="lab-v2-tests-grid">
-                                    {filteredTests.map(test => {
-                                      const isSelected = selectedSampleIds.includes(test._id);
-                                      const isHcg = isHcgTest(test);
-                                      const isBundleParent = test.isBundle || test.name === 'Urine Microscopy' || test.name === 'Chemical Analysis' || test.name === 'CBC';
-                                      const isIncludedChild = (test.includedInBundle || test.billableIndividually === false || isUrineMicroTest(test) || (isUrineChemTest(test) && !isHcg) || isCbcTest(test)) && !isBundleParent;
-                                      return (
-                                        <label key={test._id} className={`lab-v2-test-card ${isSelected ? 'selected' : ''}`}>
-                                          <div className={`lab-v2-checkbox ${isSelected ? 'checked' : ''}`}>
-                                            <input type="checkbox" checked={isSelected} onChange={() => handleToggleSample(test._id)} />
-                                            {isSelected && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                  <>
+                                    {/* Serum Electrolyte Complete Bundle Card */}
+                                    {isElecCat && (
+                                      <div
+                                        className={`lab-v2-test-card ${allElecSelected ? 'selected' : ''}`}
+                                        style={{
+                                          margin: '8px 12px 14px 12px',
+                                          padding: '12px 16px',
+                                          border: allElecSelected ? '2px solid #ea580c' : '2px dashed #ea580c',
+                                          background: allElecSelected ? '#ffedd5' : '#fff7ed',
+                                          borderRadius: '10px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          cursor: 'pointer',
+                                          boxShadow: allElecSelected ? '0 2px 8px rgba(234, 88, 12, 0.15)' : 'none'
+                                        }}
+                                        onClick={() => handleToggleCbcGroup(elecTests)}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                          <div className={`lab-v2-checkbox ${allElecSelected ? 'checked' : ''}`}>
+                                            <input
+                                              type="checkbox"
+                                              checked={allElecSelected}
+                                              onChange={() => handleToggleCbcGroup(elecTests)}
+                                            />
+                                            {allElecSelected && (
+                                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                                <path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                            )}
                                           </div>
                                           <div className="lab-v2-test-info">
-                                            <strong>{test.name}</strong>
-                                            {test.description && <small>{test.description}</small>}
+                                            <strong style={{ fontSize: '1.02rem', color: '#c2410c' }}>
+                                              ⚡ Serum Electrolyte — Complete Bundle
+                                            </strong>
+                                            <small style={{ color: 'var(--color-on-surface-variant, #475569)', display: 'block', marginTop: '2px' }}>
+                                              Single fixed price · Automatically includes all {elecTests.length} electrolyte parameters for result entry &amp; reports
+                                            </small>
                                           </div>
-                                          <div className="lab-v2-test-price">
-                                            {isBundleParent && (
-                                              <span style={{ fontSize: '0.8rem', color: '#0f766e', fontWeight: 700 }}>
-                                                {formatETB(test.name === 'Chemical Analysis' ? (testSettings.urineChemicalPrice ?? 300) : test.name === 'Urine Microscopy' ? (testSettings.urineMicroscopyPrice ?? 300) : (testSettings.cbcGroupPrice ?? 150))} (Bundle)
-                                              </span>
-                                            )}
-                                            {isIncludedChild && (
-                                              <span style={{ fontSize: '0.75rem', color: isCbcTest(test) ? '#64748b' : '#0d9488', fontWeight: 600 }}>
-                                                {isCbcTest(test) ? 'Included in CBC · Non-billable' : isUrineMicroTest(test) ? 'Included in Microscopy · Non-billable' : 'Included in Chemical Analysis · Non-billable'}
-                                              </span>
-                                            )}
-                                            {(!isBundleParent && !isIncludedChild) && formatETB(test.price || (isHcg ? 200 : 0))}
-                                          </div>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
+                                        </div>
+                                        <div className="lab-v2-test-price" style={{ fontSize: '1.15rem', fontWeight: 800, color: '#c2410c' }}>
+                                          {formatETB(testSettings.serumElectrolytePrice ?? 1000)}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="lab-v2-tests-grid">
+                                      {filteredTests.map(test => {
+                                        const isSelected = selectedSampleIds.includes(test._id);
+                                        const isHcg = isHcgTest(test);
+                                        const isElec = isSerumElectrolyteTest(test);
+                                        const isBundleParent = test.isBundle || test.name === 'Urine Microscopy' || test.name === 'Chemical Analysis' || test.name === 'CBC' || (isElec && /^Serum Electrolyte/i.test(test.name));
+                                        const isIncludedChild = (test.includedInBundle || test.billableIndividually === false || isUrineMicroTest(test) || (isUrineChemTest(test) && !isHcg) || isCbcTest(test) || isElec) && !isBundleParent;
+                                        return (
+                                          <label key={test._id} className={`lab-v2-test-card ${isSelected ? 'selected' : ''}`}>
+                                            <div className={`lab-v2-checkbox ${isSelected ? 'checked' : ''}`}>
+                                              <input type="checkbox" checked={isSelected} onChange={() => handleToggleSample(test._id)} />
+                                              {isSelected && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7L5.5 10L11.5 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                            </div>
+                                            <div className="lab-v2-test-info">
+                                              <strong>{test.name}</strong>
+                                              {test.description && <small>{test.description}</small>}
+                                            </div>
+                                            <div className="lab-v2-test-price">
+                                              {isBundleParent && (
+                                                <span style={{ fontSize: '0.8rem', color: isElec ? '#c2410c' : '#0f766e', fontWeight: 700 }}>
+                                                  {formatETB(isElec ? (testSettings.serumElectrolytePrice ?? 1000) : test.name === 'Chemical Analysis' ? (testSettings.urineChemicalPrice ?? 300) : test.name === 'Urine Microscopy' ? (testSettings.urineMicroscopyPrice ?? 300) : (testSettings.cbcGroupPrice ?? 150))} (Bundle)
+                                                </span>
+                                              )}
+                                              {isIncludedChild && (
+                                                <span style={{ fontSize: '0.75rem', color: isCbcTest(test) ? '#64748b' : isElec ? '#c2410c' : '#0d9488', fontWeight: 600 }}>
+                                                  {isCbcTest(test) ? 'Included in CBC · Non-billable' : isElec ? 'Included in Electrolytes · Non-billable' : isUrineMicroTest(test) ? 'Included in Microscopy · Non-billable' : 'Included in Chemical Analysis · Non-billable'}
+                                                </span>
+                                              )}
+                                              {(!isBundleParent && !isIncludedChild) && formatETB(test.price || (isHcg ? 200 : 0))}
+                                            </div>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </>
                                 );
                               }
 

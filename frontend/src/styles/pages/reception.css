@@ -288,11 +288,7 @@
 
 /* ── Media print styles for POS 80mm ──────────────────── */
 @media print {
-  @page {
-    size: 80mm auto;
-    margin: 0mm;
-  }
-  html, body {
+  body:has(.thermal-receipt-modal) {
     width: 80mm !important;
     max-width: 80mm !important;
     margin: 0 auto !important;
@@ -302,13 +298,14 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  body * {
+  body:has(.thermal-receipt-modal) * {
     visibility: hidden;
   }
-  .thermal-receipt-modal, .thermal-receipt-modal * {
+  body:has(.thermal-receipt-modal) .thermal-receipt-modal,
+  body:has(.thermal-receipt-modal) .thermal-receipt-modal * {
     visibility: visible;
   }
-  .thermal-receipt-modal {
+  body:has(.thermal-receipt-modal) .thermal-receipt-modal {
     position: static !important;
     display: block !important;
     background: transparent !important;
@@ -318,7 +315,7 @@
     box-shadow: none !important;
     border: none !important;
   }
-  .thermal-receipt {
+  body:has(.thermal-receipt-modal) .thermal-receipt {
     width: 72mm !important;
     max-width: 72mm !important;
     box-shadow: none !important;

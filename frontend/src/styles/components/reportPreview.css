@@ -436,43 +436,36 @@
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Header */
+/* Header — Full A4 Width Edge-to-Edge Branding (Matches Pre-Printed Paper Header) */
 .lab-report-preview .report-preview-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: block;
+  width: calc(100% + 28mm) !important;
+  max-width: calc(100% + 28mm) !important;
+  margin-left: -14mm !important;
+  margin-right: -14mm !important;
+  margin-top: 0 !important;
+  margin-bottom: 8px !important;
+  padding: 0 !important;
+  border: none !important;
   text-align: center;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
-  border-bottom: 2.5px solid #075c91;
+  box-sizing: border-box !important;
 }
 
 .lab-report-preview .report-preview-logo {
-  max-height: 75px;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto 8px;
-  border-radius: 4px;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
 }
 
-.lab-report-preview .report-preview-title {
-  margin: 2px 0 0;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: #075c91 !important;
-}
-
+.lab-report-preview .report-preview-title,
 .lab-report-preview .report-preview-subtitle {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: #0369a1 !important;
+  display: none !important;
 }
 
 .lab-report-preview .report-preview-header-clean {
@@ -1007,15 +1000,14 @@ tr:hover td .flag-badge.critical-low * {
 /* ── 8. WATERMARK OVERLAY (ETU DIAGNOSTIC LABORATORY) ──────────────────────── */
 .lab-report-preview .report-watermark-overlay {
   position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
+  top: 44mm !important;
+  bottom: 24mm !important;
+  left: 8mm !important;
+  right: 8mm !important;
   display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-around !important;
   align-items: center !important;
-  justify-content: center !important;
   pointer-events: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
@@ -1023,14 +1015,15 @@ tr:hover td .flag-badge.critical-low * {
   overflow: hidden !important;
 }
 
+.lab-report-preview .report-watermark-row,
 .lab-report-preview .report-watermark-text {
-  font-size: 4.2rem !important;
+  font-size: 2.3rem !important;
   font-weight: 700 !important;
   color: #075c91 !important;
-  opacity: 0.07 !important;
+  opacity: 0.16 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.22em !important;
-  transform: rotate(-35deg) !important;
+  letter-spacing: 0.18em !important;
+  transform: rotate(-25deg) !important;
   white-space: nowrap !important;
   pointer-events: none !important;
   user-select: none !important;
@@ -1040,10 +1033,12 @@ tr:hover td .flag-badge.critical-low * {
   print-color-adjust: exact !important;
 }
 
+:root[data-theme='dark'] .lab-report-preview .report-watermark-row,
+[data-theme='dark'] .lab-report-preview .report-watermark-row,
 :root[data-theme='dark'] .lab-report-preview .report-watermark-text,
 [data-theme='dark'] .lab-report-preview .report-watermark-text {
   color: #38bdf8 !important;
-  opacity: 0.06 !important;
+  opacity: 0.18 !important;
 }
 
 .lab-report-preview .report-preview-header,
@@ -1073,28 +1068,32 @@ tr:hover td .flag-badge.critical-low * {
     color: #000000 !important;
     box-shadow: none !important;
     border: none !important;
-    padding: 0 !important;
-    max-width: 100% !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    box-sizing: border-box !important;
+    padding-left: 14mm !important;
+    padding-right: 14mm !important;
+    padding-bottom: 22mm !important;
+    padding-top: 0mm !important;
     position: relative !important;
   }
 
-  .lab-report-preview *:not(.report-watermark-overlay):not(.report-watermark-text) {
+  .lab-report-preview *:not(.report-watermark-overlay):not(.report-watermark-row):not(.report-watermark-text) {
     color: #000000 !important;
     background: transparent !important;
     box-shadow: none !important;
   }
 
   .lab-report-preview .report-watermark-overlay {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
+    position: absolute !important;
+    top: 44mm !important;
+    bottom: 24mm !important;
+    left: 8mm !important;
+    right: 8mm !important;
     display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-around !important;
     align-items: center !important;
-    justify-content: center !important;
     pointer-events: none !important;
     user-select: none !important;
     -webkit-user-select: none !important;
@@ -1104,14 +1103,15 @@ tr:hover td .flag-badge.critical-low * {
     print-color-adjust: exact !important;
   }
 
+  .lab-report-preview .report-watermark-row,
   .lab-report-preview .report-watermark-text {
-    font-size: 52pt !important;
+    font-size: 26pt !important;
     font-weight: 700 !important;
     color: #075c91 !important;
-    opacity: 0.07 !important;
+    opacity: 0.16 !important;
     text-transform: uppercase !important;
-    letter-spacing: 8px !important;
-    transform: rotate(-35deg) !important;
+    letter-spacing: 6px !important;
+    transform: rotate(-25deg) !important;
     white-space: nowrap !important;
     pointer-events: none !important;
     user-select: none !important;

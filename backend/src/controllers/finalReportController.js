@@ -179,6 +179,21 @@ if (sortedGroups.length > 0) {
 }
 
 d.fillColor('#1f3640').fontSize(11).text(`Collected by: ${r.technician?.fullName || 'Not recorded'}`, 46, y + 20).text(`Approved by: ${r.approvedBy?.fullName || 'Not recorded'}`, 46, y + 38).text(`Date and time: ${new Date(r.approvedDate || r.updatedDate).toLocaleString()}`, 46, y + 56);
+if (r.stampType) {
+  const stampFileName = r.stampType === 'clinic' ? 'etu_cli.png' : 'etu_lab.png';
+  const stampCandidates = [
+    path.resolve(process.cwd(), 'backend', 'src', 'picture', stampFileName),
+    path.resolve(process.cwd(), 'src', 'picture', stampFileName),
+    path.resolve(__dirname, '../picture', stampFileName)
+  ];
+  let stampPath = null;
+  for (const sc of stampCandidates) { if (fs.existsSync(sc)) { stampPath = sc; break; } }
+  if (stampPath) {
+    try {
+      d.image(stampPath, 425, y + 8, { width: 100 });
+    } catch (err) {}
+  }
+}
 d.fontSize(10).fillColor('#075c91').text('ETU Diagnostic Laboratory', 46, 788, { align: 'center', width: 503 });
 d.end();
 await recordActivity(req.user.id, 'Generated laboratory report PDF', 'LabReport', r.id);

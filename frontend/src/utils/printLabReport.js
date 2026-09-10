@@ -4,6 +4,8 @@ import { calculateFlag } from './flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from './categoryHelper.js';
 import { formatApproverDoctorName } from './doctorNameHelper.js';
 import labLogo from '../assets/etu.jpg';
+import labStampImg from '../assets/etu_lab.png';
+import clinicStampImg from '../assets/etu_cli.png';
 
 const safe = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 const stamp = value => value ? new Date(value).toLocaleString() : '—';
@@ -40,7 +42,7 @@ export function formatMedDate(val) {
   return `${day} ${month} ${year}`;
 }
 
-export function reportHtml(report, user, logoBase64, referralHospitalAddress, showFooterOverride) {
+export function reportHtml(report, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride) {
   const patient = (report?.patient && typeof report.patient === 'object') ? report.patient : (report || {});
   const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
   const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
@@ -50,10 +52,14 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   );
 
   const showFooter = showFooterOverride !== undefined ? showFooterOverride : (report.showFooter !== undefined ? report.showFooter : true);
+  const effectiveStamp = stampTypeOverride !== undefined ? stampTypeOverride : report?.stampType;
+  const stampSrc = effectiveStamp === 'lab' ? labStampImg : (effectiveStamp === 'clinic' ? clinicStampImg : null);
+  const stampAlt = effectiveStamp === 'clinic' ? 'ETU Clinic Stamp' : 'ETU Lab Stamp';
+  const stampImgHtml = stampSrc ? `<div class="report-stamp-container" style="position: absolute; right: 8px; top: -18px; pointer-events: none; z-index: 2;"><img src="${stampSrc}" alt="${stampAlt}" style="width: 114px; height: 114px; object-fit: contain; display: block;" /></div>` : '';
 
   const logoImg = logoBase64 || labLogo;
   const logoHeader = (showFooter && logoImg)
-    ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="max-height: 80px; width: auto; max-width: 100%; display: block; margin: 0 auto 6px; object-fit: contain;" />`
+    ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="width: 100%; height: auto; max-height: none; display: block; margin: 0; padding: 0; object-fit: contain;" />`
     : '';
 
   const refHtml = patient.referralHospital ? `<div><b>Referral Hospital Name:</b> <span>${safe(patient.referralHospital)}</span></div><div><b>Referral Hospital Address:</b> <span>${safe(referralHospitalAddress || patient.address || 'Not recorded')}</span></div>` : '';
@@ -191,10 +197,11 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
             <p class="imed-a4-decl-text" style="margin: 0 0 4px 0; font-style: italic; line-height: 1.35;">
               "${safe(decl.declarationText || 'I hereby declare that all information provided above is true.')}"
             </p>
-            <div class="imed-a4-decl-grid" style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; padding-top: 3px; border-top: 1px dashed #718096;">
+            <div class="imed-a4-decl-grid" style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; padding-top: 3px; border-top: 1px dashed #718096; position: relative;">
               <div><b>Doctor Name:</b> <strong>${safe(decl.doctorName || approvedByName || preparedByName)}</strong></div>
               <div><b>Signature:</b> <span style="display: inline-block; min-width: 90px; border-bottom: 1px solid #000;">&nbsp;</span></div>
               <div><b>Date:</b> <span>${safe(formatMedDate(decl.signatureDate || new Date()))}</span></div>
+              ${stampSrc ? `<div class="report-stamp-container" style="position: absolute; right: 10px; top: -18px; pointer-events: none; z-index: 2;"><img src="${stampSrc}" alt="${stampAlt}" style="width: 108px; height: 108px; object-fit: contain; display: block;" /></div>` : ''}
             </div>
           </div>
         </div>
@@ -390,13 +397,30 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 <head>
   <meta charset="utf-8">
   <title>ETU Diagnostic Laboratory Report</title>
+  <base href="${typeof window !== 'undefined' ? window.location.origin : ''}/">
+  <script>
+    function triggerAutoPrint() {
+      if (window.__hasPrinted) return;
+      window.__hasPrinted = true;
+      window.focus();
+      try {
+        window.print();
+      } catch (err) {
+        console.warn('Auto print error:', err);
+      }
+    }
+    if (document.readyState === 'complete') {
+      setTimeout(triggerAutoPrint, 100);
+    } else {
+      window.addEventListener('load', function() {
+        setTimeout(triggerAutoPrint, 100);
+      });
+    }
+  </script>
   <style>
     @page {
       size: A4 portrait;
-      margin-top: ${showFooter ? '10mm' : '42mm'};
-      margin-bottom: ${showFooter ? '12mm' : '22mm'};
-      margin-left: 12mm;
-      margin-right: 12mm;
+      margin: 0;
     }
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -434,7 +458,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       width: 210mm;
       min-height: 297mm;
       margin: 12px auto;
-      padding-top: ${showFooter ? '12mm' : '42mm'};
+      padding-top: ${showFooter ? '0mm' : '42mm'};
       padding-bottom: ${showFooter ? '14mm' : '22mm'};
       padding-left: 14mm;
       padding-right: 14mm;
@@ -445,15 +469,14 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     }
     .a4-watermark-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
+      top: 44mm;
+      bottom: 24mm;
+      left: 8mm;
+      right: 8mm;
       display: flex;
+      flex-direction: column;
+      justify-content: space-around;
       align-items: center;
-      justify-content: center;
       pointer-events: none;
       user-select: none;
       -webkit-user-select: none;
@@ -461,13 +484,13 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       overflow: hidden;
     }
     .a4-watermark-text {
-      font-size: 48pt;
+      font-size: 26pt;
       font-weight: 700;
       color: #075c91;
-      opacity: 0.07;
+      opacity: 0.16;
       text-transform: uppercase;
-      letter-spacing: 8px;
-      transform: rotate(-35deg);
+      letter-spacing: 6px;
+      transform: rotate(-25deg);
       white-space: nowrap;
       pointer-events: none;
       user-select: none;
@@ -480,32 +503,33 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       z-index: 1;
     }
     .header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      display: block;
+      width: calc(100% + 28mm);
+      max-width: calc(100% + 28mm);
+      margin-left: -14mm;
+      margin-right: -14mm;
+      margin-top: 0;
+      margin-bottom: 8px;
+      padding: 0;
+      border: none;
       text-align: center;
-      border-bottom: 2.5px solid #087ca8;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
       page-break-inside: avoid;
       break-inside: avoid;
+      box-sizing: border-box;
     }
-    .header h1 {
-      margin: 2px 0 0;
-      color: #075c91;
-      font-size: 20px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      font-weight: 800;
-      line-height: 1.2;
+    .header img {
+      width: 100%;
+      height: auto;
+      max-height: none;
+      display: block;
+      margin: 0;
+      padding: 0;
+      object-fit: contain;
+      border-radius: 0;
     }
+    .header h1,
     .header p.sub {
-      margin: 3px 0 0;
-      font-size: 12px;
-      font-weight: 700;
-      color: #0369a1;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+      display: none;
     }
     .section {
       margin-top: 10px;
@@ -690,27 +714,30 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       }
       .page {
         margin: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-height: auto !important;
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
         height: auto !important;
-        padding: 0 !important;
+        box-sizing: border-box !important;
+        padding-top: ${showFooter ? '0mm' : '42mm'} !important;
+        padding-bottom: ${showFooter ? '14mm' : '22mm'} !important;
+        padding-left: 14mm !important;
+        padding-right: 14mm !important;
         background: transparent !important;
         box-shadow: none !important;
         border-radius: 0 !important;
         position: relative !important;
       }
       .a4-watermark-overlay {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
+        position: absolute !important;
+        top: 44mm !important;
+        bottom: 24mm !important;
+        left: 8mm !important;
+        right: 8mm !important;
         display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-around !important;
         align-items: center !important;
-        justify-content: center !important;
         pointer-events: none !important;
         user-select: none !important;
         -webkit-user-select: none !important;
@@ -720,13 +747,13 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
         print-color-adjust: exact !important;
       }
       .a4-watermark-text {
-        font-size: 52pt !important;
+        font-size: 26pt !important;
         font-weight: 700 !important;
         color: #075c91 !important;
-        opacity: 0.07 !important;
+        opacity: 0.16 !important;
         text-transform: uppercase !important;
-        letter-spacing: 8px !important;
-        transform: rotate(-35deg) !important;
+        letter-spacing: 6px !important;
+        transform: rotate(-25deg) !important;
         white-space: nowrap !important;
         pointer-events: none !important;
         user-select: none !important;
@@ -742,6 +769,13 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
         page-break-inside: auto !important;
         break-inside: auto !important;
       }
+      .report-stamp-container {
+        pointer-events: none !important;
+      }
+      .report-stamp-container img {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
   </style>
 </head>
@@ -752,12 +786,14 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   </nav>
   <main class="page">
     <div class="a4-watermark-overlay" aria-hidden="true">
-      <span class="a4-watermark-text">ETU Diagnostic Laboratory</span>
+      <div class="a4-watermark-text">ETU Diagnostic Laboratory</div>
+      <div class="a4-watermark-text">ETU Diagnostic Laboratory</div>
+      <div class="a4-watermark-text">ETU Diagnostic Laboratory</div>
     </div>
     ${showFooter ? `
       <header class="header">
         ${logoHeader}
-        <div>
+        <div style="display: none;">
           <h1>ETU Diagnostic Laboratory</h1>
           <p class="sub">${subTitle}</p>
         </div>
@@ -832,19 +868,24 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 
     ${mainBodyHtml}
 
-    ${(!isInternalMedicine && showFooter) ? `
+    ${!isInternalMedicine && showFooter ? `
       <section class="section">
         <h2>Authorization & Sign-off</h2>
-        <div class="signoff-grid">
+        <div class="signoff-grid" style="position: relative;">
           <div>
             <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Title: Head of ETU Diagnostic Laboratory</div>
             <b>Prepared By:</b> <strong>${preparedByName}</strong>
           </div>
           <div><b>Approved By:</b> <strong>${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
           <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
+          ${stampImgHtml}
         </div>
       </section>
-    ` : ''}
+    ` : (!isInternalMedicine && !showFooter && stampSrc ? `
+      <div class="report-stamp-standalone-container" style="display: flex; justify-content: flex-end; margin-top: 16px; margin-bottom: 8px; padding-right: 12px; position: relative; pointer-events: none; z-index: 2;">
+        <img src="${stampSrc}" alt="${stampAlt}" style="width: 114px; height: 114px; object-fit: contain; display: block;" />
+      </div>
+    ` : '')}
 
     ${showFooter ? `
       <footer class="${isInternalMedicine ? 'imed-a4-footer' : 'footer'}">
@@ -857,35 +898,42 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 </html>`;
 }
 
-export async function printLabReport(reportOrId, arg2, arg3, arg4) {
+export async function printLabReport(reportOrId, arg2, arg3, arg4, arg5) {
   let token = null;
   let user = null;
   let showFooterOverride = undefined;
+  let stampTypeOverride = undefined;
 
   if (typeof arg2 === 'string') {
     token = arg2;
     user = arg3;
     showFooterOverride = arg4;
+    stampTypeOverride = arg5;
   } else if (typeof arg2 === 'boolean') {
     showFooterOverride = arg2;
     token = getToken();
     user = getUser();
+    stampTypeOverride = typeof arg3 === 'string' ? arg3 : (typeof arg4 === 'string' ? arg4 : arg5);
   } else if (typeof arg2 === 'object' && arg2 !== null) {
     user = arg2;
     if (typeof arg3 === 'boolean') {
       showFooterOverride = arg3;
       token = getToken();
+      stampTypeOverride = arg4;
     } else if (typeof arg3 === 'string') {
       token = arg3;
       showFooterOverride = arg4;
+      stampTypeOverride = arg5;
     } else {
       token = getToken();
       showFooterOverride = arg4 !== undefined ? arg4 : (typeof arg3 === 'boolean' ? arg3 : undefined);
+      stampTypeOverride = arg5;
     }
   } else {
     token = getToken();
     user = getUser();
     showFooterOverride = arg2 !== undefined ? arg2 : (arg3 !== undefined ? arg3 : arg4);
+    stampTypeOverride = typeof arg3 === 'string' ? arg3 : (typeof arg4 === 'string' ? arg4 : arg5);
   }
 
   token ||= getToken();
@@ -893,35 +941,77 @@ export async function printLabReport(reportOrId, arg2, arg3, arg4) {
 
   const id = typeof reportOrId === 'string' ? reportOrId : reportOrId?._id;
   if (!id) throw new Error('The requested document could not be loaded.');
-  const popup = window.open('', '_blank', 'width=980,height=900');
-  if (!popup) throw new Error('Print preview was blocked. Please allow pop-ups and try again.');
-  try {
-    let reportData = typeof reportOrId === 'object' ? reportOrId : null;
-    let logoBase64 = '';
-    let referralHospitalAddress = '';
 
-    if (!reportData || !reportData.patient) {
+  let reportData = typeof reportOrId === 'object' ? reportOrId : null;
+  let logoBase64 = '';
+  let referralHospitalAddress = '';
+
+  if (!reportData || !reportData.patient) {
+    try {
+      const data = await api(`/final-reports/${id}`, { token });
+      reportData = data.report;
+      logoBase64 = data.logoBase64;
+      referralHospitalAddress = data.referralHospitalAddress;
+    } catch (e) {
+      // Fallback for Pathology or Radiology cases
       try {
-        const data = await api(`/final-reports/${id}`, { token });
-        reportData = data.report;
-        logoBase64 = data.logoBase64;
-        referralHospitalAddress = data.referralHospitalAddress;
-      } catch (e) {
-        // Fallback for Pathology or Radiology cases
-        try {
-          const pData = await api(`/pathology/cases/${id}`, { token });
-          reportData = pData.case;
-        } catch {
-          const rData = await api(`/radiology/cases/${id}`, { token });
-          reportData = rData.case;
-        }
+        const pData = await api(`/pathology/cases/${id}`, { token });
+        reportData = pData.case;
+      } catch {
+        const rData = await api(`/radiology/cases/${id}`, { token });
+        reportData = rData.case;
       }
     }
-
-    popup.document.write(reportHtml(reportData, user, logoBase64, referralHospitalAddress, showFooterOverride));
-    popup.document.close();
-  } catch (error) {
-    popup.close();
-    throw new Error(error.message || 'The requested document could not be loaded.');
   }
+
+  if (!reportData) {
+    throw new Error('The requested document could not be loaded.');
+  }
+
+  const html = reportHtml(reportData, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride);
+
+  // Dedicated A4 print iframe with clean teardown (bypasses popup blockers and triggers browser print dialog)
+  let iframe = document.getElementById('a4-lab-report-print-frame');
+  if (iframe) {
+    try {
+      iframe.remove();
+    } catch (e) {}
+  }
+
+  iframe = document.createElement('iframe');
+  iframe.id = 'a4-lab-report-print-frame';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0px';
+  iframe.style.height = '0px';
+  iframe.style.border = 'none';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  return new Promise((resolve) => {
+    let hasTriggered = false;
+    const executePrint = () => {
+      if (hasTriggered) return;
+      hasTriggered = true;
+      try {
+        const win = iframe.contentWindow;
+        if (win && !win.__hasPrinted) {
+          win.__hasPrinted = true;
+          win.focus();
+          win.print();
+        }
+      } catch (err) {
+        console.warn('Iframe print error:', err);
+      }
+      resolve();
+    };
+
+    iframe.onload = () => setTimeout(executePrint, 200);
+    setTimeout(executePrint, 600);
+  });
 }

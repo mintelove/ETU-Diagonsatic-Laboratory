@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRealtime } from '../context/RealtimeContext.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
 import { formatETB as ETB } from '../utils/currencyHelper.js';
+import { isSerumElectrolyteParameter } from '../utils/receiptDataHelper.js';
 
 const categoryIcons = {
   'HEMATOLOGY and IMMUNO HEMATOLOGY': '🩸',
@@ -115,6 +116,11 @@ export default function InvestigationPage() {
     return /^HEMATOLOGY$/i.test(catName) && /^CBC$/i.test(t.subcategory || '');
   }, []);
 
+  const isElectrolyteTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : '') || '';
+    return isSerumElectrolyteParameter(t, catName);
+  }, []);
+
   const allTests = useMemo(() => {
     return categories.flatMap(c => (c.tests || []).map(t => ({ ...t, categoryName: c.name })));
   }, [categories]);
@@ -125,21 +131,28 @@ export default function InvestigationPage() {
 
   const totalPrice = useMemo(() => {
     const cbcGroupPrice = Number(testSettings.cbcGroupPrice ?? 150);
+    const serumElectrolytePrice = Number(testSettings.serumElectrolytePrice ?? 1000);
     const cbcTests = [];
-    const nonCbcTests = [];
+    const electrolyteTests = [];
+    const nonBundleTests = [];
     selectedTests.forEach(t => {
       if (isCbcTest(t)) {
         cbcTests.push(t);
+      } else if (isElectrolyteTest(t)) {
+        electrolyteTests.push(t);
       } else {
-        nonCbcTests.push(t);
+        nonBundleTests.push(t);
       }
     });
-    let total = nonCbcTests.reduce((sum, t) => sum + (t.price || 0), 0);
+    let total = nonBundleTests.reduce((sum, t) => sum + (t.price || 0), 0);
     if (cbcTests.length > 0) {
       total += cbcGroupPrice;
     }
+    if (electrolyteTests.length > 0) {
+      total += serumElectrolytePrice;
+    }
     return total;
-  }, [selectedTests, testSettings, isCbcTest]);
+  }, [selectedTests, testSettings, isCbcTest, isElectrolyteTest]);
 
   const visibleCategories = useMemo(() => {
     return categories.map(cat => ({
@@ -161,8 +174,25 @@ export default function InvestigationPage() {
     setShowConfirmationModal(false);
   };
 
+  const handleToggleElectrolyteGroup = (subTests) => {
+    const subTestIds = subTests.map(t => String(t._id || t.id || t));
+    const allSelected = subTestIds.length > 0 && subTestIds.every(id => selectedTestIds.includes(id));
+    if (allSelected) {
+      setSelectedTestIds(prev => prev.filter(id => !subTestIds.includes(id)));
+    } else {
+      setSelectedTestIds(prev => [...new Set([...prev, ...subTestIds])]);
+    }
+  };
+
   const handleToggleTest = (id) => {
     const idStr = String(id);
+    const testObj = allTests.find(t => String(t._id || t.id) === idStr);
+    const catName = testObj?.categoryName || (typeof testObj?.category === 'object' ? testObj?.category?.name : '') || '';
+    if (testObj && isSerumElectrolyteParameter(testObj, catName) && (testObj.isBundle || /^Serum Electrolyte/i.test(testObj.name))) {
+      const electrolyteTests = allTests.filter(t => isSerumElectrolyteParameter(t, t.categoryName || (typeof t.category === 'object' ? t.category?.name : '') || ''));
+      handleToggleElectrolyteGroup(electrolyteTests);
+      return;
+    }
     setSelectedTestIds(prev =>
       prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
     );
@@ -490,31 +520,75 @@ export default function InvestigationPage() {
                         <div className="investigation-test-grid-container" style={{ padding: '12px' }}>
                           {(() => {
                             const tests = cat.tests || [];
+                            const isElectrolyteCat = /^SERUM ELECTROLYTE$/i.test(cat.name) || /ELECTROLYTE/i.test(cat.name);
                             const hasSubcats = tests.some(t => t.subcategory);
                             if (!hasSubcats) {
+                              const allElectrolyteSelected = isElectrolyteCat && tests.length > 0 && tests.every(t => selectedTestIds.includes(String(t._id || t.id || t)));
                               return (
-                                <div className="investigation-test-grid">
-                                  {tests.map(test => {
-                                    const isSelected = selectedTestIds.includes(String(test._id || test));
-                                    const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
-                                    return (
-                                      <div
-                                        key={test._id}
-                                        className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
-                                        onClick={() => handleToggleTest(test._id)}
-                                      >
-                                        <div className="investigation-test-head">
-                                          <span className="investigation-test-name">{test.name}</span>
-                                          <div className="investigation-check-badge">{isSelected ? '✓' : ''}</div>
+                                <>
+                                  {isElectrolyteCat && (
+                                    <div
+                                      className={`investigation-test-card ${allElectrolyteSelected ? 'selected' : ''}`}
+                                      style={{
+                                        marginBottom: '12px',
+                                        padding: '14px 16px',
+                                        border: allElectrolyteSelected ? '2px solid #16a34a' : '2px dashed #16a34a',
+                                        background: allElectrolyteSelected ? '#dcfce7' : '#f0fdf4',
+                                        borderRadius: '10px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        cursor: 'pointer',
+                                        boxShadow: allElectrolyteSelected ? '0 2px 8px rgba(22, 101, 52, 0.15)' : 'none'
+                                      }}
+                                      onClick={() => handleToggleElectrolyteGroup(tests)}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div className="investigation-check-badge" style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', background: allElectrolyteSelected ? '#16a34a' : '#ffffff', border: '2px solid #16a34a', color: allElectrolyteSelected ? '#ffffff' : 'transparent', fontWeight: 800 }}>
+                                          ✓
                                         </div>
-                                        <div className="investigation-test-footer">
-                                          <span className="investigation-sample-pill">{sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}</span>
-                                          <span className="investigation-test-price">{ETB(test.price)}</span>
+                                        <div>
+                                          <strong style={{ fontSize: '1rem', color: '#166534', display: 'block' }}>
+                                            ⚡ Serum Electrolyte (Complete Bundle)
+                                          </strong>
+                                          <small style={{ color: '#15803d', fontSize: '0.8rem', display: 'block', marginTop: '2px' }}>
+                                            Single fixed price · Automatically includes all {tests.length} electrolyte sub-tests
+                                          </small>
                                         </div>
                                       </div>
-                                    );
-                                  })}
-                                </div>
+                                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#166534' }}>
+                                        {ETB(testSettings.serumElectrolytePrice ?? 1000)}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="investigation-test-grid">
+                                    {tests.map(test => {
+                                      const isSelected = selectedTestIds.includes(String(test._id || test));
+                                      const sampleName = (test.requiredSampleTypes || []).map(s => s.name || s).join(', ');
+                                      const isParentBundle = test.isBundle || /^Serum Electrolyte/i.test(test.name);
+                                      return (
+                                        <div
+                                          key={test._id}
+                                          className={`investigation-test-card ${isSelected ? 'selected' : ''}`}
+                                          onClick={() => handleToggleTest(test._id)}
+                                        >
+                                          <div className="investigation-test-head">
+                                            <span className="investigation-test-name">{test.name}</span>
+                                            <div className="investigation-check-badge">{isSelected ? '✓' : ''}</div>
+                                          </div>
+                                          <div className="investigation-test-footer">
+                                            <span className="investigation-sample-pill">{sampleName ? `🩸 ${sampleName}` : '🧪 Specimen'}</span>
+                                            <span className="investigation-test-price">
+                                              {isElectrolyteCat
+                                                ? (isParentBundle ? ETB(testSettings.serumElectrolytePrice ?? 1000) : <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 600 }}>Included</span>)
+                                                : ETB(test.price)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </>
                               );
                             }
 

@@ -19,10 +19,29 @@
  * @param {number|null|undefined} [urineMicroPrice] - Admin-configured Urine Microscopy bundle price
  * @returns {number} subtotal
  */
-export function calculateSubtotalWithCbcGroup(tests, cbcGroupPriceOrSettings, urineChemPrice, urineMicroPrice) {
+export function isSerumElectrolyteTest(t, categoryName = '') {
+  if (!t) return false;
+  const cat = (categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || t.categoryName || '').trim().toUpperCase();
+  if (cat === 'OTHER TESTS' || cat === 'REFERRAL') return false;
+  const sub = (t.subcategory || '').trim().toUpperCase();
+  const name = (t.name || '').trim().toUpperCase();
+  return (
+    cat === 'SERUM ELECTROLYTE' ||
+    /^SERUM ELECTROLYTE$/i.test(cat) ||
+    /^ELECTROLYTE/i.test(cat) ||
+    sub === 'SERUM ELECTROLYTE' ||
+    sub === 'ELECTROLYTE' ||
+    t.parentBundle === 'Serum Electrolyte' ||
+    /^SERUM ELECTROLYTE/i.test(name) ||
+    name.includes('(K-LYTE')
+  );
+}
+
+export function calculateSubtotalWithCbcGroup(tests, cbcGroupPriceOrSettings, urineChemPrice, urineMicroPrice, serumElecPrice) {
   let fixedCbcPrice = 150;
   let fixedChemPrice = 300;
   let fixedMicroPrice = 300;
+  let fixedElectrolytePrice = 1000;
 
   if (cbcGroupPriceOrSettings && typeof cbcGroupPriceOrSettings === 'object') {
     if (cbcGroupPriceOrSettings.cbcGroupPrice !== undefined && Number(cbcGroupPriceOrSettings.cbcGroupPrice) >= 0) {
@@ -34,6 +53,9 @@ export function calculateSubtotalWithCbcGroup(tests, cbcGroupPriceOrSettings, ur
     if (cbcGroupPriceOrSettings.urineMicroscopyPrice !== undefined && Number(cbcGroupPriceOrSettings.urineMicroscopyPrice) >= 0) {
       fixedMicroPrice = Number(cbcGroupPriceOrSettings.urineMicroscopyPrice);
     }
+    if (cbcGroupPriceOrSettings.serumElectrolytePrice !== undefined && Number(cbcGroupPriceOrSettings.serumElectrolytePrice) >= 0) {
+      fixedElectrolytePrice = Number(cbcGroupPriceOrSettings.serumElectrolytePrice);
+    }
   } else {
     if (cbcGroupPriceOrSettings !== undefined && Number(cbcGroupPriceOrSettings) >= 0) {
       fixedCbcPrice = Number(cbcGroupPriceOrSettings);
@@ -44,12 +66,16 @@ export function calculateSubtotalWithCbcGroup(tests, cbcGroupPriceOrSettings, ur
     if (urineMicroPrice !== undefined && Number(urineMicroPrice) >= 0) {
       fixedMicroPrice = Number(urineMicroPrice);
     }
+    if (serumElecPrice !== undefined && Number(serumElecPrice) >= 0) {
+      fixedElectrolytePrice = Number(serumElecPrice);
+    }
   }
 
   const cbcTests = [];
   const chemTests = [];
   const microTests = [];
   const hcgTests = [];
+  const electrolyteTests = [];
   const otherTests = [];
 
   const URINE_MICRO_PARAMS = [
@@ -69,8 +95,12 @@ export function calculateSubtotalWithCbcGroup(tests, cbcGroupPriceOrSettings, ur
     const name = (t.name || '').trim().toUpperCase();
     const isUrinalysisCat = catName === 'URINALYSIS' || /^URIN/i.test(catName) || t.parentBundle === 'Urine Microscopy' || t.parentBundle === 'Chemical Analysis';
 
+    // Serum Electrolyte Check (single fixed 1,000 ETB bundle)
+    if (isSerumElectrolyteTest(t, catName)) {
+      electrolyteTests.push(t);
+    }
     // CBC Check (Complete Blood Count in HEMATOLOGY)
-    if (!isUrinalysisCat && t.parentBundle !== 'Urine Microscopy' && t.parentBundle !== 'Chemical Analysis' && (catName === 'HEMATOLOGY' || /^HEMATO/i.test(catName) || subcat === 'CBC') && (subcat === 'CBC' || /CBC/i.test(name) || t.parentBundle === 'CBC')) {
+    else if (!isUrinalysisCat && t.parentBundle !== 'Urine Microscopy' && t.parentBundle !== 'Chemical Analysis' && (catName === 'HEMATOLOGY' || /^HEMATO/i.test(catName) || subcat === 'CBC') && (subcat === 'CBC' || /CBC/i.test(name) || t.parentBundle === 'CBC')) {
       cbcTests.push(t);
     }
     // HCG / Pregnancy Test (standalone, always separate)
@@ -110,6 +140,9 @@ export function calculateSubtotalWithCbcGroup(tests, cbcGroupPriceOrSettings, ur
     const p = Number(t.price ?? 0);
     return sum + (isNaN(p) ? 0 : p);
   }, 0);
+
+  // Serum Electrolyte: single fixed bundle price
+  if (electrolyteTests.length > 0) subtotal += fixedElectrolytePrice;
 
   // CBC: single fixed group price
   if (cbcTests.length > 0) subtotal += fixedCbcPrice;

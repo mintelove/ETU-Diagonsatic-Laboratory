@@ -7,6 +7,8 @@ import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 
 import labLogo from '../assets/etu.jpg';
+import labStampImg from '../assets/etu_lab.png';
+import clinicStampImg from '../assets/etu_cli.png';
 
 export function formatMedDate(val) {
   if (!val) return '—';
@@ -82,8 +84,10 @@ export function getReportTestTypes(report) {
   };
 }
 
-export function ReportPreview({ report, showFooter = true }) {
+export function ReportPreview({ report, showFooter = true, stampType: stampTypeProp }) {
   if (!report) return null;
+  const activeStamp = stampTypeProp !== undefined ? stampTypeProp : report?.stampType;
+  const stampSrc = activeStamp === 'lab' ? labStampImg : (activeStamp === 'clinic' ? clinicStampImg : null);
   const { token: authToken, user } = useAuth();
   const p = (report.patient && typeof report.patient === 'object') ? report.patient : report;
   const isApproved = ['Approved', 'Ready for Printing'].includes(report.status);
@@ -129,15 +133,17 @@ export function ReportPreview({ report, showFooter = true }) {
     <article
       className={`lab-report-preview a4-document-page ${!showFooter ? 'preprinted-paper' : ''}`}
       style={{
-        paddingTop: showFooter ? '12mm' : '42mm',
+        paddingTop: showFooter ? '0mm' : '42mm',
         paddingBottom: showFooter ? '14mm' : '22mm',
         paddingLeft: '14mm',
         paddingRight: '14mm'
       }}
     >
-      {/* ── Official Diagonal Watermark Overlay ───────────────────────── */}
+      {/* ── Official Repeated Diagonal Watermark Overlay ───────────────── */}
       <div className="report-watermark-overlay" aria-hidden="true">
-        <span className="report-watermark-text">ETU Diagnostic Laboratory</span>
+        <div className="report-watermark-row">ETU Diagnostic Laboratory</div>
+        <div className="report-watermark-row">ETU Diagnostic Laboratory</div>
+        <div className="report-watermark-row">ETU Diagnostic Laboratory</div>
       </div>
 
       {/* ── Public Share Link Banner (Screen Only, Hidden in Print) ────── */}
@@ -172,13 +178,13 @@ export function ReportPreview({ report, showFooter = true }) {
       {showFooter && (
         <header className="report-preview-header a4-header">
           <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" className="report-preview-logo logo-img" />
-          <h1 className="report-preview-title">ETU Diagnostic Laboratory</h1>
-          <p className="report-preview-subtitle sub">{reportSubTitle}</p>
+          <h1 className="report-preview-title" style={{ display: 'none' }}>ETU Diagnostic Laboratory</h1>
+          <p className="report-preview-subtitle sub" style={{ display: 'none' }}>{reportSubTitle}</p>
         </header>
       )}
 
       {/* ── Patient & Examination Information ─────────────────────────── */}
-      <section className="report-preview-section a4-section" style={{ marginTop: isInternalMedicine ? '6px' : (showFooter ? '10px' : '0px') }}>
+      <section className="report-preview-section a4-section" style={{ marginTop: isInternalMedicine ? '6px' : (showFooter ? '8px' : '0px') }}>
         <h2 className="report-preview-section-title">
           {isInternalMedicine ? 'Basic Information' : 'Patient Information'}
         </h2>
@@ -371,10 +377,30 @@ export function ReportPreview({ report, showFooter = true }) {
                   <p className="imed-a4-decl-text">
                     "{decl.declarationText || 'I hereby declare that all information provided above is true.'}"
                   </p>
-                  <div className="imed-a4-decl-grid">
+                  <div className="imed-a4-decl-grid" style={{ position: 'relative' }}>
                     <div><b>Doctor Name:</b> <strong>{decl.doctorName || approvedByName || preparedByName}</strong></div>
                     <div><b>Signature:</b> <span style={{ display: 'inline-block', minWidth: '90px', borderBottom: '1px solid currentColor' }}>&nbsp;</span></div>
                     <div><b>Date:</b> <span>{decl.signatureDate ? new Date(decl.signatureDate).toLocaleDateString() : new Date().toLocaleDateString()}</span></div>
+                    {stampSrc && (
+                      <div className="report-stamp-container" style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '-18px',
+                        pointerEvents: 'none',
+                        zIndex: 2
+                      }}>
+                        <img
+                          src={stampSrc}
+                          alt={activeStamp === 'clinic' ? 'ETU Clinic Stamp' : 'ETU Lab Stamp'}
+                          style={{
+                            width: '108px',
+                            height: '108px',
+                            objectFit: 'contain',
+                            display: 'block'
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -614,9 +640,9 @@ export function ReportPreview({ report, showFooter = true }) {
 
       {/* ── Authorization & Sign-off Section (Standard Lab / Pathology / Radiology) ─────────────────────────── */}
       {!isInternalMedicine && showFooter && (
-        <section className="report-preview-section a4-section">
+        <section className="report-preview-section a4-section" style={{ position: 'relative' }}>
           <h2 className="report-preview-section-title">Authorization &amp; Sign-off</h2>
-          <div className="report-preview-signoff-grid a4-signoff-grid">
+          <div className="report-preview-signoff-grid a4-signoff-grid" style={{ position: 'relative' }}>
             <div>
               <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Title: Head of ETU Diagnostic Laboratory</div>
               <b>Prepared By:</b>
@@ -631,8 +657,53 @@ export function ReportPreview({ report, showFooter = true }) {
               <b>Approval Date:</b>
               <strong>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</strong>
             </div>
+            {stampSrc && (
+              <div className="report-stamp-container" style={{
+                position: 'absolute',
+                right: '8px',
+                top: '-18px',
+                pointerEvents: 'none',
+                zIndex: 2
+              }}>
+                <img
+                  src={stampSrc}
+                  alt={activeStamp === 'clinic' ? "ETU Clinic Stamp" : "ETU Lab Stamp"}
+                  style={{
+                    width: '114px',
+                    height: '114px',
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
+                />
+              </div>
+            )}
           </div>
         </section>
+      )}
+
+      {/* Standalone Stamp when Authorization & Sign-off is hidden for pre-printed letterhead */}
+      {!isInternalMedicine && !showFooter && stampSrc && (
+        <div className="report-stamp-standalone-container" style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginTop: '16px',
+          marginBottom: '8px',
+          paddingRight: '12px',
+          position: 'relative',
+          pointerEvents: 'none',
+          zIndex: 2
+        }}>
+          <img
+            src={stampSrc}
+            alt={activeStamp === 'clinic' ? "ETU Clinic Stamp" : "ETU Lab Stamp"}
+            style={{
+              width: '114px',
+              height: '114px',
+              objectFit: 'contain',
+              display: 'block'
+            }}
+          />
+        </div>
       )}
 
       {/* Remarks (Non-Internal Medicine only) */}

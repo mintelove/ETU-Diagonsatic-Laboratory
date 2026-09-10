@@ -293,17 +293,19 @@ export default function LaboratoryTestsPage() {
     const isEditingCbc = /^CBC$/i.test(editingTest?.subcategory || '') && /^HEMATOLOGY$/i.test(catName);
     const isEditingMicroChild = isUrinalysis && (/^Urine Microscopy$/i.test(editingTest?.subcategory || '') || /^Microscopy$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Urine Microscopy' && !editingTest?.isBundle;
     const isEditingChemChild = isUrinalysis && (/^Chemical Analysis$/i.test(editingTest?.subcategory || '') || /^Chemical$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Chemical Analysis' && !editingTest?.isBundle && !/HCG|PREGNANCY/i.test(editingTest?.name || '');
+    const isElectrolyte = /^SERUM ELECTROLYTE$/i.test(catName) || /ELECTROLYTE/i.test(catName) || /ELECTROLYTE/i.test(editingTest?.category?.name || '');
+    const isEditingElectrolyteChild = isElectrolyte && !editingTest?.isBundle && !/^Serum Electrolyte/i.test(editingTest?.name || '');
 
-    const isNonBillableChild = editingTest?.includedInBundle || editingTest?.billableIndividually === false || isEditingCbc || isEditingMicroChild || isEditingChemChild;
+    const isNonBillableChild = editingTest?.includedInBundle || editingTest?.billableIndividually === false || isEditingCbc || isEditingMicroChild || isEditingChemChild || isEditingElectrolyteChild;
     const price = isNonBillableChild ? 0 : Number(editForm.price);
     if (!editForm.name.trim() || (!isNonBillableChild && (!Number.isFinite(price) || price < 0))) return setMessage('Enter a test name and a valid price.');
     const changes = {
       name: editForm.name.trim(),
       price,
-      isBundle: Boolean(editingTest?.isBundle),
+      isBundle: Boolean(editingTest?.isBundle || (isElectrolyte && /^Serum Electrolyte/i.test(editForm.name))),
       billableIndividually: !isNonBillableChild,
       includedInBundle: isNonBillableChild,
-      parentBundle: isEditingCbc ? 'CBC' : isEditingMicroChild ? 'Urine Microscopy' : isEditingChemChild ? 'Chemical Analysis' : (editingTest?.parentBundle || ''),
+      parentBundle: isEditingCbc ? 'CBC' : isEditingMicroChild ? 'Urine Microscopy' : isEditingChemChild ? 'Chemical Analysis' : isEditingElectrolyteChild ? 'Serum Electrolyte' : (editingTest?.parentBundle || ''),
       description: editForm.description,
       status: editForm.status,
       category: editForm.categoryId,
@@ -549,6 +551,43 @@ export default function LaboratoryTestsPage() {
                     </div>
                   </section>
 
+                  {(/^SERUM ELECTROLYTE$/i.test(selected?.name || '') || /ELECTROLYTE/i.test(selected?.name || '')) && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', background: '#f0fdf4', padding: '10px 16px', borderRadius: '10px', border: '1px solid #86efac', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>⚡</span>
+                        <div>
+                          <strong style={{ fontSize: '0.92rem', color: '#166534' }}>Serum Electrolyte Complete Bundle</strong>
+                          <p style={{ margin: 0, fontSize: '0.78rem', color: '#15803d' }}>All 9 electrolyte subcategories behave as ONE fixed-price bundle (1,000 ETB), identical to CBC.</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#166534' }}>Fixed Bundle Price:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          disabled={isSubAdmin}
+                          readOnly={isSubAdmin}
+                          style={{ width: '85px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #16a34a', fontSize: '0.88rem', fontWeight: 700, background: isSubAdmin ? '#f1f5f9' : '#ffffff', textAlign: 'right' }}
+                          value={data.settings?.serumElectrolytePrice ?? 1000}
+                          onChange={e => setData({ ...data, settings: { ...data.settings, serumElectrolytePrice: Math.max(0, Number(e.target.value) || 0) } })}
+                          aria-label="Serum Electrolyte Bundle Price"
+                        />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#166534' }}>ETB</span>
+                        <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>Fixed Bundle</span>
+                        {!isSubAdmin && (
+                          <button
+                            type="button"
+                            className="primary"
+                            style={{ padding: '4px 12px', fontSize: '0.8rem', height: '28px', minHeight: 'unset', background: '#16a34a', borderColor: '#16a34a' }}
+                            onClick={saveSettings}
+                          >
+                            Save Price
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="lab-test-table" role="region" aria-label="Laboratory tests">
                     <div className="lab-test-head"><span>Laboratory test</span><span>Price</span><span>Details</span><span>Status</span><span>Actions</span></div>
                     {(() => {
@@ -556,13 +595,37 @@ export default function LaboratoryTestsPage() {
                       if (!hasSubcats) {
                         return matches.map(test => {
                           const isCbc = /^CBC$/i.test(test.subcategory || '') && /^HEMATOLOGY$/i.test(selected?.name || '');
+                          const isElectrolyteCategory = /^SERUM ELECTROLYTE$/i.test(selected?.name || '') || /ELECTROLYTE/i.test(test.category?.name || '') || /ELECTROLYTE/i.test(selected?.name || '');
+                          const isElectrolyteParent = isElectrolyteCategory && (test.isBundle || /^Serum Electrolyte/i.test(test.name));
+                          const isElectrolyteChild = isElectrolyteCategory && !isElectrolyteParent;
+
                           return (
                             <article className="lab-test-row" key={test._id}>
-                              <div className="lab-test-name"><i>🧪</i><span><label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label><input id={`test-name-${test._id}`} value={test.name} readOnly disabled /><label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label><input id={`test-description-${test._id}`} value={test.description || 'Routine laboratory investigation'} readOnly disabled /></span></div>
+                              <div className="lab-test-name">
+                                <i>{isElectrolyteParent ? '⚡' : '🧪'}</i>
+                                <span>
+                                  <label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label>
+                                  <input id={`test-name-${test._id}`} value={test.name} readOnly disabled style={isElectrolyteParent ? { fontWeight: 700, color: '#166534' } : {}} />
+                                  <label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label>
+                                  <input id={`test-description-${test._id}`} value={test.description || (isElectrolyteParent ? 'Complete fixed examination bundle (9 subcategories)' : isElectrolyteChild ? 'Included parameter (non-billable individually)' : 'Routine laboratory investigation')} readOnly disabled />
+                                </span>
+                              </div>
                               <div className="lab-inline-price">
                                 {isCbc ? (
                                   <span style={{ fontSize: '0.78rem', color: '#0369a1', background: '#e0f2fe', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                     Included in CBC
+                                  </span>
+                                ) : isElectrolyteParent ? (
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                    <label><span className="sr-only">Bundle Price for {test.name}</span><input type="number" value={test.price || data.settings?.serumElectrolytePrice || 1000} readOnly disabled style={{ fontWeight: 800, color: '#166534', width: '70px' }} /></label>
+                                    <b>ETB</b>
+                                    <span style={{ fontSize: '0.72rem', color: '#166534', background: '#dcfce7', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                      Fixed Bundle (Billable)
+                                    </span>
+                                  </div>
+                                ) : isElectrolyteChild ? (
+                                  <span style={{ fontSize: '0.78rem', color: '#166534', background: '#dcfce7', padding: '4px 10px', borderRadius: '6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                    Included in Serum Electrolyte · Non-billable
                                   </span>
                                 ) : (
                                   <><label><span className="sr-only">Price for {test.name}</span><input type="number" value={test.price} readOnly disabled /></label><b>ETB</b></>
@@ -597,6 +660,7 @@ export default function LaboratoryTestsPage() {
                         const isCbcGroup = subName.toUpperCase() === 'CBC' && /^HEMATOLOGY$/i.test(selected?.name || '');
                         const isMicroGroup = isUrinalysis && (/^Urine Microscopy$/i.test(subName) || /^Microscopy$/i.test(subName));
                         const isChemGroup = isUrinalysis && (/^Chemical Analysis$/i.test(subName) || /^Chemical$/i.test(subName));
+                        const isElectrolyteGroup = (/^SERUM ELECTROLYTE$/i.test(selected?.name || '') || /ELECTROLYTE/i.test(selected?.name || '') || /ELECTROLYTE/i.test(subName));
 
                         return (
                           <div key={subName} style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
@@ -686,10 +750,41 @@ export default function LaboratoryTestsPage() {
                                   )}
                                 </div>
                               )}
+                              {isElectrolyteGroup && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f0fdf4', padding: '5px 12px', borderRadius: '8px', border: '1px solid #86efac' }}>
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#166534' }}>⚡ Serum Electrolyte Fixed Bundle Price:</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    disabled={isSubAdmin}
+                                    readOnly={isSubAdmin}
+                                    style={{ width: '85px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #16a34a', fontSize: '0.88rem', fontWeight: 700, background: isSubAdmin ? '#f1f5f9' : '#ffffff', textAlign: 'right' }}
+                                    value={data.settings?.serumElectrolytePrice ?? 1000}
+                                    onChange={e => setData({ ...data, settings: { ...data.settings, serumElectrolytePrice: Math.max(0, Number(e.target.value) || 0) } })}
+                                    aria-label="Serum Electrolyte Bundle Price"
+                                  />
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#166534' }}>ETB</span>
+                                  <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>Fixed Bundle</span>
+                                  {!isSubAdmin && (
+                                    <button
+                                      type="button"
+                                      className="primary"
+                                      style={{ padding: '4px 12px', fontSize: '0.8rem', height: '28px', minHeight: 'unset', background: '#16a34a', borderColor: '#16a34a' }}
+                                      onClick={saveSettings}
+                                    >
+                                      Save Price
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div>
                               {tests.map(test => {
                                 const isCbcChild = isCbcGroup || (/^CBC$/i.test(test.subcategory || '') && /^HEMATOLOGY$/i.test(selected?.name || ''));
+                                const isElectrolyteCategory = isElectrolyteGroup || /^SERUM ELECTROLYTE$/i.test(selected?.name || '') || /ELECTROLYTE/i.test(test.category?.name || '');
+                                const isElectrolyteBundleParent = isElectrolyteCategory && (test.isBundle || /^Serum Electrolyte/i.test(test.name));
+                                const isElectrolyteChild = isElectrolyteCategory && !isElectrolyteBundleParent;
+
                                 const isMicroBundleParent = test.isBundle || test.name === 'Urine Microscopy';
                                 const isChemBundleParent = test.isBundle || test.name === 'Chemical Analysis';
                                 const isHcg = /HCG/i.test(test.name) || /PREGNANCY/i.test(test.name);
@@ -697,16 +792,16 @@ export default function LaboratoryTestsPage() {
                                 const isMicroChild = isMicroGroup && !isMicroBundleParent;
                                 const isChemChild = isChemGroup && !isChemBundleParent && !isHcg;
 
-                                const isBundleParent = isMicroBundleParent || isChemBundleParent;
-                                const isIncludedChild = test.includedInBundle || test.billableIndividually === false || isCbcChild || isMicroChild || isChemChild;
+                                const isBundleParent = isMicroBundleParent || isChemBundleParent || isElectrolyteBundleParent;
+                                const isIncludedChild = test.includedInBundle || test.billableIndividually === false || isCbcChild || isMicroChild || isChemChild || isElectrolyteChild;
 
                                 return (
                                   <article className="lab-test-row" key={test._id}>
                                     <div className="lab-test-name">
-                                      <i>{isBundleParent ? '📦' : '🧪'}</i>
+                                      <i>{isElectrolyteBundleParent ? '⚡' : isBundleParent ? '📦' : '🧪'}</i>
                                       <span>
                                         <label className="sr-only" htmlFor={`test-name-${test._id}`}>Test name</label>
-                                        <input id={`test-name-${test._id}`} value={test.name} readOnly disabled style={isBundleParent ? { fontWeight: 700, color: '#0f766e' } : {}} />
+                                        <input id={`test-name-${test._id}`} value={test.name} readOnly disabled style={isElectrolyteBundleParent ? { fontWeight: 700, color: '#166534' } : isBundleParent ? { fontWeight: 700, color: '#0f766e' } : {}} />
                                         <label className="sr-only" htmlFor={`test-description-${test._id}`}>Description</label>
                                         <input id={`test-description-${test._id}`} value={test.description || (isBundleParent ? 'Complete fixed examination bundle' : isIncludedChild ? 'Included parameter (non-billable individually)' : 'Routine laboratory investigation')} readOnly disabled />
                                       </span>
@@ -714,15 +809,15 @@ export default function LaboratoryTestsPage() {
                                     <div className="lab-inline-price">
                                       {isBundleParent ? (
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                          <label><span className="sr-only">Bundle Price for {test.name}</span><input type="number" value={test.price} readOnly disabled style={{ fontWeight: 800, color: '#0f766e', width: '70px' }} /></label>
+                                          <label><span className="sr-only">Bundle Price for {test.name}</span><input type="number" value={test.price || (isElectrolyteBundleParent ? (data.settings?.serumElectrolytePrice ?? 1000) : test.price)} readOnly disabled style={{ fontWeight: 800, color: isElectrolyteBundleParent ? '#166534' : '#0f766e', width: '70px' }} /></label>
                                           <b>ETB</b>
-                                          <span style={{ fontSize: '0.72rem', color: '#047857', background: '#d1fae5', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                          <span style={{ fontSize: '0.72rem', color: isElectrolyteBundleParent ? '#166534' : '#047857', background: isElectrolyteBundleParent ? '#dcfce7' : '#d1fae5', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                             Fixed Bundle (Billable)
                                           </span>
                                         </div>
                                       ) : isIncludedChild ? (
-                                        <span style={{ fontSize: '0.78rem', color: isCbcChild ? '#0369a1' : '#0f766e', background: isCbcChild ? '#e0f2fe' : '#ccfbf1', padding: '4px 10px', borderRadius: '6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                          {isCbcChild ? 'Included in CBC · Non-billable' : isMicroChild ? 'Included in Urine Microscopy · Non-billable' : 'Included in Chemical Analysis · Non-billable'}
+                                        <span style={{ fontSize: '0.78rem', color: isCbcChild ? '#0369a1' : isElectrolyteChild ? '#166534' : '#0f766e', background: isCbcChild ? '#e0f2fe' : isElectrolyteChild ? '#dcfce7' : '#ccfbf1', padding: '4px 10px', borderRadius: '6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                          {isCbcChild ? 'Included in CBC · Non-billable' : isElectrolyteChild ? 'Included in Serum Electrolyte · Non-billable' : isMicroChild ? 'Included in Urine Microscopy · Non-billable' : 'Included in Chemical Analysis · Non-billable'}
                                         </span>
                                       ) : (
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -1577,6 +1672,8 @@ export default function LaboratoryTestsPage() {
         const isEditingCbc = /^CBC$/i.test(editingTest?.subcategory || '') && /^HEMATOLOGY$/i.test(catName);
         const isEditingMicroChild = isUrinalysis && (/^Urine Microscopy$/i.test(editingTest?.subcategory || '') || /^Microscopy$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Urine Microscopy' && !editingTest?.isBundle;
         const isEditingChemChild = isUrinalysis && (/^Chemical Analysis$/i.test(editingTest?.subcategory || '') || /^Chemical$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Chemical Analysis' && !editingTest?.isBundle && !/HCG|PREGNANCY/i.test(editingTest?.name || '');
+        const isElectrolyte = /^SERUM ELECTROLYTE$/i.test(catName) || /ELECTROLYTE/i.test(catName) || /ELECTROLYTE/i.test(editingTest?.category?.name || '');
+        const isEditingElectrolyteChild = isElectrolyte && !editingTest?.isBundle && !/^Serum Electrolyte/i.test(editingTest?.name || '');
         return (
           <div className="lab-drawer-backdrop" role="presentation" onClick={closeEdit}>
             <form className="lab-edit-drawer" aria-label="Edit laboratory test" onClick={event => event.stopPropagation()} onSubmit={saveEdit}>
@@ -1609,6 +1706,13 @@ export default function LaboratoryTestsPage() {
                     <strong style={{ fontSize: '0.85rem', color: '#0f766e', display: 'block' }}>🧪 Chemical Analysis Sub-test Parameter</strong>
                     <span style={{ fontSize: '0.8rem', color: '#0f766e' }}>
                       Individual price setting is disabled. This parameter is included in the Chemical Analysis Fixed Bundle ({data.settings?.urineChemicalPrice ?? 300} ETB) and is non-billable individually.
+                    </span>
+                  </div>
+                ) : isEditingElectrolyteChild ? (
+                  <div style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac' }}>
+                    <strong style={{ fontSize: '0.85rem', color: '#166534', display: 'block' }}>⚡ Serum Electrolyte Sub-test Parameter</strong>
+                    <span style={{ fontSize: '0.8rem', color: '#166534' }}>
+                      Individual price setting is disabled. This parameter is included in the Serum Electrolyte Fixed Bundle ({data.settings?.serumElectrolytePrice ?? 1000} ETB) and is non-billable individually.
                     </span>
                   </div>
                 ) : (

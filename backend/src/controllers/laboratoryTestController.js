@@ -358,6 +358,44 @@ export async function seedLaboratoryTests(force = false) {
       );
     }
 
+    // Explicitly enforce bundle structure and non-billable child parameters for Serum Electrolyte
+    const elecCatDoc = categoryMap.get('SERUM ELECTROLYTE') || await LaboratoryTestCategory.findOne({ name: /^SERUM ELECTROLYTE/i });
+    if (elecCatDoc) {
+      // 1. Ensure Serum Electrolyte bundle parent (1,000 ETB, isBundle: true, billable: true)
+      await LaboratoryTest.findOneAndUpdate(
+        { category: elecCatDoc._id, name: /Serum Electrolyte/i },
+        {
+          $set: {
+            category: elecCatDoc._id,
+            price: 1000,
+            isBundle: true,
+            billableIndividually: true,
+            includedInBundle: false,
+            parentBundle: '',
+            status: 'Active',
+            description: 'Serum Electrolyte complete examination bundle (1,000 ETB fixed price)'
+          }
+        }
+      );
+
+      // 2. Mark all child parameters of Serum Electrolyte as non-billable (price: 0, billableIndividually: false, includedInBundle: true)
+      await LaboratoryTest.updateMany(
+        {
+          category: elecCatDoc._id,
+          name: { $not: /Serum Electrolyte/i }
+        },
+        {
+          $set: {
+            price: 0,
+            isBundle: false,
+            billableIndividually: false,
+            includedInBundle: true,
+            parentBundle: 'Serum Electrolyte'
+          }
+        }
+      );
+    }
+
     await seedReferralTests();
     await seedDepartmentCatalogs();
 
@@ -432,6 +470,15 @@ export async function updateSettings(req,res,next){
       const urineCat = await LaboratoryTestCategory.findOne({ name: /^URIN/i });
       if (urineCat) {
         await LaboratoryTest.updateMany({ category: urineCat._id, name: 'Chemical Analysis', isBundle: true }, { $set: { price: Number(req.body.urineChemicalPrice) } });
+      }
+    }
+    if (req.body.serumElectrolytePrice !== undefined) {
+      const elecCat = await LaboratoryTestCategory.findOne({ name: /^SERUM ELECTROLYTE/i });
+      if (elecCat) {
+        await LaboratoryTest.updateMany(
+          { category: elecCat._id, $or: [{ isBundle: true }, { name: /^Serum Electrolyte/i }] },
+          { $set: { price: Number(req.body.serumElectrolytePrice) } }
+        );
       }
     }
     emit('laboratory-tests:change',{});
