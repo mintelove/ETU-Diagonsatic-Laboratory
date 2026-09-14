@@ -16,6 +16,7 @@ import Notification from '../models/Notification.js';
 import Patient from '../models/Patient.js';
 import SampleType from '../models/SampleType.js';
 import LabReport from '../models/LabReport.js';
+import Expense from '../models/Expense.js';
 import { stockLevel } from '../constants/stock.js';
 
 /* ── Helper: build date boundaries ──────────────────── */
@@ -128,6 +129,60 @@ export async function dashboard(req, res, next) {
       ]);
     }
 
+    // ─── Daily Expenses aggregation (Admin + Receptionist) ─
+    const dailyExpenseMatch = {
+      status: 'Active',
+      date: { $gte: todayStart },
+      ...branchMatch
+    };
+    const dailyExpensesAgg = await Expense.aggregate([
+      { $match: dailyExpenseMatch },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'recordedBy',
+          foreignField: '_id',
+          as: 'recorder'
+        }
+      },
+      {
+        $project: {
+          amount: 1,
+          type: 1,
+          category: 1,
+          role: {
+            $cond: [
+              {
+                $or: [
+                  { $eq: ['$type', 'STOCK_PURCHASE'] },
+                  { $eq: ['$category', 'Stock purchased expenses'] }
+                ]
+              },
+              'Admin',
+              { $ifNull: [{ $arrayElemAt: ['$recorder.role', 0] }, 'Admin'] }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$role',
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+
+    let dailyReceptionistExpenses = 0;
+    let dailyAdminExpenses = 0;
+    dailyExpensesAgg.forEach((item) => {
+      if (item._id === 'Reception') {
+        dailyReceptionistExpenses += item.total;
+      } else {
+        dailyAdminExpenses += item.total;
+      }
+    });
+    const dailyTotalExpenses = dailyReceptionistExpenses + dailyAdminExpenses;
+
     // ─── Patient counts ───────────────────────────────
     const [todayPatients, referralPatients, totalPatients] = await Promise.all([
       Patient.countDocuments({ registrationDate: isSubAdmin ? { $gte: todayStart } : (customDateMatch || { $gte: todayStart }), ...branchMatch }),
@@ -144,7 +199,7 @@ export async function dashboard(req, res, next) {
 
     // ─── Report stats ─────────────────────────────────
     const [pendingReports, approvedReports, rejectedReports] = await Promise.all([
-      LabReport.countDocuments({ status: { $in: ['Draft', 'Submitted', 'Pending'] }, ...reportDateMatch }),
+      LabReport.countDocuments({ status: { $in: ['Submitted', 'Pending'] }, ...reportDateMatch }),
       LabReport.countDocuments({ status: { $in: ['Approved', 'Ready for Printing'] }, ...reportDateMatch }),
       LabReport.countDocuments({ status: 'Rejected', ...reportDateMatch }),
     ]);
@@ -294,6 +349,10 @@ export async function dashboard(req, res, next) {
         ? {
             dailyIncome: dailyRev[0]?.total || 0,
             fourDayIncome: fourDayRev[0]?.total || 0,
+            dailyReceptionistExpenses,
+            dailyAdminExpenses,
+            dailyTotalExpenses,
+            netDailyIncome: (dailyRev[0]?.total || 0) - dailyTotalExpenses,
             // Weekly, Monthly, and Total revenue are strictly omitted for Sub Admin
           }
         : {
@@ -303,6 +362,10 @@ export async function dashboard(req, res, next) {
             totalRevenue: totalRev[0]?.total || 0,
             customIncome: customRev[0]?.total || 0,
             customPatients: customRev[0]?.count || 0,
+            dailyReceptionistExpenses,
+            dailyAdminExpenses,
+            dailyTotalExpenses,
+            netDailyIncome: (customDateMatch ? (customRev[0]?.total || 0) : (dailyRev[0]?.total || 0)) - dailyTotalExpenses,
           },
       summary: {
         totalCategories: categories,

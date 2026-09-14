@@ -1,3 +1,5 @@
+import dns from 'node:dns';
+try { dns.setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
 import 'dotenv/config';
 import app from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';

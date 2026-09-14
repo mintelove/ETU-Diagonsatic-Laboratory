@@ -27,12 +27,16 @@ const PatientManagementPage = lazy(() => import('./pages/PatientManagementPage.j
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
 const LaboratoryTestsPage = lazy(() => import('./pages/LaboratoryTestsPage.jsx'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage.jsx'));
+const AdminReportTransactionManagementPage = lazy(() => import('./pages/AdminReportTransactionManagementPage.jsx'));
 const AboutUsPage = lazy(() => import('./pages/AboutUsPage.jsx'));
 const PublicReportPage = lazy(() => import('./pages/PublicReportPage.jsx'));
 const PathologyPage = lazy(() => import('./pages/PathologyPage.jsx'));
 const RadiologyPage = lazy(() => import('./pages/RadiologyPage.jsx'));
 const AdminPathologyPage = lazy(() => import('./pages/AdminPathologyPage.jsx'));
 const AdminRadiologyPage = lazy(() => import('./pages/AdminRadiologyPage.jsx'));
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage.jsx'));
+const AdminExpensesPage = lazy(() => import('./pages/AdminExpensesPage.jsx'));
+const PayrollPage = lazy(() => import('./pages/PayrollPage.jsx'));
 
 /**
  * Handle landing page routing redirect based on the user's role.
@@ -120,8 +124,9 @@ export default function App() {
           }
         />
         <Route path="investigation" element={<ProtectedRoute roles={['Admin', 'Sample Collector']}><InvestigationPage /></ProtectedRoute>} />
-        <Route path="report-management" element={<ProtectedRoute roles={['Sample Collector']}><ReportManagementPage /></ProtectedRoute>} />
+        <Route path="report-management" element={<ProtectedRoute roles={['Admin', 'Sub Admin', 'Sample Collector']}><ReportManagementPage /></ProtectedRoute>} />
         <Route path="counselling" element={<ProtectedRoute roles={['Admin', 'Reception', 'Sample Collector']}><CounsellingPage /></ProtectedRoute>} />
+
 
         {/* Report Approvals */}
         <Route
@@ -185,6 +190,10 @@ export default function App() {
         <Route path="settings" element={<ProtectedRoute roles={['Admin']}><SettingsPage /></ProtectedRoute>} />
         <Route path="laboratory-tests" element={<ProtectedRoute roles={['Admin', 'Sub Admin']}><LaboratoryTestsPage /></ProtectedRoute>} />
         <Route path="admin-reports" element={<ProtectedRoute roles={['Admin', 'Sub Admin']}><AdminReportsPage /></ProtectedRoute>} />
+        <Route path="report-transaction-management" element={<ProtectedRoute roles={['Admin', 'Sub Admin']}><AdminReportTransactionManagementPage /></ProtectedRoute>} />
+        <Route path="expenses" element={<ProtectedRoute roles={['Reception']}><ExpensesPage /></ProtectedRoute>} />
+        <Route path="admin-expenses" element={<ProtectedRoute roles={['Admin', 'Sub Admin']}><AdminExpensesPage /></ProtectedRoute>} />
+        <Route path="payroll" element={<ProtectedRoute roles={['Admin', 'Sub Admin']}><PayrollPage /></ProtectedRoute>} />
 
         {/* Pathology & Radiology Modules */}
         <Route path="pathology" element={<ProtectedRoute roles={['Admin', 'Pathologist']}><PathologyPage /></ProtectedRoute>} />

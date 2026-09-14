@@ -3,6 +3,7 @@ import { FlagBadge, calculateFlag } from '../utils/flagHelper.jsx';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { MAIN_CATEGORY_ORDER, CATEGORY_MAP_ALIASES, normalizeCategoryName } from '../utils/categoryHelper.js';
+import { sendResultDirect, sendResultBack } from '../services/transferService.js';
 
 const CATEGORY_META = {
   'HEMATOLOGY': { icon: '🩸', themeClass: 'cat-theme-hematology', bgGradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' },
@@ -437,7 +438,58 @@ export default function LaboratoryResultEditor({
   const [addParamModal, setAddParamModal] = useState(null); // { catName, subcatName }
   const [interpModalTest, setInterpModalTest] = useState(null); // testName string or null
   const [addParamToast, setAddParamToast] = useState('');
+  const [transferToast, setTransferToast] = useState('');
+  const [directModal, setDirectModal] = useState({ open: false, sendBackOpen: false, busy: false, error: '' });
   const inputsRef = useRef([]);
+
+  const isTransfer = Boolean(
+    patient?.isTransferMode ||
+    patient?.transferredFrom ||
+    reportData?.isCrossBranchTransfer ||
+    reportData?.transfer
+  );
+  const transferId = patient?.transferId || reportData?.transfer;
+  const requestedBranch = patient?.sourceBranch || reportData?.originalBranch || 'Main';
+  const transferStatus = patient?.transferStatus || (reportData?.approvalStatus === 'Approved' ? 'READY_TO_RETURN' : (reportData?.status === 'Submitted' || reportData?.status === 'Pending' ? 'RESULT_READY' : 'UNDER_INVESTIGATION'));
+
+  const handleExecuteDirectReturn = async () => {
+    if (!transferId) {
+      setDirectModal(m => ({ ...m, error: 'Transfer ID not found.' }));
+      return;
+    }
+    setDirectModal(m => ({ ...m, busy: true, error: '' }));
+    try {
+      await sendResultDirect(transferId, {
+        results: reportData?.results || [],
+        comments: reportData?.comments || '',
+        notes: reportData?.comments || ''
+      }, token);
+      setDirectModal({ open: false, sendBackOpen: false, busy: false, error: '' });
+      setTransferToast(`✅ Result successfully returned directly to ${requestedBranch}!`);
+      if (onSaveDraft) onSaveDraft();
+    } catch (err) {
+      setDirectModal(m => ({ ...m, busy: false, error: err?.message || 'Failed to send result directly.' }));
+    }
+  };
+
+  const handleExecuteSendBack = async () => {
+    if (!transferId) {
+      setDirectModal(m => ({ ...m, error: 'Transfer ID not found.' }));
+      return;
+    }
+    setDirectModal(m => ({ ...m, busy: true, error: '' }));
+    try {
+      await sendResultBack(transferId, {
+        results: reportData?.results || [],
+        comments: reportData?.comments || ''
+      }, token);
+      setDirectModal({ open: false, sendBackOpen: false, busy: false, error: '' });
+      setTransferToast(`🚀 Approved results successfully sent back to ${requestedBranch}!`);
+      if (onSaveDraft) onSaveDraft();
+    } catch (err) {
+      setDirectModal(m => ({ ...m, busy: false, error: err?.message || 'Failed to send result back.' }));
+    }
+  };
 
   const [userInteractedCats, setUserInteractedCats] = useState(false);
   const [showUnrequestedMap, setShowUnrequestedMap] = useState({});
@@ -546,14 +598,23 @@ export default function LaboratoryResultEditor({
       };
 
       // Strictly check laboratoryTests and requestedTests (DO NOT include sampleTypes container names)
-      if (Array.isArray(patient.laboratoryTests)) {
-        patient.laboratoryTests.forEach(addTestItem);
-      }
-      if (Array.isArray(patient.requestedTests)) {
-        patient.requestedTests.forEach(addTestItem);
-      }
-      if (patient.registrationType === 'Referral') {
-        categories.add('REFERRAL');
+      if (patient.isTransferMode && patient.transferredTestName) {
+        // Exclusively process the single transferred test (Requirements 4, 5, 8, 10)
+        addTestItem({
+          _id: patient.transferredTestId || '',
+          name: patient.transferredTestName,
+          category: patient.transferredCategory || ''
+        });
+      } else {
+        if (Array.isArray(patient.laboratoryTests)) {
+          patient.laboratoryTests.forEach(addTestItem);
+        }
+        if (Array.isArray(patient.requestedTests)) {
+          patient.requestedTests.forEach(addTestItem);
+        }
+        if (patient.registrationType === 'Referral') {
+          categories.add('REFERRAL');
+        }
       }
 
       // Match catalog parameters against receptionist-selected test names strictly WITHIN THEIR CATEGORY
@@ -667,6 +728,9 @@ export default function LaboratoryResultEditor({
   }, [effectiveCatalog, patient]);
 
   const categoryList = useMemo(() => {
+    if (patient?.isTransferMode && patient.transferredCategory) {
+      return [normalizeCategoryName(patient.transferredCategory)];
+    }
     const list = Array.from(categoriesGrouped.keys());
     list.sort((a, b) => {
       const normA = normalizeCategoryName(a);
@@ -679,10 +743,15 @@ export default function LaboratoryResultEditor({
       return a.localeCompare(b);
     });
     return list;
-  }, [categoriesGrouped]);
+  }, [categoriesGrouped, patient?.isTransferMode, patient?.transferredCategory]);
 
   // Auto-select ONLY categories with requested tests on initial load or patient change
   useEffect(() => {
+    if (patient?.isTransferMode && patient.transferredCategory) {
+      const norm = normalizeCategoryName(patient.transferredCategory);
+      setSelectedCategories([norm]);
+      return;
+    }
     if (categoryList.length > 0 && patient?._id && !userInteractedCats) {
       const enteredNames = new Set(
         (reportData?.results || [])
@@ -706,9 +775,10 @@ export default function LaboratoryResultEditor({
       });
       setSelectedCategories(reqCats);
     }
-  }, [patient?._id, categoryList, categoriesGrouped, requestedInfo, userInteractedCats, reportData?.results]);
+  }, [patient?._id, patient?.isTransferMode, patient?.transferredCategory, categoryList, categoriesGrouped, requestedInfo, userInteractedCats, reportData?.results]);
 
   const toggleCategory = (catName) => {
+    if (patient?.isTransferMode) return; // Locked in transfer mode (Requirement 9)
     setUserInteractedCats(true);
     setSelectedCategories(prev =>
       prev.includes(catName) ? prev.filter(c => c !== catName) : [...prev, catName]
@@ -942,6 +1012,45 @@ export default function LaboratoryResultEditor({
       {entryMode === 'result' && (
         <div className="laboratory-result-mode-section">
 
+          {/* CROSS-BRANCH TRANSFER BANNER (Requirements 4, 5, 9, 10) */}
+          {patient?.isTransferMode && (
+            <div className="transfer-editor-banner" style={{
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              color: '#ffffff',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              marginBottom: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              boxShadow: '0 4px 14px rgba(2,132,199,0.25)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.6rem' }}>🔄</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#ffffff' }}>
+                    Cross-Branch Transferred Investigation: {patient.transferredTestName}
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.85rem', opacity: 0.95 }}>
+                    Sent from <strong>{patient.sourceBranch || 'Origin'} Branch</strong> · Category: <strong>{patient.transferredCategory}</strong>
+                  </p>
+                </div>
+              </div>
+              <span style={{
+                background: 'rgba(255,255,255,0.25)',
+                color: '#ffffff',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: 700
+              }}>
+                🔒 {patient.transferredCategory} Result Entry Only
+              </span>
+            </div>
+          )}
+
           {/* CATEGORY SELECTION CARDS */}
           <div style={{ marginBottom: '10px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted, #64748b)', letterSpacing: '0.05em' }}>
@@ -1131,8 +1240,8 @@ export default function LaboratoryResultEditor({
                     </div>
                   )}
 
-                  {/* 2. OTHER AVAILABLE TESTS SECTION (Collapsible) */}
-                  {otherParams.length > 0 && (() => {
+                  {/* 2. OTHER AVAILABLE TESTS SECTION (Collapsible, hidden during cross-branch transfer) */}
+                  {!patient?.isTransferMode && otherParams.length > 0 && (() => {
                     const isOtherOpen = !!showUnrequestedMap[catName];
                     const toggleOther = () => {
                       setShowUnrequestedMap(prev => ({
@@ -1257,18 +1366,161 @@ export default function LaboratoryResultEditor({
         />
       </div>
 
+      {/* Cross-Branch Transfer Status Banner */}
+      {isTransfer && (
+        <div style={{ marginTop: '16px' }}>
+          {transferStatus === 'RESULT_READY' && (
+            <div className="alert warning" style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: '10px', padding: '12px 16px', fontSize: '0.9rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>⏳</span>
+              <div>
+                <strong>Waiting for Approval at this branch.</strong> Direct return to <strong>{requestedBranch}</strong> is disabled while awaiting approval. Once approved, you can click "Send Back to {requestedBranch}".
+              </div>
+            </div>
+          )}
+          {transferStatus === 'READY_TO_RETURN' && (
+            <div className="alert success" style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', borderRadius: '10px', padding: '12px 16px', fontSize: '0.9rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>✅</span>
+              <div>
+                <strong>Results Approved!</strong> Click <strong>"Send Back to {requestedBranch}"</strong> below to return the approved results and finalize the test.
+              </div>
+            </div>
+          )}
+          {!['RESULT_READY', 'READY_TO_RETURN'].includes(transferStatus) && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1', borderRadius: '10px', padding: '12px 16px', fontSize: '0.88rem' }}>
+              <div>
+                <strong>🧪 Transferred from {requestedBranch} Branch.</strong> Enter results and choose your return method:
+                <ul style={{ margin: '4px 0 0 16px', padding: 0, fontSize: '0.84rem' }}>
+                  <li><strong>Option 1 (Direct Return):</strong> Click <em>"Send Result to {requestedBranch}"</em> to merge directly without local approval.</li>
+                  <li><strong>Option 2 (Approval First):</strong> Click <em>"Send for Approval"</em> to require local approval before returning.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action Buttons */}
-      <div className="form-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="form-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="secondary" type="button" disabled={busy || isSavingDraft} onClick={onSaveDraft}>
           {isSavingDraft ? '⏳ Saving Draft…' : '💾 Save Draft Report'}
         </button>
         <button className="secondary" type="button" disabled={busy || isGeneratingPreview} onClick={onGeneratePreview}>
           {isGeneratingPreview ? '⏳ Generating Preview…' : '📄 Review Report'}
         </button>
-        <button className="primary" type="button" disabled={busy || isSubmitting} onClick={onSubmitApproval}>
-          {isSubmitting ? '🚀 Submitting Report…' : '🚀 Submit for Approval'}
-        </button>
+
+        {!isTransfer ? (
+          <button className="primary" type="button" disabled={busy || isSubmitting} onClick={onSubmitApproval}>
+            {isSubmitting ? '🚀 Submitting Report…' : '🚀 Submit for Approval'}
+          </button>
+        ) : (
+          <>
+            {transferStatus === 'READY_TO_RETURN' ? (
+              <button
+                className="primary"
+                type="button"
+                style={{ background: '#16a34a', borderColor: '#15803d', color: '#fff', fontWeight: 700 }}
+                disabled={busy || directModal.busy}
+                onClick={() => setDirectModal({ open: false, sendBackOpen: true, busy: false, error: '' })}
+              >
+                🚀 Send Back to {requestedBranch}
+              </button>
+            ) : (
+              <>
+                <button
+                  className="primary"
+                  type="button"
+                  style={{ background: '#0284c7', borderColor: '#0369a1', color: '#fff', fontWeight: 600, opacity: transferStatus === 'RESULT_READY' ? 0.6 : 1 }}
+                  disabled={busy || directModal.busy || transferStatus === 'RESULT_READY'}
+                  onClick={() => setDirectModal({ open: true, sendBackOpen: false, busy: false, error: '' })}
+                  title={transferStatus === 'RESULT_READY' ? 'Direct return is disabled while awaiting approval' : `Send result directly to ${requestedBranch} without local approval`}
+                >
+                  ⚡ Send Result to {requestedBranch}
+                </button>
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={busy || isSubmitting || transferStatus === 'RESULT_READY'}
+                  onClick={onSubmitApproval}
+                  title="Submit for receiving-branch approval first before returning"
+                >
+                  {transferStatus === 'RESULT_READY' ? '⏳ Waiting for Approval' : '📤 Send for Approval'}
+                </button>
+              </>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Confirmation Modal: Option 1 Direct Return */}
+      {directModal.open && (
+        <div className="etu-modal-backdrop" style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="etu-modal-content" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 24px 60px rgba(0,0,0,0.35)', width: '100%', maxWidth: '500px', padding: '24px' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚡</span> Send Result to {requestedBranch} (Direct Return)
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '0.92rem', color: '#334155', lineHeight: 1.5 }}>
+              Are you sure you want to send this completed result directly to <strong>{requestedBranch}</strong> without receiving-branch approval? The results will immediately merge into the patient's original order at {requestedBranch}.
+            </p>
+            {directModal.error && (
+              <div className="alert error" style={{ marginBottom: '14px' }}>{directModal.error}</div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="secondary" disabled={directModal.busy} onClick={() => setDirectModal(m => ({ ...m, open: false }))}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                style={{ background: '#0284c7', borderColor: '#0369a1', color: '#fff', fontWeight: 600 }}
+                disabled={directModal.busy}
+                onClick={handleExecuteDirectReturn}
+              >
+                {directModal.busy ? 'Sending...' : `Send Result to ${requestedBranch}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Option 2 Send Back */}
+      {directModal.sendBackOpen && (
+        <div className="etu-modal-backdrop" style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="etu-modal-content" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 24px 60px rgba(0,0,0,0.35)', width: '100%', maxWidth: '500px', padding: '24px' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🚀</span> Send Approved Results Back
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '0.92rem', color: '#334155', lineHeight: 1.5 }}>
+              Send the approved results back to <strong>{requestedBranch}</strong>? The results will merge into the patient's original draft report at {requestedBranch}.
+            </p>
+            {directModal.error && (
+              <div className="alert error" style={{ marginBottom: '14px' }}>{directModal.error}</div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="secondary" disabled={directModal.busy} onClick={() => setDirectModal(m => ({ ...m, sendBackOpen: false }))}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                style={{ background: '#16a34a', borderColor: '#15803d', color: '#fff', fontWeight: 700 }}
+                disabled={directModal.busy}
+                onClick={handleExecuteSendBack}
+              >
+                {directModal.busy ? 'Sending...' : `Send Back to ${requestedBranch}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {transferToast && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, background: '#10b981', color: '#fff', padding: '12px 18px', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 600 }}>
+          <span>{transferToast}</span>
+          <button type="button" onClick={() => setTransferToast('')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', padding: 0 }}>×</button>
+        </div>
+      )}
+
 
     </div>
   );

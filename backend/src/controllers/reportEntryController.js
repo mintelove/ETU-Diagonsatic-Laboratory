@@ -28,9 +28,14 @@ export async function catalog(req, res, next) {
 
 export async function draft(req, res, next) {
   try {
-    const report = await LabReport.findOne({ patient: req.params.patientId, technician: req.user.id, status: { $in: ['Draft', 'Rejected'] } })
+    let report = await LabReport.findOne({ patient: req.params.patientId, technician: req.user.id, status: { $in: ['Draft', 'Rejected'] } })
       .populate({ path: 'patient', select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy', populate: [{ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
       .populate('technician', 'fullName');
+    if (!report) {
+      report = await LabReport.findOne({ patient: req.params.patientId, status: { $in: ['Draft', 'Rejected'] } })
+        .populate({ path: 'patient', select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy', populate: [{ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } }, { path: 'sampleTypes', select: 'name' }] })
+        .populate('technician', 'fullName');
+    }
     res.json({ report });
   } catch (error) { next(error); }
 }

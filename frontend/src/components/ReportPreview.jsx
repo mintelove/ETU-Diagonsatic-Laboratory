@@ -84,7 +84,7 @@ export function getReportTestTypes(report) {
   };
 }
 
-export function ReportPreview({ report, showFooter = true, stampType: stampTypeProp }) {
+export function ReportPreview({ report, showFooter = true, stampType: stampTypeProp, showLogo = true }) {
   if (!report) return null;
   const activeStamp = stampTypeProp !== undefined ? stampTypeProp : report?.stampType;
   const stampSrc = activeStamp === 'lab' ? labStampImg : (activeStamp === 'clinic' ? clinicStampImg : null);
@@ -133,9 +133,9 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
 
   return (
     <article
-      className={`lab-report-preview a4-document-page ${!showFooter ? 'preprinted-paper' : ''}`}
+      className={`lab-report-preview a4-document-page ${!showLogo ? 'preprinted-paper' : ''}`}
       style={{
-        paddingTop: showFooter ? '0mm' : '42mm',
+        paddingTop: showLogo ? '0mm' : '42mm',
         paddingBottom: showFooter ? '14mm' : '22mm',
         paddingLeft: '14mm',
         paddingRight: '14mm'
@@ -176,8 +176,8 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
         </div>
       )}
 
-      {/* ── Official ETU Header (Only rendered when showFooter / Digital Header is enabled) ────── */}
-      {showFooter && (
+      {/* ── Official ETU Header (Controlled by showLogo) ────── */}
+      {showLogo && (
         <header className="report-preview-header a4-header">
           <img src={labLogo} alt="ETU Diagnostic Laboratory Logo" className="report-preview-logo logo-img" />
           <h1 className="report-preview-title" style={{ display: 'none' }}>ETU Diagnostic Laboratory</h1>
@@ -186,10 +186,17 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
       )}
 
       {/* ── Patient & Examination Information ─────────────────────────── */}
-      <section className="report-preview-section a4-section" style={{ marginTop: isInternalMedicine ? '6px' : (showFooter ? '8px' : '0px') }}>
-        <h2 className="report-preview-section-title">
-          {isInternalMedicine ? 'Basic Information' : 'Patient Information'}
-        </h2>
+      <section className="report-preview-section a4-section" style={{ marginTop: isInternalMedicine ? '6px' : (showLogo ? '8px' : '0px') }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <h2 className="report-preview-section-title" style={{ margin: 0 }}>
+            {isInternalMedicine ? 'Basic Information' : 'Patient Information'}
+          </h2>
+          {Boolean(report.isCrossBranchTransfer || (report.originalBranch && report.originalBranch !== report.branchName)) && (
+            <span className={`transfer-badge sent-from-${(report.originalBranch || 'Main').toLowerCase()}`} style={{ fontSize: '10px', padding: '3px 8px' }}>
+              SENT FROM {(report.originalBranch || 'Main').toUpperCase()}
+            </span>
+          )}
+        </div>
         {isInternalMedicine ? (
           <div className="imed-a4-patient-section">
             <div className="imed-a4-patient-photo-box">
@@ -218,15 +225,15 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
                 </tr>
                 <tr>
                   <td style={{ fontWeight: 800 }}>Passport No.:</td>
-                  <td><code>{p.passportNumber || p.passportNo || p.passport_no || report.passportNumber || report.passportNo || report.passport_no || '—'}</code></td>
-                  <td style={{ fontWeight: 800 }}>Passport Issue Date:</td>
-                  <td>{formatMedDate(p.passportIssueDate || p.passportIssue || p.passport_issue_date || report.passportIssueDate || report.passportIssue || report.passport_issue_date)}</td>
-                </tr>
-                <tr>
+                  <td>{p.passportNumber || report.passportNumber || '—'}</td>
                   <td style={{ fontWeight: 800 }}>Sex:</td>
                   <td><strong>{p.sex || report.sex || '—'}</strong></td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 800 }}>Issue Date:</td>
+                  <td>{formatMedDate(p.passportIssueDate || report.passportIssueDate)}</td>
                   <td style={{ fontWeight: 800 }}>Marital Status:</td>
-                  <td>{p.maritalStatus || report.maritalStatus || 'Single'}</td>
+                  <td>{p.maritalStatus || report.maritalStatus || '—'}</td>
                 </tr>
                 <tr>
                   <td style={{ fontWeight: 800 }}>Job Title:</td>
@@ -246,7 +253,14 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
             {p.phone && <div><b>Phone:</b> <span>{p.phone}</span></div>}
             <div><b>Registration Date:</b> <span>{formatMedDate(p.registrationDate || p.createdDate || report.createdDate || Date.now())}</span></div>
             <div><b>Report Date:</b> <span>{formatMedDate(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now())}</span></div>
-            <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
+            {Boolean(report.isCrossBranchTransfer || (report.originalBranch && report.originalBranch !== report.branchName)) ? (
+              <>
+                <div><b>Original Branch:</b> <span>📍 {report.originalBranch || p.branchName || 'Main'}</span></div>
+                <div><b>Performed At:</b> <span>🔬 {report.performingBranch || report.branchName || 'Otona'}</span></div>
+              </>
+            ) : (
+              <div><b>Branch:</b> <span>📍 {report.branchName || p.branchName || 'Main'}</span></div>
+            )}
             {(p.systolicBP || p.diastolicBP) && (
               <div><b>Blood Pressure:</b> <span>{p.systolicBP || '—'}/{p.diastolicBP || '—'} mmHg</span></div>
             )}
@@ -601,6 +615,26 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
                                 <tr key={`${row.sampleName}-${i}`}>
                                   <td>
                                     <strong className="report-preview-param-name">{row.sampleName}</strong>
+                                    {Boolean(row.isTransferred || (row.performedAt && row.transferredFrom && row.performedAt !== row.transferredFrom)) && (
+                                      <span
+                                        className="transfer-badge"
+                                        style={{
+                                          display: 'inline-block',
+                                          marginLeft: '6px',
+                                          fontSize: '8.5px',
+                                          padding: '1px 5px',
+                                          borderRadius: '4px',
+                                          background: '#e0f2fe',
+                                          color: '#0369a1',
+                                          fontWeight: 700,
+                                          textTransform: 'uppercase',
+                                          letterSpacing: '0.03em',
+                                          verticalAlign: 'middle'
+                                        }}
+                                      >
+                                        SENT FROM {row.transferredFrom || 'ORIGIN'} • PERFORMED AT {row.performedAt || 'DESTINATION'}
+                                      </span>
+                                    )}
                                     {row.remarks && <small style={{ display: 'block', color: 'var(--color-on-surface-variant, #94a3b8)', fontSize: '10.5px' }}>{row.remarks}</small>}
                                   </td>
                                   <td><strong className="report-preview-result-value">{row.result}</strong></td>
@@ -640,87 +674,86 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
         );
       })()}
 
-      {/* ── Authorization & Sign-off Section (Standard Lab / Pathology / Radiology) ─────────────────────────── */}
-      {!isInternalMedicine && showFooter && (
-        <section className="report-preview-section a4-section" style={{ position: 'relative' }}>
-          <h2 className="report-preview-section-title">Authorization &amp; Sign-off</h2>
-          <div className="report-preview-signoff-grid a4-signoff-grid" style={{ position: 'relative' }}>
-            <div>
-              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Title: Head of ETU Diagnostic Laboratory</div>
-              <b>Prepared By:</b>
-              <strong>{preparedByName}</strong>
-            </div>
-            <div>
-              <b>Approved By:</b>
-              <strong>{approvedByName}</strong>
-              <small style={{ opacity: 0.8 }}>({approverRoleTitle})</small>
-            </div>
-            <div>
-              <b>Approval Date:</b>
-              <strong>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</strong>
-            </div>
-            {stampSrc && (
-              <div className="report-stamp-container" style={{
-                position: 'absolute',
-                right: '8px',
-                top: '-18px',
-                pointerEvents: 'none',
-                zIndex: 2
-              }}>
-                <img
-                  src={stampSrc}
-                  alt={activeStamp === 'clinic' ? "ETU Clinic Stamp" : "ETU Lab Stamp"}
-                  style={{
-                    width: '114px',
-                    height: '114px',
-                    objectFit: 'contain',
-                    display: 'block'
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Standalone Stamp when Authorization & Sign-off is hidden for pre-printed letterhead */}
-      {!isInternalMedicine && !showFooter && stampSrc && (
-        <div className="report-stamp-standalone-container" style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginTop: '16px',
-          marginBottom: '8px',
-          paddingRight: '12px',
-          position: 'relative',
-          pointerEvents: 'none',
-          zIndex: 2
-        }}>
-          <img
-            src={stampSrc}
-            alt={activeStamp === 'clinic' ? "ETU Clinic Stamp" : "ETU Lab Stamp"}
-            style={{
-              width: '114px',
-              height: '114px',
-              objectFit: 'contain',
-              display: 'block'
-            }}
-          />
-        </div>
-      )}
-
       {/* Remarks (Non-Internal Medicine only) */}
       {!isInternalMedicine && report.comments && (
-        <div className="report-preview-comments">
+        <div className="report-preview-comments" style={{ marginBottom: '12px' }}>
           <strong>General Comments:</strong> {report.comments}
         </div>
       )}
 
-      {/* ── Official Footer Branding (Controlled by showFooter) ───────── */}
+      {/* ── Complete Footer (Authorization & Sign-off + Branding Bar, Controlled by showFooter) ───────── */}
       {showFooter && (
-        <footer className={isInternalMedicine ? "imed-a4-footer" : "report-preview-footer a4-footer"}>
-          <span>Title: Head of ETU Diagnostic Laboratory &bull; Prepared By: {preparedByName}</span>
-          <span className="report-preview-footer-brand">ETU DIAGNOSTIC LABORATORY</span>
-        </footer>
+        <div className="report-preview-footer-block" style={{ marginTop: '16px' }}>
+          {!isInternalMedicine && (
+            <section className="report-preview-section a4-section" style={{ position: 'relative', marginBottom: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', position: 'relative' }}>
+                {/* 1. Authorization Section */}
+                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#075c91', fontWeight: 800 }}>
+                    Authorization
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px' }}>
+                    <div>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Authorized By: </span>
+                      <strong style={{ color: '#0f172a' }}>{approvedByName}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Role/Position: </span>
+                      <strong style={{ color: '#0f172a' }}>{approverRoleTitle}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Sign-Off Section */}
+                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', border: '1px solid #cbd5e1', position: 'relative' }}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#075c91', fontWeight: 800 }}>
+                    Sign-Off
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px' }}>
+                    <div>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Prepared/Performed By: </span>
+                      <strong style={{ color: '#0f172a' }}>{preparedByName}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Signature: </span>
+                      <strong style={{ color: '#0284c7' }}>✓ Verified &amp; Signed</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Date: </span>
+                      <strong style={{ color: '#0f172a' }}>{new Date(report.approvedAt || report.approvedDate || report.approvalDate || report.updatedDate || Date.now()).toLocaleString()}</strong>
+                    </div>
+                  </div>
+
+                  {stampSrc && (
+                    <div className="report-stamp-container" style={{
+                      position: 'absolute',
+                      right: '-4px',
+                      top: '-24px',
+                      pointerEvents: 'none',
+                      zIndex: 2
+                    }}>
+                      <img
+                        src={stampSrc}
+                        alt={activeStamp === 'clinic' ? "ETU Clinic Stamp" : "ETU Lab Stamp"}
+                        style={{
+                          width: '106px',
+                          height: '106px',
+                          objectFit: 'contain',
+                          display: 'block'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          <footer className={isInternalMedicine ? "imed-a4-footer" : "report-preview-footer a4-footer"}>
+            <span>Title: Head of ETU Diagnostic Laboratory &bull; Prepared By: {preparedByName}</span>
+            <span className="report-preview-footer-brand">ETU DIAGNOSTIC LABORATORY</span>
+          </footer>
+        </div>
       )}
     </article>
   );

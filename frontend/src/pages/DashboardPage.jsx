@@ -25,38 +25,8 @@ import {
 const PIE_COLORS = ['#0b6bcb', '#00897b', '#e65100', '#6a1b9a', '#c62828', '#ff8f00', '#2e7d32', '#283593'];
 const GENDER_COLORS = { Male: '#1e88e5', Female: '#f06292', Other: '#78909c' };
 
-/* ── Animated Counter Hook ───────────────────────────── */
-function useAnimatedValue(target, duration = 800) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (target === 0) { setValue(0); return; }
-    const start = performance.now();
-    const from = 0;
-    function tick(now) {
-      const t = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setValue(Math.round(from + (target - from) * eased));
-      if (t < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }, [target, duration]);
-  return value;
-}
-
-/* ── Stat Card Component ─────────────────────────────── */
-function StatCard({ icon, label, value, color, isCurrency = false }) {
-  const animated = useAnimatedValue(typeof value === 'number' ? value : 0);
-  const display = typeof value === 'number'
-    ? (isCurrency ? `${animated.toLocaleString()} ETB` : animated.toLocaleString())
-    : (value ?? '—');
-  return (
-    <article className={`exec-card ${color}`}>
-      <div className="card-icon">{icon}</div>
-      <div className="card-value">{display}</div>
-      <div className="card-label">{label}</div>
-    </article>
-  );
-}
+import { StatCard, useAnimatedValue } from '../components/ui/StatCard.jsx';
+import EtuHeroBanner from '../components/EtuHeroBanner.jsx';
 
 /* ── Custom Tooltip ──────────────────────────────────── */
 function CustomTooltip({ active, payload, label, prefix = '', suffix = '' }) {
@@ -191,6 +161,13 @@ export default function DashboardPage() {
 
   /* ── Initial load + auto-refresh ───────────────────── */
   useEffect(() => {
+    document.body.classList.add('on-dashboard-page');
+    return () => {
+      document.body.classList.remove('on-dashboard-page');
+    };
+  }, []);
+
+  useEffect(() => {
     loadDashboard();
     const interval = setInterval(() => loadDashboard(), 60000);
     return () => clearInterval(interval);
@@ -199,7 +176,7 @@ export default function DashboardPage() {
   /* ── Real-time sync subscription ────────────────────── */
   useEffect(() => {
     const refresh = () => loadDashboard();
-    const events = ['stock:change', 'reception:change', 'reports:change', 'collection:change'];
+    const events = ['stock:change', 'reception:change', 'reports:change', 'collection:change', 'expense:change'];
     events.forEach((e) => subscribe(e, refresh));
     return () => events.forEach((e) => unsubscribe(e, refresh));
   }, [subscribe, unsubscribe, loadDashboard]);
@@ -307,6 +284,9 @@ export default function DashboardPage() {
 
   return (
     <section className="page admin-dashboard">
+
+      {/* ═══ LARGE ETU HERO SLIDESHOW BANNER (VERY TOP) ═════════ */}
+      <EtuHeroBanner />
 
       {/* ═══ HEADER ═══════════════════════════════════ */}
       <header className="dash-header">
@@ -479,24 +459,141 @@ export default function DashboardPage() {
 
       {/* ═══ ROW 1 — EXECUTIVE SUMMARY CARDS ═════════ */}
       <div className="exec-cards-grid">
-        <StatCard icon="💰" label="Daily Income"           value={rev.dailyIncome}   color="blue" isCurrency />
+        <StatCard
+          icon="💰"
+          label="Daily Income"
+          value={rev.dailyIncome}
+          color="blue"
+          isCurrency
+          onClick={() => navigate(`/admin-reports?mode=single&date=${toISO(new Date())}`)}
+        />
+        <StatCard
+          icon="🧾"
+          label="Daily Receptionist Expenses"
+          value={rev.dailyReceptionistExpenses || 0}
+          color="orange"
+          isCurrency
+          onClick={() => navigate(user?.role === 'Reception' ? '/expenses?preset=today' : '/admin-expenses?preset=today')}
+        />
+        <StatCard
+          icon="🏢"
+          label="Daily Admin Expenses"
+          value={rev.dailyAdminExpenses || 0}
+          color="purple"
+          isCurrency
+          onClick={() => navigate('/admin-expenses?preset=today')}
+        />
+        <StatCard
+          icon="💸"
+          label="Daily Total Expenses"
+          value={rev.dailyTotalExpenses || 0}
+          color="red"
+          isCurrency
+          onClick={() => navigate(user?.role === 'Reception' ? '/expenses?preset=today' : '/admin-expenses?preset=today')}
+        />
+        <StatCard
+          icon="💵"
+          label="Net Daily Income"
+          value={rev.netDailyIncome !== undefined ? rev.netDailyIncome : ((rev.dailyIncome || 0) - (rev.dailyTotalExpenses || 0))}
+          color="green"
+          isCurrency
+          onClick={() => navigate(user?.role === 'Reception' ? '/expenses?preset=today' : '/admin-expenses?preset=today')}
+        />
         {isSubAdmin ? (
-          <StatCard icon="📊" label="4-Day Revenue"        value={rev.fourDayIncome !== undefined ? rev.fourDayIncome : rev.dailyIncome} color="teal" isCurrency />
+          <StatCard
+            icon="📊"
+            label="4-Day Revenue"
+            value={rev.fourDayIncome !== undefined ? rev.fourDayIncome : rev.dailyIncome}
+            color="teal"
+            isCurrency
+            onClick={() => navigate(`/admin-reports?mode=range`)}
+          />
         ) : (
           <>
-            <StatCard icon="📈" label="Weekly Income"          value={rev.weeklyIncome}  color="teal" isCurrency />
-            <StatCard icon="📅" label="Monthly Income"         value={rev.monthlyIncome} color="green" isCurrency />
-            <StatCard icon="💵" label="Total Revenue"          value={rev.totalRevenue}  color="orange" isCurrency />
+            <StatCard
+              icon="📈"
+              label="Weekly Income"
+              value={rev.weeklyIncome}
+              color="teal"
+              isCurrency
+              onClick={() => navigate(user?.role === 'Reception' ? '/expenses?preset=week' : '/admin-expenses?preset=week')}
+            />
+            <StatCard
+              icon="📅"
+              label="Monthly Income"
+              value={rev.monthlyIncome}
+              color="cyan"
+              isCurrency
+              onClick={() => navigate(user?.role === 'Reception' ? '/expenses?preset=month' : '/admin-expenses?preset=month')}
+            />
+            <StatCard
+              icon="💵"
+              label="Total Revenue"
+              value={rev.totalRevenue}
+              color="indigo"
+              isCurrency
+              onClick={() => navigate(user?.role === 'Reception' ? '/expenses?preset=all' : '/admin-expenses?preset=all')}
+            />
           </>
         )}
-        <StatCard icon="👨‍⚕️" label="Today's Patients"      value={s.todayPatients}   color="purple" />
-        <StatCard icon="🧪" label="Samples Today"          value={s.samplesCollectedToday} color="cyan" />
-        <StatCard icon="📄" label="Pending Reports"        value={s.pendingReports}  color="amber" />
-        <StatCard icon="✅" label="Approved Reports"       value={s.approvedReports} color="green" />
-        <StatCard icon="❌" label="Rejected Reports"       value={s.rejectedReports} color="red" />
-        <StatCard icon="📦" label="Critical Stock"         value={s.criticalStockItems} color="pink" />
-        {!isSubAdmin && <StatCard icon="👥" label="Active Users" value={s.totalUsers} color="indigo" />}
-        <StatCard icon="🏥" label="Referral Patients"      value={s.referralPatients} color="deep" />
+        <StatCard
+          icon="👨‍⚕️"
+          label="Today's Patients"
+          value={s.todayPatients}
+          color="purple"
+          onClick={() => navigate('/patient-management?period=today')}
+        />
+        <StatCard
+          icon="🧪"
+          label="Samples Today"
+          value={s.samplesCollectedToday}
+          color="cyan"
+          onClick={() => navigate('/collection')}
+        />
+        <StatCard
+          icon="📄"
+          label="Pending Reports"
+          value={s.pendingReports}
+          color="amber"
+          onClick={() => navigate('/report-transaction-management?view=pending')}
+        />
+        <StatCard
+          icon="✅"
+          label="Approved Reports"
+          value={s.approvedReports}
+          color="green"
+          onClick={() => navigate('/report-transaction-management?view=approved')}
+        />
+        <StatCard
+          icon="❌"
+          label="Rejected Reports"
+          value={s.rejectedReports}
+          color="red"
+          onClick={() => navigate('/report-transaction-management?view=rejected')}
+        />
+        <StatCard
+          icon="📦"
+          label="Critical Stock"
+          value={s.criticalStockItems}
+          color="pink"
+          onClick={() => navigate('/stock')}
+        />
+        {!isSubAdmin && (
+          <StatCard
+            icon="👥"
+            label="Active Users"
+            value={s.totalUsers}
+            color="indigo"
+            onClick={() => navigate('/users')}
+          />
+        )}
+        <StatCard
+          icon="🏥"
+          label="Referral Patients"
+          value={s.referralPatients}
+          color="deep"
+          onClick={() => navigate('/patient-management?patientType=Referral')}
+        />
       </div>
 
       {/* ═══ ROW 2 — REVENUE ANALYTICS LINE CHART ════ */}

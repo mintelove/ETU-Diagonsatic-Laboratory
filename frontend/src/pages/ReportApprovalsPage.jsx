@@ -6,6 +6,7 @@ import { printLabReport } from '../utils/printLabReport.js';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 
 import ReportPreview from '../components/ReportPreview.jsx';
+import EtuHeroBanner from '../components/EtuHeroBanner.jsx';
 import { FlagBadge } from '../utils/flagHelper.jsx';
 import { useScrollLock } from '../utils/useScrollLock.js';
 import ModalPortal from '../components/ModalPortal.jsx';
@@ -18,6 +19,7 @@ export default function ReportApprovalsPage() {
   useScrollLock(!!selected);
   const [branchFilter, setBranchFilter] = useState('All');
   const [reason, setReason] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [showReportLogo, setShowReportLogo] = useState(true);
   const [showReportFooter, setShowReportFooter] = useState(true);
   const [reportStampType, setReportStampType] = useState(null);
   const load = async () => { try { const query = user?.role === 'Admin' && branchFilter !== 'All' ? `?branchName=${branchFilter}` : ''; const [pending, prior] = await Promise.all([api(`/report-approvals/pending${query}`, { token }), api(`/report-approvals/history${query}`, { token })]); setReports(pending.reports); setHistory(prior.reports); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } };
@@ -30,7 +32,7 @@ export default function ReportApprovalsPage() {
     try { await api(`/report-approvals/${selected._id}`, { token, method: 'PATCH', body: JSON.stringify({ status, comments: reason, stampType: reportStampType }) }); setMessage(`Report ${status.toLowerCase()}.`); setSelected(null); setReason(''); load(); } catch (e) { if (!isSilentNetworkError(e)) setError(e.message); } finally { setBusy(false); }
   };
   const list = tab === 'pending' ? reports : history;
-  return <section className="page approval-workspace"><header className="page-title"><div><p className="eyebrow">Laboratory quality control</p><h1>Pending Laboratory Reports <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 Branch: {user?.branchName || 'Main'}</span></h1><p className="intro">Review results before releasing approved reports to Reception.</p></div></header>
+  return <section className="page approval-workspace"><EtuHeroBanner /><header className="page-title"><div><p className="eyebrow">Laboratory quality control</p><h1>Pending Laboratory Reports <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 Branch: {user?.branchName || 'Main'}</span></h1><p className="intro">Review results before releasing approved reports to Reception.</p></div></header>
     {error && <div className="alert error">{error}</div>}{message && <div className="alert success">{message}</div>}
     <div className="reception-tabs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div>
@@ -61,10 +63,18 @@ export default function ReportApprovalsPage() {
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
               <input
                 type="checkbox"
+                checked={showReportLogo}
+                onChange={e => setShowReportLogo(e.target.checked)}
+              />
+              Show Logo
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+              <input
+                type="checkbox"
                 checked={showReportFooter}
                 onChange={e => setShowReportFooter(e.target.checked)}
               />
-              Show Logo &amp; Footer
+              Show Footer
             </label>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'lab' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : '#cbd5e1'}` }}>
               <input
@@ -86,10 +96,10 @@ export default function ReportApprovalsPage() {
           <button type="button" className="close-button" onClick={() => setSelected(null)}>×</button>
         </header>
         <div className="modal-body">
-          <ReportPreview report={selected} showFooter={showReportFooter} stampType={reportStampType} />
+          <ReportPreview report={selected} showLogo={showReportLogo} showFooter={showReportFooter} stampType={reportStampType} />
         </div>
         <div className="form-actions" style={{ padding: '14px 24px', borderTop: '1px solid var(--color-outline-variant, #e2e8f0)', marginTop: 0, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected,token,user,showReportFooter,reportStampType)}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
+          <button type="button" className="secondary" onClick={()=>{try{printLabReport(selected, { showLogo: showReportLogo, showFooter: showReportFooter, stampType: reportStampType, token, user })}catch(e){setError(e.message)}}}>🖨 Print Preview</button>
           {['Approved', 'Ready for Printing'].includes(selected?.status) && (
             <button
               type="button"

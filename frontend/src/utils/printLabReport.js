@@ -42,7 +42,7 @@ export function formatMedDate(val) {
   return `${day} ${month} ${year}`;
 }
 
-export function reportHtml(report, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride) {
+export function reportHtml(report, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride, showLogoOverride) {
   const patient = (report?.patient && typeof report.patient === 'object') ? report.patient : (report || {});
   const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
   const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
@@ -51,6 +51,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
     patient?.examinationFormType === 'Internal Medicine Speciality Examination Form'
   );
 
+  const showLogo = showLogoOverride !== undefined ? showLogoOverride : (report.showLogo !== undefined ? report.showLogo : (showFooterOverride !== undefined ? showFooterOverride : true));
   const showFooter = showFooterOverride !== undefined ? showFooterOverride : (report.showFooter !== undefined ? report.showFooter : true);
   const effectiveStamp = stampTypeOverride !== undefined ? stampTypeOverride : report?.stampType;
   const stampSrc = effectiveStamp === 'lab' ? labStampImg : (effectiveStamp === 'clinic' ? clinicStampImg : null);
@@ -58,7 +59,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
   const stampImgHtml = stampSrc ? `<div class="report-stamp-container" style="position: absolute; right: 8px; top: -18px; pointer-events: none; z-index: 2;"><img src="${stampSrc}" alt="${stampAlt}" style="width: 114px; height: 114px; object-fit: contain; display: block;" /></div>` : '';
 
   const logoImg = logoBase64 || labLogo;
-  const logoHeader = (showFooter && logoImg)
+  const logoHeader = (showLogo && logoImg)
     ? `<img src="${logoImg}" alt="ETU Diagnostic Laboratory Logo" style="width: 100%; height: auto; max-height: none; display: block; margin: 0; padding: 0; object-fit: contain;" />`
     : '';
 
@@ -359,7 +360,11 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           }
           const rowsHtml = rows.map(row => {
             const flagVal = getPrintableFlag(row, patient.sex);
-            return `<tr><td><b>${safe(row.sampleName)}</b>${row.remarks ? `<small>${safe(row.remarks)}</small>` : ''}</td><td>${safe(row.result)}</td><td>${safe(row.unit)}</td><td>${safe(row.referenceValue)}</td><td><b>${safe(flagVal)}</b></td></tr>`;
+            const isTransferred = Boolean(row.isTransferred || (row.performedAt && row.transferredFrom && row.performedAt !== row.transferredFrom));
+            const transferBadge = isTransferred
+              ? ` <span style="display: inline-block; margin-left: 5px; font-size: 8px; font-weight: bold; padding: 1px 4px; border-radius: 3px; background: #e0f2fe; color: #0369a1; text-transform: uppercase; letter-spacing: 0.02em; vertical-align: middle;">SENT FROM ${safe(row.transferredFrom || 'ORIGIN')} • PERFORMED AT ${safe(row.performedAt || 'DESTINATION')}</span>`
+              : '';
+            return `<tr><td><b>${safe(row.sampleName)}</b>${transferBadge}${row.remarks ? `<small>${safe(row.remarks)}</small>` : ''}</td><td>${safe(row.result)}</td><td>${safe(row.unit)}</td><td>${safe(row.referenceValue)}</td><td><b>${safe(flagVal)}</b></td></tr>`;
           }).join('');
           resultsHtml += `<table style="margin-bottom: 6px;"><thead><tr><th>Test / Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
         });
@@ -721,7 +726,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
         min-height: 297mm !important;
         height: auto !important;
         box-sizing: border-box !important;
-        padding-top: ${showFooter ? '0mm' : '42mm'} !important;
+        padding-top: ${showLogo ? '0mm' : '42mm'} !important;
         padding-bottom: ${showFooter ? '14mm' : '22mm'} !important;
         padding-left: 14mm !important;
         padding-right: 14mm !important;
@@ -792,7 +797,7 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       <div class="a4-watermark-text">ETU Diagnostic Laboratory</div>
       <div class="a4-watermark-text">ETU Diagnostic Laboratory</div>
     </div>
-    ${showFooter ? `
+    ${showLogo ? `
       <header class="header">
         ${logoHeader}
         <div style="display: none;">
@@ -802,8 +807,15 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
       </header>
     ` : ''}
 
-    <section class="section" style="margin-top: ${isInternalMedicine ? '6px' : (showFooter ? '8px' : '0px')};">
-      <h2>${isInternalMedicine ? 'Basic Information' : 'Patient Information'}</h2>
+    <section class="section" style="margin-top: ${isInternalMedicine ? '6px' : (showLogo ? '8px' : '0px')};">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <h2 style="margin: 0;">${isInternalMedicine ? 'Basic Information' : 'Patient Information'}</h2>
+        ${(report.isCrossBranchTransfer || (report.originalBranch && report.originalBranch !== report.branchName)) ? `
+          <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; background: #0284c7; color: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+            SENT FROM ${safe((report.originalBranch || 'Main').toUpperCase())}
+          </span>
+        ` : ''}
+      </div>
       ${isInternalMedicine ? `
         <div style="display: flex; gap: 8px; align-items: stretch; margin-bottom: 6px; width: 100%; max-width: 100%; box-sizing: border-box;">
           <div style="width: 80px; min-width: 80px; max-width: 80px; height: 105px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; background: #fafafa; flex-shrink: 0; overflow: hidden; box-sizing: border-box;">
@@ -819,41 +831,41 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           <table class="imed-a4-table-bordered" style="flex: 1; min-width: 0; width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse; border: 1.5px solid #000; font-size: 10.5px; box-sizing: border-box;">
             <tbody>
               <tr>
-                <td style="width: 18%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Name:</td>
-                <td style="width: 32%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase; word-break: keep-all; overflow-wrap: break-word;">${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong></td>
-                <td style="width: 18%; background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Nationality:</td>
-                <td style="width: 32%; border: 1px solid #000; padding: 3px 5px;"><strong style="text-transform: uppercase;">${safe(patient.nationality || report.nationality || 'ETHIOPIA')}</strong></td>
+                <td style="width: 18%; font-weight: 800;">Name:</td>
+                <td style="width: 32%;"><strong style="text-transform: uppercase; word-break: keep-all; overflow-wrap: break-word;">${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong></td>
+                <td style="width: 18%; font-weight: 800;">Nationality:</td>
+                <td style="width: 32%;"><strong style="text-transform: uppercase;">${safe(patient.nationality || report.nationality || 'ETHIOPIA')}</strong></td>
               </tr>
               <tr>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Date of Birth:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;">${safe(formatMedDate(patient.dateOfBirth || patient.dob || patient.birthDate || report.dateOfBirth || report.dob || report.birthDate))}</td>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Age:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;"><strong>${safe((patient.age !== undefined && patient.age !== null && patient.age !== '') ? `${patient.age} YRS` : ((report.age !== undefined && report.age !== null && report.age !== '') ? `${report.age} YRS` : '—'))}</strong></td>
+                <td style="font-weight: 800;">Date of Birth:</td>
+                <td>${safe(formatMedDate(patient.dateOfBirth || patient.dob || patient.birthDate || report.dateOfBirth || report.dob || report.birthDate))}</td>
+                <td style="font-weight: 800;">Age:</td>
+                <td><strong>${safe((patient.age !== undefined && patient.age !== null && patient.age !== '') ? `${patient.age} YRS` : ((report.age !== undefined && report.age !== null && report.age !== '') ? `${report.age} YRS` : '—'))}</strong></td>
               </tr>
               <tr>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Passport No.:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;"><code>${safe(patient.passportNumber || patient.passportNo || patient.passport_no || report.passportNumber || report.passportNo || report.passport_no || '—')}</code></td>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Passport Issue Date:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;">${safe(formatMedDate(patient.passportIssueDate || patient.passportIssue || patient.passport_issue_date || report.passportIssueDate || report.passportIssue || report.passport_issue_date))}</td>
+                <td style="font-weight: 800;">Passport No.:</td>
+                <td><code>${safe(patient.passportNumber || patient.passportNo || patient.passport_no || report.passportNumber || report.passportNo || report.passport_no || '—')}</code></td>
+                <td style="font-weight: 800;">Sex:</td>
+                <td><strong>${safe(patient.sex || report.sex || '—')}</strong></td>
               </tr>
               <tr>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Sex:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;"><strong>${safe(patient.sex || report.sex || '—')}</strong></td>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Marital Status:</td>
-                <td style="border: 1px solid #000; padding: 3px 5px;">${safe(patient.maritalStatus || report.maritalStatus || 'Single')}</td>
+                <td style="font-weight: 800;">Issue Date:</td>
+                <td>${safe(formatMedDate(patient.passportIssueDate || patient.passportIssue || patient.passport_issue_date || report.passportIssueDate || report.passportIssue || report.passport_issue_date))}</td>
+                <td style="font-weight: 800;">Marital Status:</td>
+                <td>${safe(patient.maritalStatus || report.maritalStatus || 'Single')}</td>
               </tr>
               <tr>
-                <td style="background: #f0f4f8; font-weight: 800; border: 1px solid #000; padding: 3px 5px;">Job Title:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 3px 5px;">${safe(patient.jobTitle || patient.job || patient.occupation || report.jobTitle || report.job || report.occupation || '—')}</td>
+                <td style="font-weight: 800;">Job Title:</td>
+                <td colspan="3">${safe(patient.jobTitle || patient.job || patient.occupation || report.jobTitle || report.job || report.occupation || '—')}</td>
               </tr>
             </tbody>
           </table>
         </div>
       ` : `
         <div class="patient">
-          <div class="patient-name-row">
+          <div style="grid-column: 1 / -1; display: flex; gap: 8px; align-items: baseline;">
             <b>Patient Name:</b>
-            <strong>${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong>
+            <strong style="text-transform: uppercase; font-size: 13px; word-break: keep-all; overflow-wrap: break-word;">${safe(patient.name || patient.patientName || report.name || report.patientName || '—')}</strong>
           </div>
           <div><b>Patient ID:</b> <span>${safe(patient.patientId || patient.id || '—')}</span></div>
           <div><b>Age / Sex:</b> <span>${safe(patient.age ?? report.age ?? '—')} / ${safe(patient.sex || report.sex || '—')}</span></div>
@@ -861,7 +873,12 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           <div><b>Examination Type:</b> <span>${safe(report.testType || report.customExaminationName || report.ultrasoundSubtype || report.examinationType || 'General Laboratory Investigation')}</span></div>
           <div><b>Registration Date:</b> <span>${safe(collectionDateStr)}</span></div>
           <div><b>Report Date:</b> <span>${safe(reportDateStr)}</span></div>
-          <div><b>Branch:</b> <span>📍 ${safe(report.branchName || patient.branchName || 'Main')}</span></div>
+          ${(report.isCrossBranchTransfer || (report.originalBranch && report.originalBranch !== report.branchName)) ? `
+            <div><b>Original Branch:</b> <span>📍 ${safe(report.originalBranch || patient.branchName || 'Main')}</span></div>
+            <div><b>Performed At:</b> <span>🔬 ${safe(report.performingBranch || report.branchName || 'Otona')}</span></div>
+          ` : `
+            <div><b>Branch:</b> <span>📍 ${safe(report.branchName || patient.branchName || 'Main')}</span></div>
+          `}
           ${bpHtml}
           ${refHtml}
         </div>
@@ -870,24 +887,50 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 
     ${mainBodyHtml}
 
-    ${!isInternalMedicine && showFooter ? `
-      <section class="section">
-        <h2>Authorization & Sign-off</h2>
-        <div class="signoff-grid" style="position: relative;">
-          <div>
-            <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">Title: Head of ETU Diagnostic Laboratory</div>
-            <b>Prepared By:</b> <strong>${preparedByName}</strong>
+    ${showFooter && !isInternalMedicine ? `
+      <section class="section" style="margin-top: 14px; position: relative;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; position: relative;">
+          <!-- 1. Authorization Section -->
+          <div style="background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #075c91; font-weight: 800;">
+              Authorization
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+              <div>
+                <span style="color: #475569; font-weight: 600;">Authorized By: </span>
+                <strong style="color: #0f172a;">${approvedByName}</strong>
+              </div>
+              <div>
+                <span style="color: #475569; font-weight: 600;">Role/Position: </span>
+                <strong style="color: #0f172a;">${safe(approverRoleTitle)}</strong>
+              </div>
+            </div>
           </div>
-          <div><b>Approved By:</b> <strong>${approvedByName}</strong> <span style="font-size: 10.5px; color: #64748b;">(${safe(approverRoleTitle)})</span></div>
-          <div><b>Approval Date:</b> <strong>${safe(reportDateStr)}</strong></div>
-          ${stampImgHtml}
+
+          <!-- 2. Sign-Off Section -->
+          <div style="background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; position: relative;">
+            <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #075c91; font-weight: 800;">
+              Sign-Off
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+              <div>
+                <span style="color: #475569; font-weight: 600;">Prepared/Performed By: </span>
+                <strong style="color: #0f172a;">${preparedByName}</strong>
+              </div>
+              <div>
+                <span style="color: #475569; font-weight: 600;">Signature: </span>
+                <strong style="color: #0284c7;">✓ Verified &amp; Signed</strong>
+              </div>
+              <div>
+                <span style="color: #475569; font-weight: 600;">Date: </span>
+                <strong style="color: #0f172a;">${safe(reportDateStr)}</strong>
+              </div>
+            </div>
+            ${stampImgHtml}
+          </div>
         </div>
       </section>
-    ` : (!isInternalMedicine && !showFooter && stampSrc ? `
-      <div class="report-stamp-standalone-container" style="display: flex; justify-content: flex-end; margin-top: 16px; margin-bottom: 8px; padding-right: 12px; position: relative; pointer-events: none; z-index: 2;">
-        <img src="${stampSrc}" alt="${stampAlt}" style="width: 114px; height: 114px; object-fit: contain; display: block;" />
-      </div>
-    ` : '')}
+    ` : ''}
 
     ${showFooter ? `
       <footer class="${isInternalMedicine ? 'imed-a4-footer' : 'footer'}">
@@ -900,42 +943,55 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
 </html>`;
 }
 
-export async function printLabReport(reportOrId, arg2, arg3, arg4, arg5) {
+export async function printLabReport(reportOrId, arg2, arg3, arg4, arg5, arg6) {
   let token = null;
   let user = null;
   let showFooterOverride = undefined;
   let stampTypeOverride = undefined;
+  let showLogoOverride = undefined;
 
-  if (typeof arg2 === 'string') {
+  if (typeof arg2 === 'object' && arg2 !== null && !arg2._id && !arg2.username && !arg2.role && (arg2.showLogo !== undefined || arg2.showFooter !== undefined || arg2.stampType !== undefined || arg2.token !== undefined || arg2.user !== undefined)) {
+    showLogoOverride = arg2.showLogo;
+    showFooterOverride = arg2.showFooter;
+    stampTypeOverride = arg2.stampType;
+    token = arg2.token;
+    user = arg2.user;
+  } else if (typeof arg2 === 'string') {
     token = arg2;
     user = arg3;
     showFooterOverride = arg4;
     stampTypeOverride = arg5;
+    showLogoOverride = arg6;
   } else if (typeof arg2 === 'boolean') {
     showFooterOverride = arg2;
     token = getToken();
     user = getUser();
     stampTypeOverride = typeof arg3 === 'string' ? arg3 : (typeof arg4 === 'string' ? arg4 : arg5);
+    showLogoOverride = typeof arg3 === 'boolean' ? arg3 : (typeof arg4 === 'boolean' ? arg4 : arg6);
   } else if (typeof arg2 === 'object' && arg2 !== null) {
     user = arg2;
     if (typeof arg3 === 'boolean') {
       showFooterOverride = arg3;
       token = getToken();
       stampTypeOverride = arg4;
+      showLogoOverride = arg5;
     } else if (typeof arg3 === 'string') {
       token = arg3;
       showFooterOverride = arg4;
       stampTypeOverride = arg5;
+      showLogoOverride = arg6;
     } else {
       token = getToken();
       showFooterOverride = arg4 !== undefined ? arg4 : (typeof arg3 === 'boolean' ? arg3 : undefined);
       stampTypeOverride = arg5;
+      showLogoOverride = arg6;
     }
   } else {
     token = getToken();
     user = getUser();
     showFooterOverride = arg2 !== undefined ? arg2 : (arg3 !== undefined ? arg3 : arg4);
     stampTypeOverride = typeof arg3 === 'string' ? arg3 : (typeof arg4 === 'string' ? arg4 : arg5);
+    showLogoOverride = arg6;
   }
 
   token ||= getToken();
@@ -970,7 +1026,7 @@ export async function printLabReport(reportOrId, arg2, arg3, arg4, arg5) {
     throw new Error('The requested document could not be loaded.');
   }
 
-  const html = reportHtml(reportData, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride);
+  const html = reportHtml(reportData, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride, showLogoOverride);
 
   // Dedicated A4 print iframe with clean teardown (bypasses popup blockers and triggers browser print dialog)
   let iframe = document.getElementById('a4-lab-report-print-frame');
@@ -1017,3 +1073,5 @@ export async function printLabReport(reportOrId, arg2, arg3, arg4, arg5) {
     setTimeout(executePrint, 600);
   });
 }
+
+export default printLabReport;

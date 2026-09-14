@@ -191,7 +191,7 @@
     align-content: space-between
 }
 
-@media(max-width:720px) {
+@media(max-width:768px) {
     .table-title {
         align-items: flex-start;
         flex-direction: column
@@ -913,7 +913,7 @@ td span {
     }
 }
 
-@media(max-width:720px) {
+@media(max-width:768px) {
     .app-shell {
         display: block
     }

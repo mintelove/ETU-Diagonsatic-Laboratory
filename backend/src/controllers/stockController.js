@@ -4,6 +4,7 @@ import StockHistory from '../models/StockHistory.js';
 import StockEditPermissionRequest from '../models/StockEditPermissionRequest.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import Expense from '../models/Expense.js';
 import { AppError } from '../utils/appError.js';
 import { nextItemCode, notifyStockLevel, recordHistory } from '../services/stockService.js';
 import { stockLevel } from '../constants/stock.js';
@@ -93,8 +94,37 @@ export async function createItem(req, res, next) {
   try {
     if (!(await Category.exists({ _id: req.body.category, status: 'Active' }))) throw new AppError('Select an active category.', 422);
     const item = await StockItem.create({ ...req.body, itemCode: await nextItemCode() });
-    await recordHistory({ item, action: 'Created', user: req.user.id, snapshot: serialize(item, req.user), reason: 'Stock item created' });
+    const history = await recordHistory({ item, action: 'Created', user: req.user.id, snapshot: serialize(item, req.user), reason: 'Stock item created' });
     await notifyStockLevel(item);
+
+    // Automatic Stock Purchase Expense Integration
+    const purchasePrice = Number(item.purchasePrice) || 0;
+    const initialQty = Number(item.currentQuantity) || 0;
+    const purchaseAmount = purchasePrice * initialQty;
+
+    if (purchaseAmount > 0) {
+      const userBranch = req.user.branchName === 'All' || !req.user.branchName ? 'Main' : req.user.branchName;
+      await Expense.create({
+        type: 'STOCK_PURCHASE',
+        category: 'Stock purchased expenses',
+        title: `Stock Purchase: ${item.itemName}`,
+        amount: purchaseAmount,
+        date: new Date(),
+        description: `Initial purchase of ${initialQty} ${item.unit} at ${purchasePrice} ETB/unit`,
+        receiptNumber: `STK-EXP-${Date.now().toString().slice(-6)}`,
+        paymentMethod: 'Cash',
+        recordedBy: req.user.id,
+        branchName: userBranch,
+        stockTransactionId: history?._id,
+        stockItem: item._id,
+        stockItemName: item.itemName,
+        stockQuantity: initialQty,
+        stockUnitPrice: purchasePrice,
+        status: 'Active'
+      });
+      emit('expense:change', { action: 'created' });
+    }
+
     emit('stock:change', { action: 'created' });
     res.status(201).json({ item: serialize(item, req.user) });
   } catch (e) {
@@ -214,10 +244,11 @@ export async function updateQuantity(req, res, next) {
     if (!item) throw new AppError('Stock item not found.', 404);
     const approvalNote = await assertStockEditPermission(item, req.user);
     const previous = item.currentQuantity - item.usedQuantity;
-    item.currentQuantity += req.body.addQuantity;
+    const addQty = Number(req.body.addQuantity) || 0;
+    item.currentQuantity += addQty;
     await item.save();
     const current = item.currentQuantity - item.usedQuantity;
-    await recordHistory({
+    const history = await recordHistory({
       item,
       action: 'Quantity Changed',
       user: req.user.id,
@@ -227,6 +258,35 @@ export async function updateQuantity(req, res, next) {
       field: 'remainingQuantity'
     });
     await notifyStockLevel(item);
+
+    // Automatic Stock Purchase Expense Integration
+    if (addQty > 0) {
+      const purchasePrice = Number(item.purchasePrice) || 0;
+      const purchaseAmount = addQty * purchasePrice;
+      if (purchaseAmount > 0) {
+        const userBranch = req.user.branchName === 'All' || !req.user.branchName ? 'Main' : req.user.branchName;
+        await Expense.create({
+          type: 'STOCK_PURCHASE',
+          category: 'Stock purchased expenses',
+          title: `Stock Purchase: ${item.itemName}`,
+          amount: purchaseAmount,
+          date: new Date(),
+          description: `Added ${addQty} ${item.unit} at ${purchasePrice} ETB/unit (${req.body.reason || 'Stock addition'})`,
+          receiptNumber: `STK-EXP-${Date.now().toString().slice(-6)}`,
+          paymentMethod: 'Cash',
+          recordedBy: req.user.id,
+          branchName: userBranch,
+          stockTransactionId: history?._id,
+          stockItem: item._id,
+          stockItemName: item.itemName,
+          stockQuantity: addQty,
+          stockUnitPrice: purchasePrice,
+          status: 'Active'
+        });
+        emit('expense:change', { action: 'created' });
+      }
+    }
+
     emit('stock:change', { action: 'quantity' });
     res.json({ item: serialize(item, req.user) });
   } catch (e) {

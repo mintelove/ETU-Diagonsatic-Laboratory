@@ -34,7 +34,8 @@ import './styles.css'; // Legacy/existing app page styles
 import './styles/responsive.css'; // Responsive layout additions
 import './styles/components/clinicalResultEntry.css'; // Clinical specialist pages
 import './styles/components/reportPreview.css'; // Report Preview isolated explicit color system
-import './styles/pages/publicReport.css'; // Public Report isolated explicit color system (LOADED LAST FOR MAXIMUM SPECIFICITY)
+import './styles/pages/publicReport.css'; // Public Report isolated explicit color system
+import './styles/mobile.css'; // Comprehensive mobile responsive layer (LOADED LAST FOR MAXIMUM SPECIFICITY)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

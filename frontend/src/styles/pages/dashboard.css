@@ -185,6 +185,16 @@
   font-weight: 600;
 }
 
+.exec-card .card-sub {
+  font-size: 0.72rem;
+  opacity: 0.82;
+  margin-top: 5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Section Titles ──────────────────────────────────── */
 .dash-section-title {
   font-family: var(--font-display);
@@ -574,3 +584,468 @@
     flex-direction: column;
   }
 }
+
+/* ── Large Modern Professional ETU Hero Slideshow Banner ── */
+.etu-hero-banner {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  min-height: 280px;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: var(--space-6, 24px);
+  background: #072b4a;
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  display: flex;
+  align-items: center;
+  user-select: none;
+  box-shadow: 0 10px 30px rgba(7, 92, 145, 0.22), 0 0 25px rgba(2, 132, 199, 0.25), 0 0 2px rgba(56, 189, 248, 0.4);
+  animation: etuHeroAuraGlow 7s ease-in-out infinite;
+}
+
+@keyframes etuHeroAuraGlow {
+  0%, 100% {
+    box-shadow: 0 10px 30px rgba(7, 92, 145, 0.2), 0 0 22px rgba(2, 132, 199, 0.22), 0 0 2px rgba(56, 189, 248, 0.35);
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 14px 42px rgba(2, 132, 199, 0.32), 0 0 38px rgba(56, 189, 248, 0.35), 0 0 6px rgba(14, 165, 233, 0.6);
+    border-color: rgba(14, 165, 233, 0.7);
+  }
+}
+
+.etu-hero-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    rgba(2, 132, 199, 0) 0%,
+    rgba(56, 189, 248, 0.7) 25%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(14, 165, 233, 0.7) 75%,
+    rgba(2, 132, 199, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: etuHeroShimmer 7s ease-in-out infinite;
+  z-index: 5;
+  pointer-events: none;
+}
+
+@keyframes etuHeroShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.etu-hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -20%;
+  width: 140%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 30% 20%,
+    rgba(56, 189, 248, 0.1) 0%,
+    rgba(7, 92, 145, 0.05) 40%,
+    transparent 70%
+  );
+  z-index: 2;
+  pointer-events: none;
+  animation: etuHeroAmbientPulse 8s ease-in-out infinite;
+}
+
+@keyframes etuHeroAmbientPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 0.92; transform: scale(1.03); }
+}
+
+.etu-hero-slides-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.etu-hero-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.85s ease-in-out, transform 1s ease-out;
+  transform: scale(1.03);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.etu-hero-slide.active {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+
+.etu-hero-bg-blur {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(24px) brightness(0.4);
+  opacity: 0.65;
+}
+
+.etu-hero-image {
+  position: absolute;
+  right: 2%;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 58%;
+  max-height: 90%;
+  object-fit: contain;
+  object-position: center right;
+  z-index: 1;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
+  transition: transform 0.85s ease;
+}
+
+.etu-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(7, 43, 74, 0.95) 0%,
+    rgba(7, 43, 74, 0.85) 42%,
+    rgba(7, 43, 74, 0.35) 75%,
+    rgba(7, 43, 74, 0.15) 100%
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+.etu-hero-content {
+  position: relative;
+  z-index: 3;
+  padding: 24px 36px;
+  max-width: 560px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.etu-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: fit-content;
+}
+
+.badge-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(56, 189, 248, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+}
+
+.badge-text {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e0f2fe;
+}
+
+.etu-hero-title-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.32), 0 0 16px rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  transition: background 0.9s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.9s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.etu-hero-title-badge .etu-hero-title {
+  font-size: 1.7rem;
+  font-weight: 850;
+  line-height: 1.15;
+  margin: 0;
+  color: #ffffff !important;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.etu-hero-subtitle {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0;
+  color: rgba(224, 242, 254, 0.9);
+  max-width: 480px;
+}
+
+.etu-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.meta-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 8px;
+  color: #f0f9ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.meta-pill.status-pill {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+}
+
+/* Arrow controls */
+.etu-hero-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(7, 43, 74, 0.65);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 1.4rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.25s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.etu-hero-banner:hover .etu-hero-arrow {
+  opacity: 0.85;
+}
+
+.etu-hero-arrow:hover {
+  opacity: 1 !important;
+  background: rgba(7, 43, 74, 0.95);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.etu-hero-arrow.prev { left: 16px; }
+.etu-hero-arrow.next { right: 16px; }
+
+/* Dot indicators */
+.etu-hero-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 4;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  backdrop-filter: blur(4px);
+}
+
+.etu-hero-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.etu-hero-dot.active {
+  width: 24px;
+  border-radius: 4px;
+  background: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+}
+
+/* ── Clickable StatCard Hover & Active States ── */
+.exec-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  position: relative;
+}
+
+.exec-card.clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(7, 92, 145, 0.15);
+}
+
+.exec-card.clickable:active {
+  transform: translateY(0);
+}
+
+.exec-card.clickable::after {
+  content: '↗';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 0.8rem;
+  color: var(--color-on-surface-variant);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translate(-2px, 2px);
+}
+
+.exec-card.clickable:hover::after {
+  opacity: 0.7;
+  transform: translate(0, 0);
+}
+
+/* ── Integrated Hero Quick Options Bar ─────────────────────── */
+.etu-hero-quick-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(7, 32, 56, 0.78) 0%, rgba(7, 32, 56, 0.45) 65%, rgba(7, 32, 56, 0) 100%);
+  pointer-events: auto;
+}
+
+.etu-hero-quick-left,
+.etu-hero-quick-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.etu-hero-quick-btn {
+  background: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  padding: 4px 10px !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  min-height: 34px !important;
+  min-width: 34px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.2s ease !important;
+}
+
+.etu-hero-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(56, 189, 248, 0.7) !important;
+  transform: translateY(-1px);
+}
+
+.etu-hero-quick-btn.etu-hero-menu-btn {
+  display: none; /* Only displayed on mobile */
+  font-size: 1.15rem !important;
+  padding: 4px 8px !important;
+}
+
+.etu-hero-quick-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  color: #e0f2fe;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.etu-hero-quick-bell {
+  display: inline-flex;
+  align-items: center;
+}
+
+.etu-hero-quick-bell .notification-wrap .bell {
+  background: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  min-height: 34px !important;
+  min-width: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.etu-hero-quick-btn.etu-hero-logout-btn {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #fee2e2 !important;
+}
+
+.etu-hero-quick-btn.etu-hero-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.45) !important;
+  border-color: #ef4444 !important;
+}
+
+

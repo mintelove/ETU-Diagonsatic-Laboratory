@@ -65,9 +65,15 @@ export async function api(path, { token, signal, timeout = 15000, showLoading, i
 
   let isCurrentError = false;
 
+  let body = options.body;
+  if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob)) {
+    body = JSON.stringify(body);
+  }
+
   try {
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
+      body,
       signal: requestSignal,
       headers: {
         'Content-Type': 'application/json',

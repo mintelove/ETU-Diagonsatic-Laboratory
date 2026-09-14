@@ -16,6 +16,7 @@ import { preparePOS80ReceiptData, isCbcParameter, isUrineChemicalParameter, isUr
 import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import ReportPreview from '../components/ReportPreview.jsx';
+import EtuHeroBanner from '../components/EtuHeroBanner.jsx';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 
 const formatDate = d => { try { const date = new Date(d); return isNaN(date.getTime()) ? '—' : date.toLocaleString(); } catch { return '—'; } };
@@ -473,6 +474,7 @@ export default function ReceptionPage() {
   const [pendingManualStockPatient, setPendingManualStockPatient] = useState(null);
   const [stockItems, setStockItems] = useState([]);
   const [customRadiologyExamName, setCustomRadiologyExamName] = useState('');
+  const [showReportLogo, setShowReportLogo] = useState(true);
   const [showReportFooter, setShowReportFooter] = useState(true);
   const [reportStampType, setReportStampType] = useState(null);
   const [selectedReportForPreview, setSelectedReportForPreview] = useState(null);
@@ -599,9 +601,11 @@ export default function ReceptionPage() {
     };
     subscribe('reception:change', refresh);
     subscribe('reports:change', refresh);
+    subscribe('expense:change', refresh);
     return () => {
       unsubscribe('reception:change', refresh);
       unsubscribe('reports:change', refresh);
+      unsubscribe('expense:change', refresh);
     };
   }, [subscribe, unsubscribe, loadData, loadWaitingPayment, loadReports, loadCounselling, view]);
 
@@ -1186,7 +1190,7 @@ export default function ReceptionPage() {
         body: { stampType: effectiveStampType }
       }).catch(e => console.warn('Print log warning (silent):', e));
 
-      await printLabReport(report || id, token, user, showReportFooter, effectiveStampType);
+      await printLabReport(report || id, { showLogo: showReportLogo, showFooter: showReportFooter, stampType: effectiveStampType, token, user });
       setToast({ message: 'A4 print dialog opened.', type: 'success' });
       loadData();
     } catch (e) {
@@ -1224,13 +1228,13 @@ export default function ReceptionPage() {
 
   return (
     <section className="page reception-page">
+      <EtuHeroBanner />
       
       {/* ═══ WORKSPACE HEADER ═══ */}
       <header className="dash-header">
         <div>
           <p className="eyebrow">Reception Workspace</p>
           <h1>Welcome, {user.fullName} <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: '#e0f2fe', color: '#075c91', marginLeft: '10px' }}>📍 Branch: {user.branchName || 'Main'}</span></h1>
-          <ReceptionClock />
         </div>
         <input
           className="global-input"
@@ -1270,10 +1274,18 @@ export default function ReceptionPage() {
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--card-border)' }}>
                 <input
                   type="checkbox"
+                  checked={showReportLogo}
+                  onChange={e => setShowReportLogo(e.target.checked)}
+                />
+                Show Logo
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--card-border)' }}>
+                <input
+                  type="checkbox"
                   checked={showReportFooter}
                   onChange={e => setShowReportFooter(e.target.checked)}
                 />
-                Show Logo & Footer
+                Show Footer
               </label>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : 'var(--text-secondary)', cursor: 'pointer', background: reportStampType === 'lab' ? 'rgba(2, 132, 199, 0.12)' : 'var(--color-surface-dim)', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : 'var(--card-border)'}` }}>
                 <input
@@ -1420,10 +1432,18 @@ export default function ReceptionPage() {
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                   <input
                     type="checkbox"
+                    checked={showReportLogo}
+                    onChange={e => setShowReportLogo(e.target.checked)}
+                  />
+                  Show Logo
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: '#334155', cursor: 'pointer', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <input
+                    type="checkbox"
                     checked={showReportFooter}
                     onChange={e => setShowReportFooter(e.target.checked)}
                   />
-                  Show Logo & Footer
+                  Show Footer
                 </label>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: reportStampType === 'lab' ? '#0284c7' : '#334155', cursor: 'pointer', background: reportStampType === 'lab' ? '#e0f2fe' : '#f1f5f9', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${reportStampType === 'lab' ? '#0284c7' : '#cbd5e1'}` }}>
                   <input
@@ -1485,7 +1505,7 @@ export default function ReceptionPage() {
 
             {/* A4 Document Canvas */}
             <div style={{ padding: '20px 16px', display: 'flex', justifyContent: 'center', background: 'var(--color-surface-container, transparent)' }}>
-              <ReportPreview report={selectedReportForPreview} showFooter={showReportFooter} stampType={reportStampType} />
+              <ReportPreview report={selectedReportForPreview} showLogo={showReportLogo} showFooter={showReportFooter} stampType={reportStampType} />
             </div>
           </div>
         </ModalPortal>
@@ -1495,31 +1515,35 @@ export default function ReceptionPage() {
       {view === 'dashboard' && (
         <>
           <div className="reception-stats">
-                <article className="stat-card blue">
-                  <small>Today's Patients</small>
-                  <strong>{dash?.summary.todayPatients ?? 0}</strong>
-                </article>
-                <article className="stat-card green">
-                  <small>Today's Income</small>
-                  <strong>{formatETB(dash?.summary.todayIncome)}</strong>
-                </article>
-                <article className="stat-card teal">
-                  <small>Weekly Income</small>
-                  <strong>{formatETB(dash?.summary.weeklyIncome)}</strong>
-                </article>
-                <article className="stat-card orange">
-                  <small>Pending Collections</small>
-                  <strong>{dash?.summary.waitingCollection ?? 0}</strong>
-                </article>
-                <article className="stat-card purple">
-                  <small>Completed Registrations</small>
-                  <strong>{dash?.summary.readyReports ?? 0}</strong>
-                </article>
-                <article className="stat-card indigo">
-                  <small>Waiting Queue</small>
-                  <strong>{dash?.summary.waitingCollection ?? 0}</strong>
-                </article>
-              </div>
+            <article className="stat-card blue">
+              <small>Today's Patients</small>
+              <strong>{dash?.summary.todayPatients ?? 0}</strong>
+            </article>
+            <article className="stat-card green">
+              <small>Daily Income</small>
+              <strong>{formatETB(dash?.summary.todayIncome)}</strong>
+            </article>
+            <article className="stat-card red">
+              <small>Daily Expenses</small>
+              <strong>{formatETB(dash?.summary.todayExpenses || 0)}</strong>
+            </article>
+            <article className="stat-card teal">
+              <small>Net Daily Income</small>
+              <strong>{formatETB((dash?.summary.todayIncome || 0) - (dash?.summary.todayExpenses || 0))}</strong>
+            </article>
+            <article className="stat-card indigo">
+              <small>Weekly Income</small>
+              <strong>{formatETB(dash?.summary.weeklyIncome)}</strong>
+            </article>
+            <article className="stat-card orange">
+              <small>Pending Collections</small>
+              <strong>{dash?.summary.waitingCollection ?? 0}</strong>
+            </article>
+            <article className="stat-card purple">
+              <small>Completed Registrations</small>
+              <strong>{dash?.summary.readyReports ?? 0}</strong>
+            </article>
+          </div>
 
           {/* Recent transactions listing (Step 8) */}
           <section className="dash-panel" style={{ marginTop: 'var(--space-6)' }}>

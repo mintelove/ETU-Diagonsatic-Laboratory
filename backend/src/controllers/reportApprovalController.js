@@ -1,5 +1,7 @@
 import LabReport from '../models/LabReport.js';
+import Patient from '../models/Patient.js';
 import SampleCollection from '../models/SampleCollection.js';
+import SampleTransfer from '../models/SampleTransfer.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import ActivityLog from '../models/ActivityLog.js';
@@ -51,6 +53,9 @@ export async function decide(req, res, next) {
     const decidedAt = new Date();
     report.status = approved ? 'Approved' : 'Rejected';
     report.approvalStatus = approved ? 'Approved' : 'Rejected';
+    if (req.body.stampType !== undefined) {
+      report.stampType = ['lab', 'clinic'].includes(req.body.stampType) ? req.body.stampType : null;
+    }
 
     if (approved) {
       report.approvedBy = req.user.id;
@@ -60,6 +65,50 @@ export async function decide(req, res, next) {
       report.rejectedBy = undefined;
       report.rejectedDate = undefined;
       report.rejectionReason = '';
+
+      // Cross-branch transfer lifecycle handling
+      let transfer = report.transfer ? await SampleTransfer.findById(report.transfer) : null;
+      if (!transfer && (report.isCrossBranchTransfer || report.originalBranch)) {
+        transfer = await SampleTransfer.findOne({
+          patient: report.patient?._id || report.patient,
+          laboratoryTest: { $in: report.laboratoryTests || [] },
+          status: { $nin: ['COMPLETED', 'CANCELLED'] }
+        });
+      }
+
+      if (transfer) {
+        transfer.status = 'READY_TO_RETURN';
+        transfer.approvedBy = req.user.id;
+        transfer.approvedAt = decidedAt;
+        transfer.returnMethod = 'APPROVAL';
+        transfer.labReport = report._id;
+        transfer.transferHistory.push({
+          status: 'APPROVED',
+          action: `Investigation approved by ${req.user.fullName || req.user.username} at ${transfer.destinationBranch}. Ready to return to ${transfer.sourceBranch}.`,
+          performedBy: req.user.id,
+          timestamp: decidedAt
+        });
+        await transfer.save();
+
+        report.transfer = transfer._id;
+        report.isCrossBranchTransfer = true;
+        report.originalBranch = transfer.sourceBranch;
+        report.performingBranch = transfer.destinationBranch;
+
+        // Notify destination technician that report is approved and ready to return
+        if (report.technician) {
+          await Notification.create({
+            recipient: report.technician,
+            type: 'New Approved Report',
+            message: `Transferred test for ${transfer.testName} is approved and ready to be sent back to ${transfer.sourceBranch}.`,
+            entity: transfer._id,
+            entityType: 'SampleTransfer'
+          });
+        }
+
+        emit('transfers:change', { action: 'approved', transferId: transfer._id, destinationBranch: transfer.destinationBranch });
+      }
+
       await notify('Reception', `Approved laboratory report ${report.reportNumber || report.id} is ready for printing.`, report.id);
       const collector = await User.findById(report.technician);
       if (collector) await Notification.create({ recipient: collector.id, type: 'New Approved Report', message: `Laboratory report ${report.reportNumber || report.id} has been approved.`, entity: report.id, entityType: 'LabReport' });
@@ -67,6 +116,27 @@ export async function decide(req, res, next) {
       report.rejectedBy = req.user.id;
       report.rejectedDate = decidedAt;
       report.rejectionReason = reason;
+
+      if (report.transfer || report.isCrossBranchTransfer) {
+        const transfer = report.transfer ? await SampleTransfer.findById(report.transfer) : await SampleTransfer.findOne({
+          patient: report.patient?._id || report.patient,
+          laboratoryTest: { $in: report.laboratoryTests || [] },
+          status: { $nin: ['COMPLETED', 'CANCELLED'] }
+        });
+        if (transfer) {
+          transfer.status = 'UNDER_INVESTIGATION';
+          transfer.transferHistory.push({
+            status: 'UNDER_INVESTIGATION',
+            action: `Report rejected by approver: ${reason}`,
+            performedBy: req.user.id,
+            timestamp: decidedAt,
+            notes: reason
+          });
+          await transfer.save();
+          emit('transfers:change', { action: 'rejected', transferId: transfer._id });
+        }
+      }
+
       await SampleCollection.findByIdAndUpdate(report.collection, { status: 'Queued' });
       const collector = await User.findById(report.technician);
       if (collector) await Notification.create({ recipient: collector.id, type: 'Critical Laboratory Message', message: `Laboratory report ${report.reportNumber || report.id} was rejected. Reason: ${reason}`, entity: report.id, entityType: 'LabReport' });

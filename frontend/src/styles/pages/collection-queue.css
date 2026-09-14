@@ -1126,5 +1126,339 @@
   color: #38bdf8 !important;
 }
 
+/* ── Cross-Branch Sample Transfer System ─────────────────── */
+.transfer-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f9ff;
+  border: 1px solid #0284c7;
+  color: #0369a1;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.transfer-action-btn:hover {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.transfer-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.transfer-badge.sent-from-main {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.25);
+}
+
+.transfer-badge.sent-from-otona {
+  background: #7c3aed;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.25);
+}
+
+.transfer-badge.received-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.transfer-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.transfer-status-badge.status-pending_transfer {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.transfer-status-badge.status-received {
+  background: #e0f2fe;
+  color: #075985;
+  border: 1px solid #bae6fd;
+}
+
+.transfer-status-badge.status-under_investigation {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+.transfer-status-badge.status-result_ready {
+  background: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+
+.transfer-status-badge.status-completed,
+.transfer-status-badge.status-approved {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+/* Modal styles */
+.transfer-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.transfer-modal {
+  background: var(--modal-bg, #111a2c);
+  color: var(--text-primary, #f8fafc);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--modal-border, #24344d);
+}
+
+.transfer-modal-header {
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--modal-border, #24344d);
+}
+
+.transfer-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--color-primary, #38bdf8);
+}
+
+.transfer-modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text-primary, #f8fafc);
+}
+
+.transfer-modal-body p {
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.transfer-info-box {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--card-bg, #131e32);
+  border: 1px solid var(--card-border, #24344d);
+  font-size: 0.88rem;
+  color: var(--text-primary, #f8fafc);
+}
+
+.transfer-info-box strong {
+  color: var(--text-primary, #f8fafc);
+}
+
+.transfer-info-box span {
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.transfer-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transfer-form-group label {
+  font-size: 0.88rem;
+  color: var(--text-primary, #f8fafc);
+}
+
+.transfer-form-group select,
+.transfer-form-group textarea,
+.transfer-form-group input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--input-border, #2d3e5b);
+  background: var(--input-bg, #0d1626);
+  color: var(--input-color, #ffffff);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.transfer-form-group select option {
+  background: var(--dropdown-bg, #131e32);
+  color: var(--dropdown-color, #ffffff);
+}
+
+.transfer-test-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--card-border, #24344d);
+  background: var(--color-surface-dim, #0d1626);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.transfer-test-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  color: var(--text-primary, #f8fafc);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.transfer-test-choice:hover {
+  background: var(--table-row-hover, #1c2b44);
+}
+
+.transfer-test-choice.selected {
+  background: rgba(2, 132, 199, 0.22);
+  border-color: var(--color-primary, #38bdf8);
+  color: var(--text-primary, #f8fafc);
+}
+
+.transfer-modal-footer {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--modal-border, #24344d);
+  background: var(--color-surface-dim, #0d1626);
+}
+
+/* Confirmation Dialog for Queue Delete */
+.queue-delete-modal {
+  background: var(--modal-bg, #111a2c);
+  color: var(--text-primary, #f8fafc);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--color-error, #dc2626);
+}
+
+.queue-delete-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.queue-delete-modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #f87171;
+}
+
+.queue-delete-modal-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #cbd5e1);
+  margin-bottom: 24px;
+}
+
+.queue-delete-modal-body .patient-highlight {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(220, 38, 38, 0.12);
+  border-left: 3px solid #dc2626;
+  border-radius: 6px;
+  color: var(--text-primary, #f8fafc);
+}
+
+.queue-delete-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.queue-delete-btn {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.queue-delete-btn:hover {
+  background: #b91c1c !important;
+}
+
+.transfer-audit-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  padding-left: 18px;
+  border-left: 2px solid #0284c7;
+  margin-top: 10px;
+}
+
+.transfer-audit-item {
+  position: relative;
+}
+
+.transfer-audit-item::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0284c7;
+}
+
+[data-theme='dark'] .transfer-action-btn {
+  background: rgba(2, 132, 199, 0.15);
+  border-color: #0284c7;
+  color: #38bdf8;
+}
+
+[data-theme='dark'] .transfer-badge.received-badge {
+  background: rgba(2, 132, 199, 0.2);
+  color: #7dd3fc;
+  border-color: rgba(2, 132, 199, 0.4);
+}
+
+[data-theme='dark'] .transfer-test-choice.selected {
+  background: rgba(2, 132, 199, 0.25);
+  border-color: #38bdf8;
+}
+
+
 
 

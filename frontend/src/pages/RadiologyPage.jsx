@@ -16,6 +16,7 @@ import { formatETB } from '../utils/currencyHelper.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import RichReportEditor from '../components/RichReportEditor.jsx';
 import { ReportPreview } from '../components/ReportPreview.jsx';
+import EtuHeroBanner from '../components/EtuHeroBanner.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
 import labLogo from '../assets/etu.jpg';
@@ -242,6 +243,7 @@ export default function RadiologyPage() {
 
   return (
     <section className="clinical-workspace-page radiology-page">
+      <EtuHeroBanner />
       {/* Toast Notification */}
       {toast && (
         <div

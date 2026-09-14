@@ -81,6 +81,10 @@ export async function connectDatabase() {
 
   console.log(`MongoDB connected (${mongoose.connection.name}).`);
 
+  runBackgroundMigrations().catch(e => console.error('Migration background error:', e.message));
+}
+
+async function runBackgroundMigrations() {
   // Ensure Category collection exists and migrate legacy categories
   try {
     await Category.createCollection();

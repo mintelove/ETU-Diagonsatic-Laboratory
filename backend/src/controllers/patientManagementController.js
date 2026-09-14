@@ -6,6 +6,8 @@ import SampleCollection from '../models/SampleCollection.js';
 import LabReport from '../models/LabReport.js';
 import CounsellingRecord from '../models/CounsellingRecord.js';
 import ReferralHospital from '../models/ReferralHospital.js';
+import SampleTransfer from '../models/SampleTransfer.js';
+import LaboratoryTest from '../models/LaboratoryTest.js';
 import { AppError } from '../utils/appError.js';
 import { recordActivity } from '../services/activityService.js';
 
@@ -51,16 +53,196 @@ export async function patients(req, res, next) { try {
   res.json({ patients: data.rows.map(normalise), pagination: { page, limit, total: data.total[0]?.count || 0, pages: Math.ceil((data.total[0]?.count || 0) / limit) } });
 } catch (error) { next(error); } }
 
-export async function patientProfile(req, res, next) { try {
-  const patient = await Patient.findById(req.params.id).populate('sampleTypes','name price').populate('registeredBy','fullName').populate('collectedBy','fullName');
-  if (!patient) throw new AppError('Patient not found.', 404);
-  if (req.user.role !== 'Admin') {
-    if (patient.branchName !== (req.user.branchName || 'Main')) throw new AppError('Patient not found.', 404);
-    if (req.user.role === 'Reception' && String(patient.registeredBy?._id || patient.registeredBy) !== String(req.user.id)) throw new AppError('Patient not found.', 404);
-  }
-  const [payment, collection, report, counselling, previousVisits] = await Promise.all([Payment.findOne({ patient: patient.id }).populate('receivedBy','fullName'), SampleCollection.findOne({ patient: patient.id }).populate('collector','fullName'), LabReport.findOne({ patient: patient.id }).sort({ createdDate: -1 }).populate('approvedBy','fullName'), CounsellingRecord.find({ patient: patient.id }).populate('counselledBy','fullName').sort({ completedAt: -1, createdDate: -1 }), Patient.find({ phone: patient.phone }).select('patientId registrationDate branchName').sort({ registrationDate: -1 })]);
-  res.json({ patient, payment, collection, report, counselling, previousVisits });
-} catch (error) { next(error); } }
+export async function patientProfile(req, res, next) {
+  try {
+    const patient = await Patient.findById(req.params.id)
+      .populate('sampleTypes', 'name price')
+      .populate({
+        path: 'laboratoryTests',
+        select: 'name category subcategory price',
+        populate: { path: 'category', select: 'name' }
+      })
+      .populate('registeredBy', 'fullName')
+      .populate('collectedBy', 'fullName');
+
+    if (!patient) throw new AppError('Patient not found.', 404);
+    if (req.user.role !== 'Admin') {
+      if (patient.branchName !== (req.user.branchName || 'Main')) throw new AppError('Patient not found.', 404);
+      if (req.user.role === 'Reception' && String(patient.registeredBy?._id || patient.registeredBy) !== String(req.user.id)) throw new AppError('Patient not found.', 404);
+    }
+
+    const matchingVisits = await Patient.find({
+      $or: [{ patientId: patient.patientId }, { phone: patient.phone }]
+    })
+      .select('patientId barcode registrationDate branchName paymentStatus grandTotal receiptNumber registeredBy laboratoryTests sampleTypes')
+      .populate({
+        path: 'laboratoryTests',
+        select: 'name category subcategory price',
+        populate: { path: 'category', select: 'name' }
+      })
+      .populate('sampleTypes', 'name price')
+      .populate('registeredBy', 'fullName')
+      .sort({ registrationDate: -1 });
+
+    const allPatientIds = matchingVisits.map(v => v._id);
+
+    const [allPayments, allCollections, allReports, counselling, allTransfers] = await Promise.all([
+      Payment.find({ patient: { $in: allPatientIds } }).populate('receivedBy', 'fullName').sort({ paidAt: -1 }),
+      SampleCollection.find({ patient: { $in: allPatientIds } }).populate('collector', 'fullName').sort({ createdDate: -1 }),
+      LabReport.find({ patient: { $in: allPatientIds } })
+        .populate({
+          path: 'laboratoryTests',
+          select: 'name category subcategory price',
+          populate: { path: 'category', select: 'name' }
+        })
+        .populate('approvedBy', 'fullName')
+        .populate('technician', 'fullName')
+        .sort({ createdDate: -1 }),
+      CounsellingRecord.find({ patient: { $in: allPatientIds } }).populate('counselledBy', 'fullName').sort({ completedAt: -1, createdDate: -1 }),
+      SampleTransfer.find({ patient: { $in: allPatientIds } }).populate('approvedBy', 'fullName').lean()
+    ]);
+
+    const historyList = [];
+    const seenKeys = new Set();
+
+    // 1. Process from all LabReports
+    for (const rep of allReports) {
+      const repTests = (rep.laboratoryTests && rep.laboratoryTests.length) ? rep.laboratoryTests : [];
+      const parentVisit = matchingVisits.find(v => String(v._id) === String(rep.patient));
+
+      if (repTests.length) {
+        for (const t of repTests) {
+          const key = `${rep._id}_${t._id || t.name}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+
+          const transfer = allTransfers.find(tr => String(tr.labReport) === String(rep._id) || (tr.testName && tr.testName.toLowerCase() === (t.name || '').toLowerCase()));
+          const collection = allCollections.find(c => String(c.patient) === String(rep.patient));
+
+          historyList.push({
+            id: key,
+            testDate: rep.createdDate || parentVisit?.registrationDate,
+            category: t.category?.name || 'General',
+            testName: t.name || 'Laboratory Test',
+            subtest: t.subcategory || '',
+            orderId: parentVisit?.barcode || parentVisit?.receiptNumber || parentVisit?.patientId || rep.reportNumber || '—',
+            paymentStatus: parentVisit?.paymentStatus || 'Paid',
+            paidAmount: parentVisit?.grandTotal || t.price || 0,
+            collectionStatus: collection?.status || 'Completed',
+            collectorName: collection?.collector?.fullName || '',
+            investigationStatus: rep.results?.length ? `${rep.results.length} results recorded` : 'Completed',
+            approvalStatus: rep.approvedBy?.fullName ? `Approved by ${rep.approvedBy.fullName}` : rep.status,
+            branch: rep.branchName || parentVisit?.branchName || 'Main',
+            isTransferred: Boolean(transfer || rep.isCrossBranchTransfer),
+            transferDetails: transfer ? {
+              transferId: transfer.transferId,
+              status: transfer.status,
+              sourceBranch: transfer.sourceBranch,
+              destinationBranch: transfer.destinationBranch
+            } : null,
+            reportStatus: rep.status,
+            reportId: rep._id,
+            results: rep.results || []
+          });
+        }
+      } else if (rep.results && rep.results.length) {
+        const key = `rep_${rep._id}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const firstCat = rep.results[0]?.category || 'General';
+          const testNames = [...new Set(rep.results.map(r => r.sampleName))].slice(0, 3).join(', ');
+          const transfer = allTransfers.find(tr => String(tr.labReport) === String(rep._id));
+          const collection = allCollections.find(c => String(c.patient) === String(rep.patient));
+
+          historyList.push({
+            id: key,
+            testDate: rep.createdDate || parentVisit?.registrationDate,
+            category: firstCat,
+            testName: testNames || 'Clinical Investigation',
+            subtest: rep.results[0]?.subcategory || '',
+            orderId: parentVisit?.barcode || parentVisit?.receiptNumber || rep.reportNumber || '—',
+            paymentStatus: parentVisit?.paymentStatus || 'Paid',
+            paidAmount: parentVisit?.grandTotal || 0,
+            collectionStatus: collection?.status || 'Completed',
+            collectorName: collection?.collector?.fullName || '',
+            investigationStatus: `${rep.results.length} parameters`,
+            approvalStatus: rep.approvedBy?.fullName ? `Approved by ${rep.approvedBy.fullName}` : rep.status,
+            branch: rep.branchName || parentVisit?.branchName || 'Main',
+            isTransferred: Boolean(transfer || rep.isCrossBranchTransfer),
+            transferDetails: transfer ? {
+              transferId: transfer.transferId,
+              status: transfer.status,
+              sourceBranch: transfer.sourceBranch,
+              destinationBranch: transfer.destinationBranch
+            } : null,
+            reportStatus: rep.status,
+            reportId: rep._id,
+            results: rep.results || []
+          });
+        }
+      }
+    }
+
+    // 2. Process registered tests in visits that haven't generated a report yet
+    for (const v of matchingVisits) {
+      const vTests = v.laboratoryTests || [];
+      const vCollection = allCollections.find(c => String(c.patient) === String(v._id));
+      for (const t of vTests) {
+        const testName = t.name || '';
+        const alreadyInHistory = historyList.some(h => (h.orderId === v.barcode || h.orderId === v.receiptNumber) && h.testName.toLowerCase() === testName.toLowerCase());
+        if (!alreadyInHistory) {
+          const key = `visit_${v._id}_${t._id || t.name}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+
+          const transfer = allTransfers.find(tr => String(tr.patient) === String(v._id) && (tr.testName && tr.testName.toLowerCase() === testName.toLowerCase()));
+
+          historyList.push({
+            id: key,
+            testDate: v.registrationDate,
+            category: t.category?.name || 'General',
+            testName: t.name || 'Laboratory Test',
+            subtest: t.subcategory || '',
+            orderId: v.barcode || v.receiptNumber || v.patientId,
+            paymentStatus: v.paymentStatus || 'Unpaid',
+            paidAmount: t.price || 0,
+            collectionStatus: vCollection?.status || 'Queued',
+            collectorName: vCollection?.collector?.fullName || '',
+            investigationStatus: 'Queued / In Progress',
+            approvalStatus: 'Pending',
+            branch: v.branchName || 'Main',
+            isTransferred: Boolean(transfer),
+            transferDetails: transfer ? {
+              transferId: transfer.transferId,
+              status: transfer.status,
+              sourceBranch: transfer.sourceBranch,
+              destinationBranch: transfer.destinationBranch
+            } : null,
+            reportStatus: 'Not started',
+            reportId: null,
+            results: []
+          });
+        }
+      }
+    }
+
+    historyList.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
+
+    res.json({
+      patient,
+      payment: allPayments[0] || null,
+      allPayments,
+      collection: allCollections[0] || null,
+      allCollections,
+      report: allReports[0] || null,
+      allReports,
+      counselling,
+      previousVisits: matchingVisits,
+      laboratoryHistory: historyList
+    });
+  } catch (error) { next(error); }
+}
+
 
 export async function dashboard(req, res, next) { try {
   const today = startOfDay(new Date()), week = new Date(today); week.setDate(week.getDate() - 6);

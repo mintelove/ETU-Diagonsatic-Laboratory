@@ -765,7 +765,168 @@ p.empty {
   }
 }
 
-/* ── 11. PRINT OVERRIDES ─────────────────────────────────────────────────── */
+/* ── 11. CONFIRMATION MODALS (DELETE & ACTIONS) - HIGH CONTRAST IN BOTH THEMES ── */
+.delete-confirm-modal {
+  background: var(--modal-bg, #FFFFFF) !important;
+  border: 1.5px solid var(--modal-border, #CBD5E1) !important;
+  color: var(--text-primary, #0F172A) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  z-index: 100000 !important;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal {
+  background: #111A2C !important;
+  border-color: #2D3E5B !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.delete-confirm-modal .delete-confirm-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-icon {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+.delete-confirm-modal .delete-confirm-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A) !important;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-title {
+  color: #F8FAFC !important;
+}
+
+.delete-confirm-modal .delete-confirm-body {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: var(--text-secondary, #334155) !important;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-body {
+  color: #CBD5E1 !important;
+}
+
+.delete-confirm-modal .delete-confirm-subtext {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748B) !important;
+  line-height: 1.4;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-subtext {
+  color: #94A3B8 !important;
+}
+
+.delete-confirm-modal .delete-confirm-details {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--color-surface-container-high, #F1F5F9) !important;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  color: var(--text-primary, #0F172A) !important;
+  text-align: left;
+  border: 1px solid var(--modal-border, #CBD5E1) !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-details {
+  background: #18253D !important;
+  border-color: #2D3E5B !important;
+  color: #F8FAFC !important;
+}
+
+.delete-confirm-modal .delete-confirm-details strong {
+  color: var(--text-secondary, #334155);
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-details strong {
+  color: #94A3B8 !important;
+}
+
+.delete-confirm-modal .delete-confirm-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--color-surface-container-high, #F8FAFC) !important;
+  border-top: 1px solid var(--modal-border, #E2E8F0) !important;
+  justify-content: flex-end;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal .delete-confirm-footer {
+  background: #0E1726 !important;
+  border-top-color: #24344D !important;
+}
+
+.delete-confirm-modal button.modal-cancel-btn {
+  background: var(--button-secondary-bg, #F1F5F9) !important;
+  color: var(--button-secondary-color, #0F172A) !important;
+  border: 1px solid var(--modal-border, #CBD5E1) !important;
+  min-width: 90px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+:root[data-theme='dark'] .delete-confirm-modal button.modal-cancel-btn {
+  background: #1E2D48 !important;
+  color: #F8FAFC !important;
+  border-color: #33486A !important;
+}
+
+.delete-confirm-modal button.modal-cancel-btn:hover {
+  filter: brightness(0.95);
+}
+
+:root[data-theme='dark'] .delete-confirm-modal button.modal-cancel-btn:hover {
+  background: #273A5C !important;
+}
+
+.delete-confirm-modal button.modal-danger-btn {
+  background: #DC2626 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #B91C1C !important;
+  min-width: 100px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+  transition: all 0.15s ease;
+}
+
+.delete-confirm-modal button.modal-danger-btn:hover {
+  background: #B91C1C !important;
+}
+
+.delete-confirm-modal button.modal-danger-btn:disabled,
+.delete-confirm-modal button.modal-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── 12. PRINT OVERRIDES ─────────────────────────────────────────────────── */
 @media print {
   html, body {
     background: #FFFFFF !important;
@@ -777,3 +938,4 @@ p.empty {
     box-shadow: none !important;
   }
 }
+

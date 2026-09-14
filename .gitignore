@@ -2,3 +2,8 @@ node_modules/
 .env
 uploads/
 *.log
+scratch/
+backend/inspect_tx.mjs
+backend/sample_test.mjs
+backend/verify_restored_lifecycle.mjs
+backend/verify_test_suite.mjs

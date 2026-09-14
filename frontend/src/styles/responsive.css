@@ -156,9 +156,24 @@ main {
   }
 }
 
-/* Hide mobile-only controls on desktop */
+/* Hide mobile-only controls, mobile header, and mobile menu button on desktop */
+.mobile-header,
+.mobile-menu-toggle,
+.etu-hero-menu-btn,
 .sidebar-mobile-tools {
   display: none;
+}
+
+@media (min-width: 769px) {
+  .mobile-header,
+  .mobile-menu-toggle,
+  .etu-hero-quick-btn.etu-hero-menu-btn,
+  .etu-hero-menu-btn {
+    display: none !important;
+  }
+  .sidebar {
+    display: flex !important;
+  }
 }
 
 /* ── Top Navigation Responsiveness (Laptops & Desktops) ────── */
