@@ -1005,7 +1005,7 @@ export default function AdminReportTransactionManagementPage() {
   };
 
   return (
-    <section className="page collection-page collector-page">
+    <section className="page collection-page collector-page admin-rtm-page">
       {/* Header with Title & Branch Switcher */}
       <header className="dash-header" style={{ marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', width: '100%' }}>
@@ -1769,7 +1769,7 @@ export default function AdminReportTransactionManagementPage() {
           </div>
 
           {/* Transactions Summary Highlights */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+          <div className="admin-rtm-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
             <div style={{ background: 'var(--card-bg, #111a2c)', padding: '14px 18px', borderRadius: 12, border: '1px solid var(--card-border, #24344d)' }}>
               <small style={{ color: 'var(--text-secondary, #cbd5e1)', textTransform: 'uppercase', fontSize: '0.72rem', fontWeight: 700 }}>Total Period Revenue</small>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary, #ffffff)', marginTop: 4 }}>
