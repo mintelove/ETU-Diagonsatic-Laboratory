@@ -20,6 +20,23 @@ const TITLE_BACKGROUND_GRADIENTS = [
 ];
 
 /**
+ * Dynamic text color per slide — chosen based on each slide's visual characteristics.
+ * Dark images → bright white. Mixed/lighter images → off-white with stronger shadow.
+ * The title badge gradient background provides a readable backdrop regardless,
+ * so these are subtle enhancements for maximum contrast.
+ */
+const SLIDE_TEXT_STYLES = [
+  { color: '#ffffff', textShadow: '0 2px 8px rgba(0,0,0,0.5)' },   // etu.jpg — dark lab photo
+  { color: '#f0f9ff', textShadow: '0 2px 10px rgba(0,0,0,0.55)' },  // et1 — medium-dark
+  { color: '#ffffff', textShadow: '0 2px 8px rgba(0,0,0,0.45)' },   // et2 — dark equipment
+  { color: '#f8fafc', textShadow: '0 2px 10px rgba(0,0,0,0.5)' },   // et3 — mixed lighting
+  { color: '#ffffff', textShadow: '0 2px 8px rgba(0,0,0,0.45)' },   // et4 — dark tones
+  { color: '#f0f9ff', textShadow: '0 2px 10px rgba(0,0,0,0.55)' },  // et5 — medium
+  { color: '#ffffff', textShadow: '0 2px 8px rgba(0,0,0,0.5)' },    // et6 — dark
+  { color: '#f8fafc', textShadow: '0 2px 10px rgba(0,0,0,0.5)' },   // et7 — mixed
+];
+
+/**
  * Large Modern Professional ETU Hero Slideshow Banner
  *
  * Placed at the absolute top of the dashboard.
@@ -113,6 +130,7 @@ export default function EtuHeroBanner({ interval = 5000, className = '' }) {
   };
 
   const currentGradient = TITLE_BACKGROUND_GRADIENTS[currentSlideIndex % TITLE_BACKGROUND_GRADIENTS.length];
+  const currentTextStyle = SLIDE_TEXT_STYLES[currentSlideIndex % SLIDE_TEXT_STYLES.length];
 
   return (
     <div
@@ -232,7 +250,14 @@ export default function EtuHeroBanner({ interval = 5000, className = '' }) {
           className="etu-hero-title-badge"
           style={{ background: currentGradient }}
         >
-          <h1 className="etu-hero-title">ETU DIAGNOSTIC LABORATORY</h1>
+          <h1
+            className="etu-hero-title"
+            style={{
+              color: currentTextStyle.color,
+              textShadow: currentTextStyle.textShadow,
+              transition: 'color 0.8s ease, text-shadow 0.8s ease',
+            }}
+          >ETU DIAGNOSTIC LABORATORY</h1>
         </div>
         <p className="etu-hero-subtitle">
           Advanced Clinical Pathology · Precision Analytics · Patient-Centric Healthcare

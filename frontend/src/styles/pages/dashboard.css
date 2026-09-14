@@ -589,28 +589,36 @@
 .etu-hero-banner {
   position: relative;
   width: 100%;
-  height: 300px;
-  min-height: 280px;
+  height: 255px;
+  min-height: 240px;
   border-radius: 16px;
-  overflow: hidden;
-  margin-bottom: var(--space-6, 24px);
+  overflow: visible;
+  margin-bottom: var(--space-3, 12px);
   background: #072b4a;
   border: 1.5px solid rgba(56, 189, 248, 0.45);
   display: flex;
   align-items: center;
   user-select: none;
   box-shadow: 0 10px 30px rgba(7, 92, 145, 0.22), 0 0 25px rgba(2, 132, 199, 0.25), 0 0 2px rgba(56, 189, 248, 0.4);
-  animation: etuHeroAuraGlow 7s ease-in-out infinite;
+  animation: etuHeroMultiGlow 12s ease-in-out infinite;
 }
 
-@keyframes etuHeroAuraGlow {
+@keyframes etuHeroMultiGlow {
   0%, 100% {
     box-shadow: 0 10px 30px rgba(7, 92, 145, 0.2), 0 0 22px rgba(2, 132, 199, 0.22), 0 0 2px rgba(56, 189, 248, 0.35);
     border-color: rgba(56, 189, 248, 0.4);
   }
+  25% {
+    box-shadow: 0 12px 36px rgba(67, 56, 202, 0.28), 0 0 30px rgba(99, 102, 241, 0.3), 0 0 4px rgba(129, 140, 248, 0.5);
+    border-color: rgba(99, 102, 241, 0.55);
+  }
   50% {
-    box-shadow: 0 14px 42px rgba(2, 132, 199, 0.32), 0 0 38px rgba(56, 189, 248, 0.35), 0 0 6px rgba(14, 165, 233, 0.6);
-    border-color: rgba(14, 165, 233, 0.7);
+    box-shadow: 0 14px 42px rgba(13, 148, 136, 0.3), 0 0 35px rgba(20, 184, 166, 0.32), 0 0 5px rgba(45, 212, 191, 0.55);
+    border-color: rgba(20, 184, 166, 0.6);
+  }
+  75% {
+    box-shadow: 0 12px 36px rgba(88, 28, 135, 0.26), 0 0 28px rgba(147, 51, 234, 0.28), 0 0 4px rgba(168, 85, 247, 0.5);
+    border-color: rgba(147, 51, 234, 0.5);
   }
 }
 
@@ -643,10 +651,8 @@
 .etu-hero-banner::after {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -20%;
-  width: 140%;
-  height: 200%;
+  inset: 0;
+  border-radius: inherit;
   background: radial-gradient(
     circle at 30% 20%,
     rgba(56, 189, 248, 0.1) 0%,
@@ -669,6 +675,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  border-radius: 16px;
 }
 
 .etu-hero-slide {
@@ -790,13 +797,13 @@
 }
 
 .etu-hero-title-badge .etu-hero-title {
-  font-size: 1.7rem;
-  font-weight: 850;
+  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  font-weight: 800;
   line-height: 1.15;
   margin: 0;
-  color: #ffffff !important;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  transition: color 0.8s ease;
 }
 
 .etu-hero-subtitle {
@@ -1020,6 +1027,23 @@
 .etu-hero-quick-bell {
   display: inline-flex;
   align-items: center;
+  position: relative;
+  z-index: 50;
+}
+
+.etu-hero-quick-bell .notification-wrap {
+  position: static;
+}
+
+.etu-hero-quick-bell .notification-panel {
+  position: fixed;
+  top: 52px;
+  right: 12px;
+  left: auto;
+  width: min(380px, calc(100vw - 24px));
+  z-index: 9999;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .etu-hero-quick-bell .notification-wrap .bell {

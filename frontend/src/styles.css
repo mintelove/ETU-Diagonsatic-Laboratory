@@ -636,14 +636,16 @@ td span {
 
 .notification-panel {
     position: absolute;
-    z-index: 4;
+    z-index: 50;
     right: 0;
     top: 46px;
     width: min(360px, 90vw);
+    max-height: 70vh;
+    overflow-y: auto;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 12px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.05);
     padding: .8rem
 }
 
