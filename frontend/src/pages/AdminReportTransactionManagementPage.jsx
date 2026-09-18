@@ -3655,20 +3655,9 @@ export default function AdminReportTransactionManagementPage() {
           {/* Sub-tab 1: Register [POS] */}
           {/* Sub-tab 1: Register [POS] — 3-Step Wizard Registration Workflow */}
           {receptionSubTab === 'pos' && (
-            <div className="registration-wizard" style={{ marginTop: '0.5rem' }}>
+            <div className="admin-reception-pos-container">
               {/* Wizard Step Progress Tracker */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'var(--surface-container, #131e32)',
-                border: '1px solid var(--card-border, #24344d)',
-                borderRadius: '12px',
-                padding: '10px 16px',
-                marginBottom: '1.25rem',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}>
+              <div className="admin-pos-stepper-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   {[
                     { step: 1, label: '1. Patient Intake', icon: '🧑‍⚕️', badge: posPatientName ? '✓' : '' },
@@ -3740,234 +3729,223 @@ export default function AdminReportTransactionManagementPage() {
                 </div>
               </div>
 
-              {/* Main Content Grid: Step Body + Live Bill Summary Sidebar */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.65fr) minmax(320px, 0.9fr)', gap: '1.25rem', alignItems: 'start' }}>
-                
-                {/* ── LEFT COLUMN: STEP CONTENT ── */}
-                <div>
-                  {/* STEP 1: PATIENT INTAKE */}
-                  {posWizardStep === 1 && (
-                    <div className="collector-queue" style={{ padding: '1.25rem' }}>
-                      <header style={{ marginBottom: '1.25rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
-                        <p className="eyebrow" style={{ margin: 0 }}>Step 1 — Patient Registration</p>
-                        <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Patient Demographic Intake &amp; Referral Details</h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
-                          Registered by {user?.fullName || 'Admin'} (Admin Account). Patient will be directed downstream to Sample Collection.
-                        </p>
-                      </header>
+              {/* STEP 1: PATIENT INTAKE & REGISTRATION — Centered Comfortable Window */}
+              {posWizardStep === 1 && (
+                <div className="admin-pos-intake-wrapper">
+                  <div className="admin-pos-card">
+                    <header className="admin-pos-card-header">
+                      <p className="eyebrow">Step 1 — Patient Registration</p>
+                      <h2>Patient Demographic Intake &amp; Referral Details</h2>
+                      <p>
+                        Registered by {user?.fullName || 'Admin'} (Admin Account). Patient will be directed downstream to Sample Collection.
+                      </p>
+                    </header>
 
-                      <form onSubmit={posRegistrationType === 'Self Aware' ? handlePosRegister : handleProceedToTestSelection} style={{ display: 'flex', flexDirection: 'column', gap: '0.95rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                              Patient Full Name <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="e.g. ABEBE BIKILA"
-                              value={posPatientName}
-                              onChange={e => setPosPatientName(e.target.value)}
-                              style={{ width: '100%', textTransform: 'uppercase', fontWeight: 600 }}
-                            />
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                              Registration Type
-                            </label>
-                            <select
-                              value={posRegistrationType}
-                              onChange={e => setPosRegistrationType(e.target.value)}
-                              style={{ width: '100%' }}
-                            >
-                              <option value="Self">Self / Walk-in</option>
-                              <option value="Referral">Referral Hospital</option>
-                              <option value="Self Aware">Self Aware (Queue first, pay later)</option>
-                            </select>
-                          </div>
+                    <form onSubmit={posRegistrationType === 'Self Aware' ? handlePosRegister : handleProceedToTestSelection} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div className="admin-pos-form-row-2col-asym">
+                        <div className="admin-pos-field">
+                          <label>
+                            Patient Full Name <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. ABEBE BIKILA"
+                            value={posPatientName}
+                            onChange={e => setPosPatientName(e.target.value)}
+                            style={{ textTransform: 'uppercase', fontWeight: 600 }}
+                          />
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                              Age (Years) <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
+                        <div className="admin-pos-field">
+                          <label>Registration Type</label>
+                          <select
+                            value={posRegistrationType}
+                            onChange={e => setPosRegistrationType(e.target.value)}
+                          >
+                            <option value="Self">Self / Walk-in</option>
+                            <option value="Referral">Referral Hospital</option>
+                            <option value="Self Aware">Self Aware (Queue first, pay later)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="admin-pos-form-row-2col">
+                        <div className="admin-pos-field">
+                          <label>
+                            Age (Years) <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="125"
+                            required
+                            placeholder="e.g. 35"
+                            value={posAge}
+                            onChange={e => setPosAge(e.target.value)}
+                          />
+                        </div>
+                        <div className="admin-pos-field">
+                          <label>
+                            Sex <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <select
+                            value={posSex}
+                            onChange={e => setPosSex(e.target.value)}
+                            required
+                          >
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="admin-pos-form-row-2col">
+                        <div className="admin-pos-field">
+                          <label>
+                            Phone Number <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="09..."
+                            value={posPhone}
+                            onChange={e => setPosPhone(e.target.value)}
+                          />
+                        </div>
+                        <div className="admin-pos-field">
+                          <label>Address / City</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Hawassa, Piassa"
+                            value={posAddress}
+                            onChange={e => setPosAddress(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {posRegistrationType === 'Referral' && (
+                        <div style={{
+                          background: 'rgba(15, 23, 42, 0.5)',
+                          padding: '14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(148, 163, 184, 0.2)'
+                        }}>
+                          <div className={posReferralHospital === 'Other' ? 'admin-pos-form-row-2col' : ''}>
+                            <div className="admin-pos-field">
+                              <label>
+                                Referral Hospital <span style={{ color: '#ef4444' }}>*</span>
+                              </label>
+                              <select
+                                value={posReferralHospital}
+                                onChange={e => setPosReferralHospital(e.target.value)}
+                                required
+                              >
+                                <option value="">-- Select Referral Hospital --</option>
+                                {hospitals.map(h => (
+                                  <option key={h._id || h.name} value={h.name}>{h.name}</option>
+                                ))}
+                                <option value="Other">Other (Specify below)</option>
+                              </select>
+                            </div>
+                            {posReferralHospital === 'Other' && (
+                              <div className="admin-pos-field">
+                                <label>
+                                  Hospital Name <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  required
+                                  placeholder="Type hospital name"
+                                  value={posOtherHospital}
+                                  onChange={e => setPosOtherHospital(e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Vital Signs (BP) */}
+                      <div style={{
+                        background: 'rgba(15, 23, 42, 0.4)',
+                        border: '1px solid rgba(148, 163, 184, 0.15)',
+                        borderRadius: '10px',
+                        padding: '14px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                          <span>🫀</span>
+                          <strong style={{ fontSize: '0.86rem', color: '#38bdf8' }}>Vital Signs (Blood Pressure)</strong>
+                          <small style={{ color: '#94a3b8' }}>— Optional</small>
+                        </div>
+                        <div className="admin-pos-form-row-2col" style={{ marginBottom: 0 }}>
+                          <div className="admin-pos-field">
+                            <label style={{ fontSize: '0.78rem' }}>Systolic BP (mmHg)</label>
                             <input
                               type="number"
-                              min="0"
-                              max="125"
-                              required
-                              placeholder="e.g. 35"
-                              value={posAge}
-                              onChange={e => setPosAge(e.target.value)}
-                              style={{ width: '100%' }}
+                              min="50"
+                              max="300"
+                              placeholder="e.g. 120"
+                              value={posBpSystolic}
+                              onChange={e => setPosBpSystolic(e.target.value)}
                             />
                           </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                              Sex <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
-                            <select
-                              value={posSex}
-                              onChange={e => setPosSex(e.target.value)}
-                              style={{ width: '100%' }}
-                              required
-                            >
-                              <option value="Male">Male</option>
-                              <option value="Female">Female</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                              Phone Number <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
+                          <div className="admin-pos-field">
+                            <label style={{ fontSize: '0.78rem' }}>Diastolic BP (mmHg)</label>
                             <input
-                              type="tel"
-                              required
-                              placeholder="09..."
-                              value={posPhone}
-                              onChange={e => setPosPhone(e.target.value)}
-                              style={{ width: '100%' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                              Address / City
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Hawassa, Piassa"
-                              value={posAddress}
-                              onChange={e => setPosAddress(e.target.value)}
-                              style={{ width: '100%' }}
+                              type="number"
+                              min="30"
+                              max="200"
+                              placeholder="e.g. 80"
+                              value={posBpDiastolic}
+                              onChange={e => setPosBpDiastolic(e.target.value)}
                             />
                           </div>
                         </div>
+                      </div>
 
-                        {posRegistrationType === 'Referral' && (
-                          <div style={{
-                            background: 'rgba(15, 23, 42, 0.5)',
-                            padding: '12px',
-                            borderRadius: '10px',
-                            border: '1px solid rgba(148, 163, 184, 0.2)'
-                          }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: posReferralHospital === 'Other' ? '1fr 1fr' : '1fr', gap: '10px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                                  Referral Hospital <span style={{ color: '#ef4444' }}>*</span>
-                                </label>
-                                <select
-                                  value={posReferralHospital}
-                                  onChange={e => setPosReferralHospital(e.target.value)}
-                                  style={{ width: '100%' }}
-                                  required
-                                >
-                                  <option value="">-- Select Referral Hospital --</option>
-                                  {hospitals.map(h => (
-                                    <option key={h._id || h.name} value={h.name}>{h.name}</option>
-                                  ))}
-                                  <option value="Other">Other (Specify below)</option>
-                                </select>
-                              </div>
-                              {posReferralHospital === 'Other' && (
-                                <div>
-                                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                                    Hospital Name <span style={{ color: '#ef4444' }}>*</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    required
-                                    placeholder="Type hospital name"
-                                    value={posOtherHospital}
-                                    onChange={e => setPosOtherHospital(e.target.value)}
-                                    style={{ width: '100%' }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                      {/* Step 1 Actions */}
+                      <div className="admin-pos-actions">
+                        {posRegistrationType === 'Self Aware' ? (
+                          <button
+                            type="submit"
+                            disabled={posRegistering}
+                            className="primary"
+                            style={{
+                              padding: '11px 22px',
+                              fontWeight: 700,
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                            }}
+                          >
+                            {posRegistering ? 'Registering…' : 'Queue Self-Aware Patient (Sample Collection) →'}
+                          </button>
+                        ) : (
+                          <button
+                            type="submit"
+                            className="primary"
+                            style={{
+                              padding: '11px 24px',
+                              fontWeight: 700,
+                              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                            }}
+                          >
+                            Select Tests &amp; Pricing (Step 2) →
+                          </button>
                         )}
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
 
-                        {/* Vital Signs (BP) */}
-                        <div style={{
-                          background: 'rgba(15, 23, 42, 0.4)',
-                          border: '1px solid rgba(148, 163, 184, 0.15)',
-                          borderRadius: '10px',
-                          padding: '12px'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <span>🫀</span>
-                            <strong style={{ fontSize: '0.84rem', color: '#38bdf8' }}>Vital Signs (Blood Pressure)</strong>
-                            <small style={{ color: '#94a3b8' }}>— Optional</small>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '3px' }}>Systolic BP (mmHg)</label>
-                              <input
-                                type="number"
-                                min="50"
-                                max="300"
-                                placeholder="e.g. 120"
-                                value={posBpSystolic}
-                                onChange={e => setPosBpSystolic(e.target.value)}
-                                style={{ width: '100%' }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '3px' }}>Diastolic BP (mmHg)</label>
-                              <input
-                                type="number"
-                                min="30"
-                                max="200"
-                                placeholder="e.g. 80"
-                                value={posBpDiastolic}
-                                onChange={e => setPosBpDiastolic(e.target.value)}
-                                style={{ width: '100%' }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Step 1 Actions */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
-                          {posRegistrationType === 'Self Aware' ? (
-                            <button
-                              type="submit"
-                              disabled={posRegistering}
-                              className="primary"
-                              style={{
-                                padding: '10px 20px',
-                                fontWeight: 700,
-                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-                              }}
-                            >
-                              {posRegistering ? 'Registering…' : 'Queue Self-Aware Patient (Sample Collection) →'}
-                            </button>
-                          ) : (
-                            <button
-                              type="submit"
-                              className="primary"
-                              style={{
-                                padding: '10px 22px',
-                                fontWeight: 700,
-                                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
-                              }}
-                            >
-                              Select Tests &amp; Pricing →
-                            </button>
-                          )}
-                        </div>
-                      </form>
-                    </div>
-                  )}
-
-                  {/* STEP 2: LABORATORY TEST TYPE SELECTION */}
-                  {posWizardStep === 2 && (
-                    <div className="collector-queue" style={{ padding: '1.25rem' }}>
+              {/* STEPS 2 & 3: GRID (STEP CONTENT ON LEFT + LIVE BILL SUMMARY ON RIGHT) */}
+              {(posWizardStep === 2 || posWizardStep === 3) && (
+                <div className="admin-pos-step23-grid">
+                  {/* ── LEFT COLUMN: STEP CONTENT ── */}
+                  <div>
+                    {/* STEP 2: LABORATORY TEST TYPE SELECTION */}
+                    {posWizardStep === 2 && (
+                      <div className="admin-pos-card">
                       <div className="lab-step2-header" style={{ marginBottom: '14px' }}>
                         <div className="lab-step2-title-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div className="lab-step2-title-icon" style={{ fontSize: '1.6rem' }}>🧬</div>
@@ -4452,7 +4430,7 @@ export default function AdminReportTransactionManagementPage() {
                       </div>
 
                       {/* Navigation buttons */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.25rem' }}>
+                      <div className="admin-pos-actions-space">
                         <button
                           type="button"
                           className="secondary"
@@ -4480,10 +4458,10 @@ export default function AdminReportTransactionManagementPage() {
 
                   {/* STEP 3: PAYMENT */}
                   {posWizardStep === 3 && (
-                    <div className="collector-queue" style={{ padding: '1.25rem' }}>
-                      <header style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
+                    <div className="admin-pos-card">
+                      <header className="admin-pos-card-header">
                         <p className="eyebrow" style={{ margin: 0 }}>Step 3 — Payment &amp; Confirmation</p>
-                        <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Collect Payment &amp; Generate Thermal Receipt</h2>
+                        <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Collect Payment &amp; Generate Thermal Receipt</h2>
                       </header>
 
                       {/* Patient Recap Banner */}
@@ -4614,7 +4592,7 @@ export default function AdminReportTransactionManagementPage() {
                       </div>
 
                       {/* Navigation & Submit Buttons */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                      <div className="admin-pos-actions-space">
                         <button
                           type="button"
                           className="secondary"
@@ -4828,6 +4806,7 @@ export default function AdminReportTransactionManagementPage() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           )}
 

@@ -1012,3 +1012,185 @@
   }
 }
 
+/* ============================================================
+   ADMIN RECEPTION DEPARTMENT POS WORKFLOW — RESPONSIVE DESIGN
+   ============================================================ */
+.admin-reception-pos-container {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.75rem;
+  position: relative;
+  z-index: 5;
+}
+
+.admin-pos-stepper-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-container, #131e32);
+  border: 1px solid var(--card-border, #24344d);
+  border-radius: 14px;
+  padding: 12px 18px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-pos-intake-wrapper {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto 1.5rem;
+  box-sizing: border-box;
+}
+
+.admin-pos-card {
+  background: var(--card-bg, #111a2c);
+  border: 1px solid var(--card-border, #24344d);
+  border-radius: 16px;
+  padding: clamp(1.25rem, 2.5vw, 1.85rem);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.admin-pos-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  padding-bottom: 0.85rem;
+}
+
+.admin-pos-card-header h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+  color: #f8fafc;
+}
+
+.admin-pos-card-header p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #94a3b8;
+}
+
+.admin-pos-form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.admin-pos-form-row-2col-asym {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.admin-pos-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-pos-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.admin-pos-field input,
+.admin-pos-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.7);
+  color: #ffffff;
+  font-size: 0.92rem;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-pos-field input:focus,
+.admin-pos-field select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25);
+}
+
+.admin-pos-step23-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 1.5rem;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-pos-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.admin-pos-actions-space {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .admin-pos-step23-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-pos-card {
+    padding: 1rem !important;
+    border-radius: 12px !important;
+  }
+  .admin-pos-form-row-2col,
+  .admin-pos-form-row-2col-asym {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin-bottom: 12px !important;
+  }
+  .admin-pos-field input,
+  .admin-pos-field select {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS */
+    min-height: 44px !important;
+  }
+  .admin-pos-actions,
+  .admin-pos-actions-space {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+  .admin-pos-actions button,
+  .admin-pos-actions-space button {
+    width: 100% !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+  }
+}
+
+
