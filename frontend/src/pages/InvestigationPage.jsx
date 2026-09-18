@@ -521,9 +521,10 @@ export default function InvestigationPage() {
                           {(() => {
                             const tests = cat.tests || [];
                             const isElectrolyteCat = /^SERUM ELECTROLYTE$/i.test(cat.name) || /ELECTROLYTE/i.test(cat.name);
+                            const elecBundleTests = tests.filter(isElectrolyteTest);
                             const hasSubcats = tests.some(t => t.subcategory);
                             if (!hasSubcats) {
-                              const allElectrolyteSelected = isElectrolyteCat && tests.length > 0 && tests.every(t => selectedTestIds.includes(String(t._id || t.id || t)));
+                              const allElectrolyteSelected = isElectrolyteCat && elecBundleTests.length > 0 && elecBundleTests.every(t => selectedTestIds.includes(String(t._id || t.id || t)));
                               return (
                                 <>
                                   {isElectrolyteCat && (
@@ -541,7 +542,7 @@ export default function InvestigationPage() {
                                         cursor: 'pointer',
                                         boxShadow: allElectrolyteSelected ? '0 2px 8px rgba(22, 101, 52, 0.15)' : 'none'
                                       }}
-                                      onClick={() => handleToggleElectrolyteGroup(tests)}
+                                      onClick={() => handleToggleElectrolyteGroup(elecBundleTests)}
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <div className="investigation-check-badge" style={{ width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', background: allElectrolyteSelected ? '#16a34a' : '#ffffff', border: '2px solid #16a34a', color: allElectrolyteSelected ? '#ffffff' : 'transparent', fontWeight: 800 }}>

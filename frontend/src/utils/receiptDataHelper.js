@@ -137,6 +137,11 @@ export function isUrineMicroscopyParameter(test, categoryName = '') {
  */
 export function isSerumElectrolyteParameter(test, categoryName = '') {
   if (!test) return false;
+  const name = (test.name || '').trim().toUpperCase();
+  // Magnesium and Phosphorus are INDEPENDENT tests, NOT part of the Electrolyte bundle
+  if (/^MAGNESIUM/i.test(name) || /^PHOSPHORUS/i.test(name) || /^PHOSPHATE/i.test(name) || name === 'MG') {
+    return false;
+  }
   const cat = normalizeCategoryName(
     categoryName ||
     (typeof test.category === 'object' ? test.category?.name : test.category) ||
@@ -145,7 +150,6 @@ export function isSerumElectrolyteParameter(test, categoryName = '') {
   ).toUpperCase();
   if (cat === 'OTHER TESTS' || cat === 'REFERRAL') return false;
   const sub = (test.subcategory || '').trim().toUpperCase();
-  const name = (test.name || '').trim().toUpperCase();
   return (
     cat === 'SERUM ELECTROLYTE' ||
     /^SERUM ELECTROLYTE$/i.test(cat) ||
@@ -356,18 +360,33 @@ export function preparePOS80ReceiptData(patientData = {}, options = {}) {
         });
       });
     } else if (/^SERUM ELECTROLYTE$/i.test(catName) || /^ELECTROLYTE/i.test(catName)) {
-      // Serum Electrolyte Bundle (fixed 1,000 ETB, all children non-billable)
-      const elecBundlePrice = Number(options.serumElectrolytePrice ?? 1000);
-      computedSubtotal += elecBundlePrice;
-      items.push({
-        isCbcParent: true,
-        name: 'Serum Electrolyte',
-        price: elecBundlePrice,
-        children: tests.map(c => ({
-          _id: c._id,
-          name: c.name,
-          included: true
-        }))
+      // Serum Electrolyte Bundle vs Independent Tests (Magnesium & Phosphorus)
+      const elecBundleTests = tests.filter(isSerumElectrolyteParameter);
+      const independentElecTests = tests.filter(t => !isSerumElectrolyteParameter(t));
+
+      if (elecBundleTests.length > 0) {
+        const elecBundlePrice = Number(options.serumElectrolytePrice ?? 1000);
+        computedSubtotal += elecBundlePrice;
+        items.push({
+          isCbcParent: true,
+          name: 'Serum Electrolyte',
+          price: elecBundlePrice,
+          children: elecBundleTests.map(c => ({
+            _id: c._id,
+            name: c.name,
+            included: true
+          }))
+        });
+      }
+
+      independentElecTests.forEach(test => {
+        computedSubtotal += (test.price || 1000);
+        items.push({
+          _id: test._id,
+          isCbcParent: false,
+          name: test.name,
+          price: test.price || 1000
+        });
       });
     } else {
       // Standard Non-bundled categories (regular billable items)

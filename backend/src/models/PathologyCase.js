@@ -23,7 +23,7 @@ const pathologyCaseSchema = new mongoose.Schema({
   
   reportType: {
     type: String,
-    enum: ['Option A', 'Option B'],
+    enum: ['Option A', 'Option B', 'Option C'],
     default: 'Option A'
   },
   // Option A — Rich copy/paste content (HTML string with formatting, images, tables)
@@ -47,6 +47,19 @@ const pathologyCaseSchema = new mongoose.Schema({
     recommendation: { type: String, default: '' },
     pathologistNotes: { type: String, default: '' }
   },
+
+  // Option C — Standardized Clinical Template Library fields
+  templateReport: {
+    category: { type: String, default: '' },
+    templateKey: { type: String, default: '' },
+    examination: { type: String, default: '' },
+    clinicalInformation: { type: String, default: '' },
+    technique: { type: String, default: '' },
+    comparison: { type: String, default: '' },
+    findings: { type: String, default: '' },
+    impression: { type: String, default: '' },
+    recommendation: { type: String, default: '' }
+  },
   
   registeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   pathologist: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -55,7 +68,12 @@ const pathologyCaseSchema = new mongoose.Schema({
   approvedAt: { type: Date, default: null },
   
   showFooter: { type: Boolean, default: true },
-  branchName: { type: String, enum: ['Main', 'Otona'], default: 'Main', required: true, index: true }
+  branchName: { type: String, enum: ['Main', 'Otona'], default: 'Main', required: true, index: true },
+
+  // Clear / Restore Queue state
+  isCleared: { type: Boolean, default: false, index: true },
+  clearedAt: { type: Date, default: null },
+  clearedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, {
   timestamps: { createdAt: 'createdDate', updatedAt: 'updatedDate' },
   versionKey: false
@@ -64,5 +82,7 @@ const pathologyCaseSchema = new mongoose.Schema({
 pathologyCaseSchema.index({ branchName: 1, status: 1, createdDate: -1 });
 pathologyCaseSchema.index({ registeredBy: 1, status: 1 });
 pathologyCaseSchema.index({ reportingDeadline: 1, status: 1 });
+pathologyCaseSchema.index({ isCleared: 1, createdDate: -1 });
+pathologyCaseSchema.index({ isCleared: 1, clearedAt: -1 });
 
 export default mongoose.model('PathologyCase', pathologyCaseSchema);

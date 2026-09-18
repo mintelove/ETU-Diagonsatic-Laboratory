@@ -55,7 +55,7 @@ export const MASTER_LAB_CATEGORIES = [
       { parameterName: 'Potassium (K+)', unit: 'mmol/L', referenceValue: '3.5–5.1', normalMin: 3.5, normalMax: 5.1, displayOrder: 16, defaultPrice: 400, aliases: ['Potassium', 'K+', 'POTASSIUM (K+)'] },
       { parameterName: 'Chloride (Cl−)', unit: 'mmol/L', referenceValue: '98–107', normalMin: 98, normalMax: 107, displayOrder: 17, defaultPrice: 400, aliases: ['Chloride', 'Cl-', 'CHLORIDE (Cl−)'] },
       { parameterName: 'Calcium', unit: 'mg/dL', referenceValue: '8.5–10.5', normalMin: 8.5, normalMax: 10.5, displayOrder: 18, defaultPrice: 400, aliases: ['Total Calcium', 'CALCIUM'] },
-      { parameterName: 'Phosphorus', unit: 'mg/dL', referenceValue: '2.5–4.5', normalMin: 2.5, normalMax: 4.5, displayOrder: 19, defaultPrice: 700, aliases: ['Phosphate', 'PHOSPHORUS', 'Phosphite', 'Phosphores'] }
+      { parameterName: 'Phosphorus', unit: 'mg/dL', referenceValue: '2.5–4.5', normalMin: 2.5, normalMax: 4.5, displayOrder: 19, defaultPrice: 1000, aliases: ['Phosphate', 'PHOSPHORUS', 'Phosphite', 'Phosphores'] }
     ]
   },
   {
@@ -80,13 +80,14 @@ export const MASTER_LAB_CATEGORIES = [
     subcategory: 'OTHER CHEMISTRY TESTS',
     parameters: [
       { parameterName: 'Lactate Dehydrogenase (LDH)', unit: 'U/L', referenceValue: '125–220', normalMin: 125, normalMax: 220, displayOrder: 31, defaultPrice: 700, aliases: ['LDH', 'LACTATE DEHYDROGENASE (LDH)'] },
-      { parameterName: 'Phosphate', unit: 'mg/dL', referenceValue: '2.5–4.5', normalMin: 2.5, normalMax: 4.5, displayOrder: 32, defaultPrice: 700, aliases: ['PHOSPHATE', 'Phosphite', 'Phosphorus'] },
-      { parameterName: 'Amylase', unit: 'U/L', referenceValue: '30–110', normalMin: 30, normalMax: 110, displayOrder: 33, defaultPrice: 600, aliases: ['AMYLASE'] },
-      { parameterName: 'Lipase', unit: 'U/L', referenceValue: '10–140', normalMin: 10, normalMax: 140, displayOrder: 34, defaultPrice: 600, aliases: ['LIPASE'] },
-      { parameterName: 'CK (Creatine Kinase)', unit: 'U/L', referenceValue: '24–195', normalMin: 24, normalMax: 195, displayOrder: 35, defaultPrice: 600, aliases: ['CK', 'CK (CREATINE KINASE)'] },
-      { parameterName: 'CK-MB', unit: 'U/L', referenceValue: '0–25', normalMin: 0, normalMax: 25, displayOrder: 36, defaultPrice: 1300, aliases: ['CK-MB'] },
-      { parameterName: 'Troponin I', unit: 'ng/mL', referenceValue: '0.00–0.04', normalMin: 0.0, normalMax: 0.04, displayOrder: 37, defaultPrice: 1300, aliases: ['Troponin', 'TROPONIN I'] },
-      { parameterName: 'Magnesium', unit: 'mg/dL', referenceValue: '1.6 - 2.6', normalMin: 1.6, normalMax: 2.6, displayOrder: 38, defaultPrice: 1000, aliases: ['MAGNESIUM', 'Mg', 'Magnesium (Mg)', 'MAGNESIUM (Mg)'] }
+      { parameterName: 'Phosphate', unit: 'mg/dL', referenceValue: '2.5–4.5', normalMin: 2.5, normalMax: 4.5, displayOrder: 32, defaultPrice: 1000, isBundle: false, billableIndividually: true, includedInBundle: false, parentBundle: '', aliases: ['PHOSPHATE', 'Phosphite', 'Phosphorus'] },
+      { parameterName: 'Phosphorus', unit: 'mg/dL', referenceValue: '2.5–4.5', normalMin: 2.5, normalMax: 4.5, displayOrder: 33, defaultPrice: 1000, isBundle: false, billableIndividually: true, includedInBundle: false, parentBundle: '', aliases: ['PHOSPHORUS', 'Phosphate', 'Phosphorus'] },
+      { parameterName: 'Amylase', unit: 'U/L', referenceValue: '30–110', normalMin: 30, normalMax: 110, displayOrder: 34, defaultPrice: 600, aliases: ['AMYLASE'] },
+      { parameterName: 'Lipase', unit: 'U/L', referenceValue: '10–140', normalMin: 10, normalMax: 140, displayOrder: 35, defaultPrice: 600, aliases: ['LIPASE'] },
+      { parameterName: 'CK (Creatine Kinase)', unit: 'U/L', referenceValue: '24–195', normalMin: 24, normalMax: 195, displayOrder: 36, defaultPrice: 600, aliases: ['CK', 'CK (CREATINE KINASE)'] },
+      { parameterName: 'CK-MB', unit: 'U/L', referenceValue: '0–25', normalMin: 0, normalMax: 25, displayOrder: 37, defaultPrice: 1300, aliases: ['CK-MB'] },
+      { parameterName: 'Troponin I', unit: 'ng/mL', referenceValue: '0.00–0.04', normalMin: 0.0, normalMax: 0.04, displayOrder: 38, defaultPrice: 1300, aliases: ['Troponin', 'TROPONIN I'] },
+      { parameterName: 'Magnesium', unit: 'mg/dL', referenceValue: '1.6 - 2.6', normalMin: 1.6, normalMax: 2.6, displayOrder: 39, defaultPrice: 1000, isBundle: false, billableIndividually: true, includedInBundle: false, parentBundle: '', aliases: ['MAGNESIUM', 'Mg', 'Magnesium (Mg)', 'MAGNESIUM (Mg)'] }
     ]
   },
 
@@ -115,8 +116,9 @@ export const MASTER_LAB_CATEGORIES = [
       { parameterName: 'T. CALCIUM', unit: 'mmol/L', referenceValue: '2.1–2.6', normalMin: 2.1, normalMax: 2.6, displayOrder: 5, defaultPrice: 1000, aliases: ['T.CALCIUM', 'T. CALCIUM', 'TOTAL CALCIUM', 'Total Calcium'] },
       { parameterName: 'CALCIUM ION++', unit: 'mmol/L', referenceValue: '1.1–1.35', normalMin: 1.1, normalMax: 1.35, displayOrder: 6, defaultPrice: 1000, aliases: ['CALCIUM ION++', 'Ionized Calcium'] },
       { parameterName: 'nCALCIUM', unit: 'mmol/L', referenceValue: '1.0–1.28', normalMin: 1.0, normalMax: 1.28, displayOrder: 7, defaultPrice: 1000 },
-      { parameterName: 'PHOSPHORUS', unit: 'mg/dL', referenceValue: '2.7–4.5', normalMin: 2.7, normalMax: 4.5, displayOrder: 8, defaultPrice: 1000, aliases: ['PHOSPHORUS', 'Phosphate', 'Phosphorus'] },
-      { parameterName: 'pH', unit: '', referenceValue: '7.35–7.45', normalMin: 7.35, normalMax: 7.45, displayOrder: 9, defaultPrice: 1000 }
+      { parameterName: 'PHOSPHORUS', unit: 'mg/dL', referenceValue: '2.7–4.5', normalMin: 2.7, normalMax: 4.5, displayOrder: 8, defaultPrice: 1000, isBundle: false, billableIndividually: true, includedInBundle: false, parentBundle: '', aliases: ['PHOSPHORUS', 'Phosphate', 'Phosphorus'] },
+      { parameterName: 'pH', unit: '', referenceValue: '7.35–7.45', normalMin: 7.35, normalMax: 7.45, displayOrder: 9, defaultPrice: 1000 },
+      { parameterName: 'MAGNESIUM', unit: 'mg/dL', referenceValue: '1.6–2.6', normalMin: 1.6, normalMax: 2.6, displayOrder: 10, defaultPrice: 1000, isBundle: false, billableIndividually: true, includedInBundle: false, parentBundle: '', aliases: ['MAGNESIUM', 'Magnesium', 'Mg', 'Magnesium (Mg)'] }
     ]
   },
 
@@ -388,13 +390,21 @@ export async function seedParameterCatalog(force = false) {
         category: 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
         parameterName: /^magnesium$/i
       });
+      const magnesiumElecExists = await LabTestParameter.findOne({
+        category: 'SERUM ELECTROLYTE',
+        parameterName: /^magnesium$/i
+      });
+      const phosphorusElecExists = await LabTestParameter.findOne({
+        category: 'SERUM ELECTROLYTE',
+        parameterName: /^phosphorus$/i
+      });
       const urineHcgExists = await LabTestParameter.findOne({
         category: 'URINALYSIS',
         parameterName: /pregnancy test/i,
         subcategory: 'Pregnancy Test [HCG]'
       });
       const totalCount = await LabTestParameter.countDocuments();
-      if (totalCount > 0 && referralCount > 0 && ft3Exists && ft4Exists && fshExists && bloodGroupExists && magnesiumExists && urineHcgExists) return;
+      if (totalCount > 0 && referralCount > 0 && ft3Exists && ft4Exists && fshExists && bloodGroupExists && magnesiumExists && magnesiumElecExists && phosphorusElecExists && urineHcgExists) return;
     }
     let count = 0;
     let fallbackOrder = 1;
@@ -437,17 +447,17 @@ export async function seedParameterCatalog(force = false) {
       { $set: { defaultPrice: 300 } }
     );
 
-    // Update any existing Magnesium parameter in any category to Clinical Chemistry with reference range 1.6 - 2.6
+    // Update Magnesium parameter in Clinical Chemistry to reference range 1.6 - 2.6
     await LabTestParameter.updateMany(
-      { parameterName: new RegExp('^magnesium$', 'i') },
+      { category: 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS', parameterName: new RegExp('^magnesium$', 'i') },
       {
         $set: {
-          category: 'CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS',
           subcategory: 'OTHER CHEMISTRY TESTS',
           referenceValue: '1.6 - 2.6',
           normalMin: 1.6,
           normalMax: 2.6,
-          displayOrder: 38
+          defaultPrice: 1000,
+          displayOrder: 39
         }
       }
     );
@@ -472,7 +482,7 @@ export async function seedParameterCatalog(force = false) {
           $or: searchNames.map(n => ({ parameterName: new RegExp(`^${escapeRegex(n)}$`, 'i') }))
         });
 
-        if (!existing) {
+        if (!existing && !['Magnesium', 'MAGNESIUM', 'Phosphorus', 'PHOSPHORUS', 'Phosphate', 'Direct Coombs Test', 'Indirect Coombs Test'].includes(p.parameterName)) {
           existing = await LabTestParameter.findOne({
             $or: searchNames.map(n => ({ parameterName: new RegExp(`^${escapeRegex(n)}$`, 'i') }))
           });
@@ -483,9 +493,14 @@ export async function seedParameterCatalog(force = false) {
           existing.category = catGroup.category;
           existing.subcategory = targetSubcat;
           existing.unit = p.unit || '';
-          if (!existing.referenceValue || force || p.parameterName === 'Magnesium') existing.referenceValue = p.referenceValue || '';
-          if (existing.normalMin === null || force || p.parameterName === 'Magnesium') existing.normalMin = p.normalMin ?? null;
-          if (existing.normalMax === null || force || p.parameterName === 'Magnesium') existing.normalMax = p.normalMax ?? null;
+          if (p.defaultPrice !== undefined) existing.defaultPrice = p.defaultPrice;
+          if (p.isBundle !== undefined) existing.isBundle = p.isBundle;
+          if (p.billableIndividually !== undefined) existing.billableIndividually = p.billableIndividually;
+          if (p.includedInBundle !== undefined) existing.includedInBundle = p.includedInBundle;
+          if (p.parentBundle !== undefined) existing.parentBundle = p.parentBundle;
+          if (!existing.referenceValue || force || /^(Magnesium|Phosphorus)$/i.test(p.parameterName)) existing.referenceValue = p.referenceValue || '';
+          if (existing.normalMin === null || force || /^(Magnesium|Phosphorus)$/i.test(p.parameterName)) existing.normalMin = p.normalMin ?? null;
+          if (existing.normalMax === null || force || /^(Magnesium|Phosphorus)$/i.test(p.parameterName)) existing.normalMax = p.normalMax ?? null;
           existing.displayOrder = order;
           existing.editable = true;
           existing.status = 'Active';
@@ -499,6 +514,11 @@ export async function seedParameterCatalog(force = false) {
             referenceValue: p.referenceValue || '',
             normalMin: p.normalMin ?? null,
             normalMax: p.normalMax ?? null,
+            defaultPrice: p.defaultPrice,
+            isBundle: p.isBundle,
+            billableIndividually: p.billableIndividually,
+            includedInBundle: p.includedInBundle,
+            parentBundle: p.parentBundle,
             displayOrder: order,
             editable: true,
             status: 'Active'

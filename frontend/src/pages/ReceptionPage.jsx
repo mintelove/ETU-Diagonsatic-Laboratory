@@ -478,6 +478,19 @@ export default function ReceptionPage() {
   const [showReportFooter, setShowReportFooter] = useState(true);
   const [reportStampType, setReportStampType] = useState(null);
   const [selectedReportForPreview, setSelectedReportForPreview] = useState(null);
+  const [reportsDateFilter, setReportsDateFilter] = useState('today');
+  const [reportsSearch, setReportsSearch] = useState('');
+  const [debouncedReportsSearch, setDebouncedReportsSearch] = useState('');
+  const [transactionDateFilter, setTransactionDateFilter] = useState('today');
+  const [receptionTxList, setReceptionTxList] = useState([]);
+  const [txSummary, setTxSummary] = useState({ count: 0, totalRevenue: 0 });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedReportsSearch(reportsSearch);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [reportsSearch]);
 
   useScrollLock(!!selectedCounselling || !!history || !!receiptData || !!manualStockPatient || !!pendingManualStockPatient || !!selectedReportForPreview);
 
@@ -566,13 +579,18 @@ export default function ReceptionPage() {
 
   const loadReports = useCallback(async (signal) => {
     try {
-      const data = await api(`/reception/reports?q=${encodeURIComponent(q)}`, { token, signal });
+      const params = new URLSearchParams();
+      const qVal = debouncedReportsSearch.trim();
+      if (qVal) params.append('q', qVal);
+      if (reportsDateFilter) params.append('dateFilter', reportsDateFilter);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const data = await api(`/reception/reports${qs}`, { token, signal });
       setReports(data.reports || []);
     } catch (e) {
       if (e.name === 'AbortError' || isSilentNetworkError(e)) return;
       setToast({ message: e.message || 'Failed to load approved reports.', type: 'error' });
     }
-  }, [q, token]);
+  }, [debouncedReportsSearch, reportsDateFilter, token]);
 
   const loadCounselling = useCallback(async (signal) => {
     try {
@@ -584,6 +602,17 @@ export default function ReceptionPage() {
     }
   }, [q, token]);
 
+  const loadTransactions = useCallback(async (signal) => {
+    try {
+      const data = await api(`/reception/transactions?date=${transactionDateFilter}`, { token, signal });
+      setReceptionTxList(data.transactions || []);
+      setTxSummary({ count: data.count || 0, totalRevenue: data.totalRevenue || 0 });
+    } catch (e) {
+      if (e.name === 'AbortError' || isSilentNetworkError(e)) return;
+      console.warn('Failed to load reception transactions:', e);
+    }
+  }, [transactionDateFilter, token]);
+
   useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
@@ -591,11 +620,20 @@ export default function ReceptionPage() {
     return () => controller.abort();
   }, [loadData, loadWaitingPayment]);
 
+  useEffect(() => {
+    if (view === 'dashboard') {
+      const controller = new AbortController();
+      loadTransactions(controller.signal);
+      return () => controller.abort();
+    }
+  }, [view, loadTransactions]);
+
   // Real-time sync — refresh dashboard and active view data on changes
   useEffect(() => {
     const refresh = () => {
       loadData();
       loadWaitingPayment();
+      if (view === 'dashboard') loadTransactions();
       if (view === 'reports') loadReports();
       if (view === 'counselling') loadCounselling();
     };
@@ -607,7 +645,7 @@ export default function ReceptionPage() {
       unsubscribe('reports:change', refresh);
       unsubscribe('expense:change', refresh);
     };
-  }, [subscribe, unsubscribe, loadData, loadWaitingPayment, loadReports, loadCounselling, view]);
+  }, [subscribe, unsubscribe, loadData, loadWaitingPayment, loadReports, loadCounselling, loadTransactions, view]);
 
   // View data fetching (reports & counselling)
   useEffect(() => {
@@ -1304,11 +1342,77 @@ export default function ReceptionPage() {
                 Add Stamp for Clinic
               </label>
               <div className="export-buttons">
-                <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
-                <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
+                <button onClick={() => {
+                  const p = new URLSearchParams();
+                  if (debouncedReportsSearch.trim()) p.append('q', debouncedReportsSearch.trim());
+                  if (reportsDateFilter) p.append('dateFilter', reportsDateFilter);
+                  const qs = p.toString() ? `?${p.toString()}` : '';
+                  download(`/reception/exports/reports.csv${qs}`, token);
+                }}>CSV</button>
+                <button onClick={() => {
+                  const p = new URLSearchParams();
+                  if (debouncedReportsSearch.trim()) p.append('q', debouncedReportsSearch.trim());
+                  if (reportsDateFilter) p.append('dateFilter', reportsDateFilter);
+                  const qs = p.toString() ? `?${p.toString()}` : '';
+                  download(`/reception/exports/reports.pdf${qs}`, token);
+                }}>PDF</button>
               </div>
             </div>
           </div>
+
+          {/* ── Approved Reports Search & Date Filter Toolbar ── */}
+          <div className="reports-toolbar no-print">
+            <div className="reports-search-box">
+              <span className="reports-search-icon" aria-hidden="true">🔍</span>
+              <input
+                type="text"
+                className="reports-search-input"
+                value={reportsSearch}
+                onChange={e => setReportsSearch(e.target.value)}
+                placeholder="Search approved report by patient name..."
+                aria-label="Search approved report by patient name"
+              />
+              {reportsSearch && (
+                <button
+                  type="button"
+                  className="reports-search-clear-btn"
+                  onClick={() => {
+                    setReportsSearch('');
+                    setDebouncedReportsSearch('');
+                  }}
+                  aria-label="Clear search"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div
+              className="reports-date-filter-bar"
+              role="group"
+              aria-label="Approved Reports Date Filter"
+            >
+              <span className="reports-date-label">📅 Date:</span>
+              {[
+                { id: 'today', label: 'Today' },
+                { id: 'yesterday', label: 'Yesterday' },
+                { id: 'this_week', label: 'This Week' },
+                { id: 'last_week', label: 'Last Week' },
+                { id: 'all', label: 'All' }
+              ].map(df => (
+                <button
+                  key={df.id}
+                  type="button"
+                  className={`filter-pill-btn ${reportsDateFilter === df.id ? 'active' : ''}`}
+                  onClick={() => setReportsDateFilter(df.id)}
+                >
+                  {df.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {reports.length ? (
             <div className="sample-types-table-wrapper">
               <table className="sample-types-table">
@@ -1343,6 +1447,8 @@ export default function ReceptionPage() {
                         <td>
                           {r.results?.length ? (
                             r.results.slice(0, 2).map(x => `${x.sampleName}: ${x.result}`).join('; ')
+                          ) : r.templateReport?.impression ? (
+                            <span>{r.templateReport.impression.length > 80 ? r.templateReport.impression.slice(0, 80) + '…' : r.templateReport.impression}</span>
                           ) : r.reportContent ? (
                             <span style={{ color: 'var(--color-primary)', fontStyle: 'italic' }}>Detailed Specialist Report</span>
                           ) : r.structuredReport?.diagnosis ? (
@@ -1390,7 +1496,7 @@ export default function ReceptionPage() {
                 </tbody>
               </table>
             </div>
-          ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
+          ) : <p className="empty">{reportsSearch ? `No approved reports found matching "${reportsSearch}".` : 'No approved patient reports currently ready for printing.'}</p>}
         </section>
       )}
 
@@ -1532,8 +1638,8 @@ export default function ReceptionPage() {
               <strong>{formatETB((dash?.summary.todayIncome || 0) - (dash?.summary.todayExpenses || 0))}</strong>
             </article>
             <article className="stat-card indigo">
-              <small>Weekly Income</small>
-              <strong>{formatETB(dash?.summary.weeklyIncome)}</strong>
+              <small>Yesterday's Income</small>
+              <strong>{formatETB(dash?.summary.yesterdayIncome || 0)}</strong>
             </article>
             <article className="stat-card orange">
               <small>Pending Collections</small>
@@ -1545,33 +1651,68 @@ export default function ReceptionPage() {
             </article>
           </div>
 
-          {/* Recent transactions listing (Step 8) */}
+          {/* Income transactions listing strictly restricted to Today + Yesterday */}
           <section className="dash-panel" style={{ marginTop: 'var(--space-6)' }}>
-            <h2>Recent Transactions</h2>
+            <div className="tx-toolbar no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>💰</span> Income Transactions
+                </h2>
+                <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                  Showing <strong>{transactionDateFilter === 'yesterday' ? "Yesterday's" : "Today's"}</strong> cash transactions ({txSummary.count} transactions · {formatETB(txSummary.totalRevenue)})
+                </small>
+              </div>
+
+              <div className="reports-date-filter-bar" role="group" aria-label="Transaction Date Filter">
+                <span className="reports-date-label">📅 Date:</span>
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' }
+                ].map(df => (
+                  <button
+                    key={df.id}
+                    type="button"
+                    className={`filter-pill-btn ${transactionDateFilter === df.id ? 'active' : ''}`}
+                    onClick={() => setTransactionDateFilter(df.id)}
+                  >
+                    {df.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="sample-types-table-wrapper">
               <table className="sample-types-table">
                 <thead>
                   <tr>
                     <th>Receipt Number</th>
                     <th>Patient Name</th>
-                    <th>Sample Types</th>
+                    <th>Examination / Tests</th>
                     <th>Total Paid</th>
                     <th>Payment Method</th>
-                    <th>Date</th>
+                    <th>Date &amp; Time</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentTransactions.length === 0 ? (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem' }}>No payment records found for today.</td></tr>
-                  ) : recentTransactions.map((tx) => (
+                  {receptionTxList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)' }}>
+                        No payment records found for {transactionDateFilter === 'yesterday' ? 'yesterday' : 'today'}.
+                      </td>
+                    </tr>
+                  ) : receptionTxList.map((tx) => (
                     <tr key={tx._id}>
                       <td><code>{tx.receiptNumber}</code></td>
-                      <td><strong>{tx.name}</strong></td>
-                      <td>{tx.sampleTypes?.map(s => s.name).join(', ') || 'Counselling'}</td>
-                      <td><strong>{formatETB(tx.grandTotal)}</strong></td>
-                      <td>{tx.paymentMethod}</td>
-                      <td>{formatDate(tx.registrationDate)}</td>
+                      <td><strong>{tx.name}</strong><span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)' }}>{tx.patientId}</span></td>
+                      <td>{tx.tests || tx.sampleTypes?.map(s => s.name).join(', ') || 'Laboratory Order'}</td>
+                      <td><strong style={{ color: '#059669' }}>{formatETB(tx.grandTotal)}</strong></td>
+                      <td>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(7, 92, 145, 0.1)', color: 'var(--color-primary)' }}>
+                          {tx.paymentMethod}
+                        </span>
+                      </td>
+                      <td>{formatDate(tx.paymentDate || tx.registrationDate)}</td>
                       <td>
                         <button className="secondary-button" onClick={() => handlePrintReceiptAgain(tx)} style={{ padding: '0.2rem 0.5rem', fontSize: 'var(--text-xs)' }}>
                           🖨️ Print Receipt Again
@@ -2142,7 +2283,7 @@ export default function ReceptionPage() {
                             {/* Test Items */}
                             {(() => {
                               const isElecCat = /^SERUM ELECTROLYTE$/i.test(category.name) || /^ELECTROLYTE/i.test(category.name);
-                              const elecTests = category.tests || [];
+                              const elecTests = (category.tests || []).filter(isSerumElectrolyteTest);
                               const allElecSelected = elecTests.length > 0 && elecTests.every(t => selectedSampleIds.includes(t._id));
                               const hasSubcats = filteredTests.some(t => t.subcategory);
                               if (!hasSubcats) {
@@ -2733,48 +2874,6 @@ export default function ReceptionPage() {
               </table>
             </div>
           ) : <p className="empty">Enter keywords above to search patient database.</p>}
-        </section>
-      )}
-
-      {/* ═══ VIEW 4: APPROVED REPORTS ═══ */}
-      {view === 'reports' && (
-        <section className="table-card">
-          <div className="table-title">
-            <h2>Approved Diagnostics Reports</h2>
-            <div className="export-buttons">
-              <button onClick={() => download('/reception/exports/reports.csv', token)}>CSV</button>
-              <button onClick={() => download('/reception/exports/reports.pdf', token)}>PDF</button>
-            </div>
-          </div>
-          {reports.length ? (
-            <div className="sample-types-table-wrapper">
-              <table className="sample-types-table">
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Test Results</th>
-                    <th>Approved By</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reports.map(r => (
-                    <tr key={r._id}>
-                      <td>{r.patient?.name}<span>{r.patient?.patientId}</span></td>
-                      <td>{r.patient?.barcode || r.patient?.patientId}</td>
-                      <td>{r.results?.map(x => `${x.sampleName}: ${x.result}`).join('; ')}</td>
-                      <td>{r.approvedBy?.fullName || '—'}<span>{r.approvedDate ? new Date(r.approvedDate).toLocaleString() : ''}</span></td>
-                      <td>{r.status}</td>
-                      <td>
-                        <button className="secondary-button" onClick={() => download(`/final-reports/${r._id}.pdf`, token)}>Export PDF</button>{' '}<button className="primary-button" disabled={busy} onClick={() => handlePrintA4Report(r._id)}>{busy ? 'Printing…' : 'Print A4 Report'}</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <p className="empty">No approved patient reports currently ready for printing.</p>}
         </section>
       )}
 

@@ -793,3 +793,222 @@
   padding-top: 6px;
 }
 
+/* ── Approved Reports Date Filter Bar & Mobile Responsiveness ─────────── */
+.reports-date-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--card-border, #e2e8f0);
+  margin-bottom: 16px;
+}
+
+.reports-date-filter-bar .filter-pill-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--card-border, #cbd5e1);
+  background: var(--color-surface-dim, #f8fafc);
+  color: var(--text-secondary, #475569);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+/* ── Approved Reports Toolbar & Search ── */
+.reports-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--card-border, #e2e8f0);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.reports-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: 440px;
+}
+
+.reports-search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 0.88rem;
+  color: var(--text-secondary, #64748b);
+  pointer-events: none;
+  user-select: none;
+}
+
+.reports-search-input {
+  width: 100%;
+  height: 38px;
+  padding: 6px 36px 6px 34px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border, #cbd5e1);
+  background: var(--color-surface, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font-size: 0.86rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.reports-search-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.reports-search-input::placeholder {
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.84rem;
+}
+
+.reports-search-clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.reports-search-clear-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.reports-date-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reports-date-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.reports-date-filter-bar .filter-pill-btn {
+  padding: 5px 13px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--card-border, #cbd5e1);
+  background: var(--color-surface-dim, #f8fafc);
+  color: var(--text-secondary, #475569);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.reports-date-filter-bar .filter-pill-btn:hover {
+  background: var(--color-surface-container, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+}
+
+.reports-date-filter-bar .filter-pill-btn.active {
+  border-color: #0284c7 !important;
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.35);
+}
+
+/* Dark mode */
+[data-theme='dark'] .reports-toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .reports-search-input {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+[data-theme='dark'] .reports-search-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+[data-theme='dark'] .reports-search-input::placeholder {
+  color: #64748b;
+}
+
+[data-theme='dark'] .reports-search-clear-btn {
+  color: #64748b;
+}
+
+[data-theme='dark'] .reports-search-clear-btn:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+[data-theme='dark'] .reports-date-label {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .reports-date-filter-bar .filter-pill-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+}
+
+[data-theme='dark'] .reports-date-filter-bar .filter-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .reports-date-filter-bar .filter-pill-btn.active {
+  border-color: #38bdf8 !important;
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* Mobile responsiveness: 320px - 430px */
+@media (max-width: 640px) {
+  .reports-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 8px 0 12px;
+  }
+  .reports-search-box {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .reports-date-filter-bar {
+    width: 100%;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .reports-date-filter-bar .filter-pill-btn {
+    padding: 4px 10px;
+    font-size: 0.76rem;
+  }
+  .reports-date-label {
+    font-size: 0.78rem;
+  }
+}
+

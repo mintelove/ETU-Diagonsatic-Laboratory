@@ -3,6 +3,7 @@ import { getToken, getUser } from './storage.js';
 import { calculateFlag } from './flagHelper.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from './categoryHelper.js';
 import { formatApproverDoctorName } from './doctorNameHelper.js';
+import { resolveOptionCTemplate } from './templateReportHelper.js';
 import labLogo from '../assets/etu.jpg';
 import labStampImg from '../assets/etu_lab.png';
 import clinicStampImg from '../assets/etu_cli.png';
@@ -44,8 +45,8 @@ export function formatMedDate(val) {
 
 export function reportHtml(report, user, logoBase64, referralHospitalAddress, showFooterOverride, stampTypeOverride, showLogoOverride) {
   const patient = (report?.patient && typeof report.patient === 'object') ? report.patient : (report || {});
-  const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
-  const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
+  const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology || report?.templateReport?.category === 'Pathology');
+  const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings || ['MRI', 'CT', 'Ultrasound'].includes(report?.templateReport?.category));
   const isInternalMedicine = Boolean(
     report?.isInternalMedicineForm === true ||
     patient?.examinationFormType === 'Internal Medicine Speciality Examination Form'
@@ -225,6 +226,33 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           </div>
         </section>
       `;
+    } else if (report.reportType === 'Option C' || (!report.reportType && (report.templateReport?.examination || report.templateReport?.templateKey))) {
+      const t = resolveOptionCTemplate('pathology', report, report.templateReport);
+      subTitle = `Pathology Examination Report — ${safe(t.examination || report.testType || 'Biopsy')}`;
+      if (!t.findings && report.reportContent) {
+        mainBodyHtml = `
+          <section class="section">
+            <h2>${safe(t.examination || 'Pathology Examination Report')}</h2>
+            <div class="rich-report-body" style="padding: 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; line-height: 1.6; color: #1e293b;">
+              ${report.reportContent}
+            </div>
+          </section>
+        `;
+      } else {
+        mainBodyHtml = `
+          <section class="section">
+            <h2>${safe(t.examination || 'Standardized Pathology Examination Report')}</h2>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              ${t.clinicalInformation ? `<div><b style="color: #075c91;">Clinical Information / History:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.clinicalInformation)}</div></div>` : ''}
+              ${t.technique ? `<div><b style="color: #075c91;">Specimen / Technique:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.technique)}</div></div>` : ''}
+              ${t.comparison ? `<div><b style="color: #075c91;">Comparison:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.comparison)}</div></div>` : ''}
+              ${t.findings ? `<div><b style="color: #075c91;">Microscopic & Gross Findings:</b><div style="margin-top: 2px; white-space: pre-wrap; line-height: 1.5;">${safe(t.findings)}</div></div>` : ''}
+              ${t.impression ? `<div style="background: #f0f7fa; padding: 10px 14px; border-left: 4px solid #075c91; border-radius: 4px;"><b style="color: #075c91; font-size: 13px; text-transform: uppercase;">Pathological Diagnosis / Impression:</b><div style="margin-top: 4px; font-weight: bold; font-size: 13.5px; color: #0f172a; white-space: pre-wrap;">${safe(t.impression)}</div></div>` : ''}
+              ${t.recommendation ? `<div><b style="color: #075c91;">Recommendations:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.recommendation)}</div></div>` : ''}
+            </div>
+          </section>
+        `;
+      }
     } else {
       const s = report.structuredReport || {};
       mainBodyHtml = `
@@ -266,6 +294,35 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           </div>
         </section>
       `;
+    } else if (report.reportType === 'Option C' || (!report.reportType && (report.templateReport?.examination || report.templateReport?.templateKey))) {
+      const t = resolveOptionCTemplate('radiology', report, report.templateReport);
+      const examTitle = safe(t.examination || report.customExaminationName || report.examinationType || 'Medical Imaging');
+      subTitle = `Radiology & Imaging Report — ${examTitle}`;
+      approverRoleTitle = 'Radiologist';
+      if (!t.findings && report.reportContent) {
+        mainBodyHtml = `
+          <section class="section">
+            <h2>${examTitle}</h2>
+            <div class="rich-report-body" style="padding: 14px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; line-height: 1.6; color: #1e293b;">
+              ${report.reportContent}
+            </div>
+          </section>
+        `;
+      } else {
+        mainBodyHtml = `
+          <section class="section">
+            <h2>${examTitle}</h2>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              ${t.clinicalInformation ? `<div><b style="color: #075c91;">Clinical Information / Indication:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.clinicalInformation)}</div></div>` : ''}
+              ${t.technique ? `<div><b style="color: #075c91;">Technique:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.technique)}</div></div>` : ''}
+              ${t.comparison ? `<div><b style="color: #075c91;">Comparison:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.comparison)}</div></div>` : ''}
+              ${t.findings ? `<div><b style="color: #075c91;">Findings:</b><div style="margin-top: 2px; white-space: pre-wrap; line-height: 1.5;">${safe(t.findings)}</div></div>` : ''}
+              ${t.impression ? `<div style="background: #f0f7fa; padding: 10px 14px; border-left: 4px solid #075c91; border-radius: 4px;"><b style="color: #075c91; font-size: 13px; text-transform: uppercase;">Radiological Impression / Conclusion:</b><div style="margin-top: 4px; font-weight: bold; font-size: 13.5px; color: #0f172a; white-space: pre-wrap;">${safe(t.impression)}</div></div>` : ''}
+              ${t.recommendation ? `<div><b style="color: #075c91;">Recommendations:</b><div style="margin-top: 2px; white-space: pre-wrap;">${safe(t.recommendation)}</div></div>` : ''}
+            </div>
+          </section>
+        `;
+      }
     } else {
       const s = report.structuredReport || {};
       mainBodyHtml = `
@@ -369,11 +426,11 @@ export function reportHtml(report, user, logoBase64, referralHospitalAddress, sh
           resultsHtml += `<table style="margin-bottom: 6px;"><thead><tr><th>Test / Parameter</th><th>Result</th><th>SI Unit</th><th>Reference Range</th><th>Flag</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
         });
 
-        const testInterps = findTestInterps(catName);
+        const testInterps = findTestInterps(catName).filter(item => item.showOnReport !== false && item.hidden !== true);
         if (testInterps.length > 0) {
           resultsHtml += `<div style="margin: 6px 0 14px 0; padding: 8px 12px; background: #f0f7fa; border-left: 4px solid #075c91; border-radius: 4px;"><b style="color: #075c91; font-size: 11px; text-transform: uppercase;">Clinical Interpretation:</b>`;
           testInterps.forEach(item => {
-            resultsHtml += `<div style="margin-top: 4px; font-size: 11px; color: #203640;"><b>${safe(item.title)}:</b> ${safe(item.interpretation)}</div>`;
+            resultsHtml += `<div style="margin-top: 4px; font-size: 11px; color: #203640; white-space: pre-line;"><b>${safe(item.title)}:</b> ${safe(item.interpretation)}</div>`;
           });
           resultsHtml += `</div>`;
         }

@@ -21,7 +21,7 @@ router.get('/public/:token/pdf', downloadPublicPdf);
 
 // PROTECTED ROUTES
 router.use(requireAuth);
-router.get('/transactions', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), getTransactionsReport);
+router.get('/transactions', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RECEPTION), getTransactionsReport);
 router.post('/transactions', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), addTransaction);
 router.post('/transactions/bulk-delete', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), bulkDeleteTransactions);
 router.delete('/transactions/bulk-delete', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), bulkDeleteTransactions);

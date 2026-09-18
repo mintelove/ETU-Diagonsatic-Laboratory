@@ -20,6 +20,7 @@ import { useScrollLock } from '../utils/useScrollLock.js';
 import ModalPortal from '../components/ModalPortal.jsx';
 import ReportPreview from '../components/ReportPreview.jsx';
 import LaboratoryResultEditor from '../components/LaboratoryResultEditor.jsx';
+import ClinicalInterpretationAdminModal from '../components/ClinicalInterpretationAdminModal.jsx';
 import { printLabReport } from '../utils/printLabReport.js';
 import { formatETB } from '../utils/currencyHelper.js';
 import {
@@ -32,7 +33,38 @@ import {
   clearTransfer,
   restoreTransfer
 } from '../services/transferService.js';
+import RichReportEditor from '../components/RichReportEditor.jsx';
+import { PATHOLOGY_TEMPLATES } from '../constants/pathologyTemplates.js';
+import { RADIOLOGY_TEMPLATES } from '../constants/radiologyTemplates.js';
+import { resolveOptionCTemplate, renderOptionCHtml } from '../utils/templateReportHelper.js';
+import { preparePOS80ReceiptData, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
+import labLogo from '../assets/etu.jpg';
 import '../styles/pages/collection-queue.css';
+
+// Live countdown calculator for pathology & radiology deadlines
+function getCountdown(deadlineStr) {
+  if (!deadlineStr) return { text: '—', isOverdue: false };
+  const deadline = new Date(deadlineStr);
+  const now = new Date();
+  const diffMs = deadline - now;
+
+  if (diffMs <= 0) {
+    const overdueMs = Math.abs(diffMs);
+    const overdueHours = Math.floor(overdueMs / (1000 * 60 * 60));
+    const overdueDays = Math.floor(overdueHours / 24);
+    if (overdueDays > 0) return { text: `Overdue by ${overdueDays}d ${overdueHours % 24}h`, isOverdue: true };
+    return { text: `Overdue by ${overdueHours}h ${Math.floor((overdueMs / 60000) % 60)}m`, isOverdue: true };
+  }
+
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (days > 0) {
+    return { text: `${days}d ${hours}h remaining`, isOverdue: false };
+  }
+  return { text: `${hours}h ${minutes}m remaining`, isOverdue: false };
+}
 
 const emptyReport = {
   equipment: [],
@@ -45,7 +77,7 @@ const emptyReport = {
 const idOf = value => String(value?._id || value?.id || value);
 
 function matchesReportPeriod(report, period) {
-  if (!period || period === 'all') return true;
+  if (!period || String(period).toLowerCase() === 'all') return true;
   const dateVal = report.approvedDate || report.submittedDate || report.createdDate || report.updatedDate;
   if (!dateVal) return true;
   const repDate = new Date(dateVal);
@@ -58,15 +90,28 @@ function matchesReportPeriod(report, period) {
     const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     return repDate >= today && repDate <= endToday;
   }
-  if (period === 'lastweek' || period === 'lastWeek' || period === 'last week') {
+  if (period === 'yesterday') {
+    const startOfYesterday = new Date(today);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const endOfYesterday = new Date(startOfYesterday);
+    endOfYesterday.setHours(23, 59, 59, 999);
+    return repDate >= startOfYesterday && repDate <= endOfYesterday;
+  }
+  if (period === 'this_week' || period === 'thisweek' || period === 'this week') {
+    const day = now.getDay();
+    const diffToMon = (day === 0 ? -6 : 1 - day);
+    const thisMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon, 0, 0, 0, 0);
+    const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return repDate >= thisMon && repDate <= endToday;
+  }
+  if (period === 'last_week' || period === 'lastweek' || period === 'lastWeek' || period === 'last week') {
     const day = now.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day);
     const thisMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon, 0, 0, 0, 0);
     const fromDate = new Date(thisMon);
     fromDate.setDate(fromDate.getDate() - 7);
     const toDate = new Date(thisMon);
-    toDate.setDate(toDate.getDate() - 1);
-    toDate.setHours(23, 59, 59, 999);
+    toDate.setMilliseconds(-1);
     return repDate >= fromDate && repDate <= toDate;
   }
   if (period === 'lastmonth' || period === 'lastMonth' || period === 'last month') {
@@ -164,26 +209,243 @@ function OrderedTests({ patient, catalog, allocationByTest, transferStatusByTest
   );
 }
 
+// POS 80mm Thermal Receipt Component for Admin Workspace
+function ThermalReceiptModal({
+  patientData,
+  total,
+  paymentDetails,
+  onClose,
+  token,
+  cbcGroupPrice = 150,
+  urineChemicalPrice = 300,
+  urineMicroscopyPrice = 300,
+  serumElectrolytePrice = 1000,
+  testCategories = []
+}) {
+  const [printing, setPrinting] = useState(false);
+  if (!patientData) return null;
+
+  const receipt = useMemo(() => {
+    return preparePOS80ReceiptData(patientData, {
+      testCategories,
+      cbcGroupPrice,
+      urineChemicalPrice,
+      urineMicroscopyPrice,
+      serumElectrolytePrice,
+      paymentDetails
+    });
+  }, [patientData, testCategories, cbcGroupPrice, urineChemicalPrice, urineMicroscopyPrice, serumElectrolytePrice, paymentDetails]);
+
+  const handlePrint = () => {
+    if (printing) return;
+    setPrinting(true);
+    printPOS80ThermalReceipt(patientData, {
+      testCategories,
+      cbcGroupPrice,
+      urineChemicalPrice,
+      urineMicroscopyPrice,
+      serumElectrolytePrice,
+      paymentDetails
+    });
+    setPrinting(false);
+  };
+
+  return (
+    <div className="thermal-receipt-modal no-print-backdrop" onClick={onClose} style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999
+    }}>
+      <article className="thermal-receipt" onClick={e => e.stopPropagation()} style={{
+        background: '#ffffff',
+        color: '#000000',
+        width: '330px',
+        maxWidth: '92vw',
+        maxHeight: '88vh',
+        overflowY: 'auto',
+        padding: '16px',
+        borderRadius: '8px',
+        fontFamily: 'monospace',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+      }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <button type="button" className="secondary" onClick={onClose} style={{ padding: '4px 10px', fontSize: '12px' }}>Close</button>
+          <button type="button" className="primary" onClick={handlePrint} disabled={printing} style={{ padding: '4px 12px', fontSize: '12px', background: '#0284c7' }}>
+            {printing ? 'Printing…' : '🖨️ Print 80mm'}
+          </button>
+        </div>
+
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>ETU Diagnostic Laboratory</div>
+        <div style={{ textAlign: 'center', fontSize: '10px', color: '#555', marginBottom: '8px' }}>
+          Official Diagnostic Receipt &middot; 80mm Continuous Thermal
+        </div>
+        <hr style={{ borderTop: '1px dashed #999', margin: '6px 0' }} />
+        
+        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+          <div><strong>Receipt #:</strong> {receipt.receiptNumber || 'POS-REC'}</div>
+          <div><strong>Patient ID:</strong> {receipt.patientId}</div>
+          <div><strong>Patient:</strong> {receipt.patientName}</div>
+          <div><strong>Branch:</strong> {patientData.branchName || 'Main'}</div>
+          <div><strong>Date:</strong> {receipt.dateStr} {receipt.timeStr}</div>
+        </div>
+        <hr style={{ borderTop: '1px dashed #999', margin: '6px 0' }} />
+
+        <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '6px', textTransform: 'uppercase' }}>SELECTED INVESTIGATIONS</div>
+
+        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+          {receipt.categories?.map((cat, idx) => (
+            <div key={idx} style={{ marginBottom: '6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#333' }}>{cat.name}</div>
+              {cat.items?.map((it, iIdx) => (
+                <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '6px' }}>
+                  <span>{it.name}</span>
+                  <strong>{formatETB(it.price || 0)}</strong>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <hr style={{ borderTop: '1px solid #000', margin: '8px 0' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold' }}>
+          <span>TOTAL:</span>
+          <span>{formatETB(receipt.totalAmount || 0)}</span>
+        </div>
+        <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+          Method: {patientData.paymentMethod || 'Cash'} &middot; Status: {patientData.paymentStatus || 'Paid'}
+        </div>
+        <hr style={{ borderTop: '1px dashed #999', margin: '8px 0' }} />
+        <div style={{ textAlign: 'center', fontSize: '10px', color: '#666' }}>Thank you for choosing ETU Diagnostic Laboratory!</div>
+      </article>
+    </div>
+  );
+}
+
 export default function AdminReportTransactionManagementPage() {
   const { token, user } = useAuth();
   const { subscribe, unsubscribe } = useRealtime();
 
   const isSuperAdmin = user?.role === 'Admin' || user?.isCEO || user?.branchName === 'All';
   const [selectedBranch, setSelectedBranch] = useState(isSuperAdmin ? 'All' : (user?.branchName || 'Main'));
+  const [adminInterpModalOpen, setAdminInterpModalOpen] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Main navigation tab
+  // Department navigation: 'laboratory' (default) | 'reception' | 'pathology' | 'radiology'
+  const [activeDepartment, setActiveDepartment] = useState('laboratory');
+
+  // Main navigation tab for Laboratory Operations
   const [activeTab, setActiveTab] = useState('queue');
 
   // Approved & Pending dedicated view states
-  const [approvedPeriod, setApprovedPeriod] = useState('all');
+  const [approvedPeriod, setApprovedPeriod] = useState('today');
   const [approvedSearch, setApprovedSearch] = useState('');
   const [pendingPeriod, setPendingPeriod] = useState('all');
   const [pendingSearch, setPendingSearch] = useState('');
 
+  // ── RECEPTION DEPARTMENT STATES ──────────────────────────────────
+  const [receptionSubTab, setReceptionSubTab] = useState('pos'); // 'pos' | 'waiting'
+  const [receptionDash, setReceptionDash] = useState(null);
+  const [receptionWaitingList, setReceptionWaitingList] = useState([]);
+  const [receptionWaitingSearch, setReceptionWaitingSearch] = useState('');
+  const [receptionLoading, setReceptionLoading] = useState(false);
+  const [hospitals, setHospitals] = useState([]);
+
+  // Reception POS registration fields
+  const [posPatientName, setPosPatientName] = useState('');
+  const [posAge, setPosAge] = useState('');
+  const [posSex, setPosSex] = useState('Male');
+  const [posPhone, setPosPhone] = useState('');
+  const [posAddress, setPosAddress] = useState('');
+  const [posRegistrationType, setPosRegistrationType] = useState('Self');
+  const [posReferralHospital, setPosReferralHospital] = useState('');
+  const [posOtherHospital, setPosOtherHospital] = useState('');
+  const [posBpSystolic, setPosBpSystolic] = useState('');
+  const [posBpDiastolic, setPosBpDiastolic] = useState('');
+  const [posPaymentMethod, setPosPaymentMethod] = useState('Cash');
+  const [posSelectedTestIds, setPosSelectedTestIds] = useState([]);
+  const [posSearch, setPosSearch] = useState('');
+  const [posActiveCategory, setPosActiveCategory] = useState('All');
+  const [posRegistering, setPosRegistering] = useState(false);
+  const [posRecentPatients, setPosRecentPatients] = useState([]);
+  const [posReceiptModalPatient, setPosReceiptModalPatient] = useState(null);
+  const [completingPaymentPatient, setCompletingPaymentPatient] = useState(null);
+  const [completingPaymentMethod, setCompletingPaymentMethod] = useState('Cash');
+  const [isCompletingPayment, setIsCompletingPayment] = useState(false);
+
+  // ── PATHOLOGY DEPARTMENT STATES ──────────────────────────────────
+  const [pathologySubTab, setPathologySubTab] = useState('queue'); // 'queue' | 'optionA' | 'optionB' | 'optionC'
+  const [pathologyQueue, setPathologyQueue] = useState([]);
+  const [pathologyActiveCount, setPathologyActiveCount] = useState(0);
+  const [pathologyClearedCount, setPathologyClearedCount] = useState(0);
+  const [pathologyDateFilter, setPathologyDateFilter] = useState('all');
+  const [pathologyStatusFilter, setPathologyStatusFilter] = useState('all');
+  const [pathologySearch, setPathologySearch] = useState('');
+  const [pathologyLoading, setPathologyLoading] = useState(false);
+  const [selectedPathologyCase, setSelectedPathologyCase] = useState(null);
+  const [pathologyReportType, setPathologyReportType] = useState('Option A');
+  const [pathologyReportContent, setPathologyReportContent] = useState('');
+  const [pathologyStructured, setPathologyStructured] = useState({
+    clinicalHistory: '', specimen: '', procedure: '', grossDescription: '',
+    microscopicDescription: '', cytologicalFindings: '', rbcMorphology: '',
+    wbcMorphology: '', plateletMorphology: '', peripheralBloodFindings: '',
+    impression: '', diagnosis: '', comments: '', recommendation: '', pathologistNotes: ''
+  });
+  const [pathologyTemplateReport, setPathologyTemplateReport] = useState({
+    category: 'Pathology', templateKey: '', examination: '', clinicalInformation: '',
+    technique: '', comparison: '', findings: '', impression: '', recommendation: ''
+  });
+  const [pathologyTemplateSearch, setPathologyTemplateSearch] = useState('');
+  const [pathologyShowFooter, setPathologyShowFooter] = useState(true);
+  const [pathologySaving, setPathologySaving] = useState(false);
+  const [pathologyApproving, setPathologyApproving] = useState(false);
+  const [pathologyPreviewOpen, setPathologyPreviewOpen] = useState(false);
+  const pathologyEditorRef = useRef(null);
+
+  // ── RADIOLOGY DEPARTMENT STATES ──────────────────────────────────
+  const [radiologySubTab, setRadiologySubTab] = useState('queue'); // 'queue' | 'optionA' | 'optionB' | 'optionC'
+  const [radiologyQueue, setRadiologyQueue] = useState([]);
+  const [radiologyActiveCount, setRadiologyActiveCount] = useState(0);
+  const [radiologyClearedCount, setRadiologyClearedCount] = useState(0);
+  const [radiologyDateFilter, setRadiologyDateFilter] = useState('all');
+  const [radiologyStatusFilter, setRadiologyStatusFilter] = useState('all');
+  const [radiologySearch, setRadiologySearch] = useState('');
+  const [radiologyLoading, setRadiologyLoading] = useState(false);
+  const [selectedRadiologyCase, setSelectedRadiologyCase] = useState(null);
+  const [radiologyReportType, setRadiologyReportType] = useState('Option A');
+  const [radiologyReportContent, setRadiologyReportContent] = useState('');
+  const [radiologyStructured, setRadiologyStructured] = useState({
+    examination: '', clinicalInformation: '', technique: '', liver: '',
+    gallbladder: '', biliarySystem: '', pancreas: '', spleen: '', kidneys: '',
+    urinaryBladder: '', otherFindings: '', findings: '', impression: '',
+    recommendation: '', radiologistNotes: ''
+  });
+  const [radiologyTemplateReport, setRadiologyTemplateReport] = useState({
+    category: 'MRI', templateKey: '', examination: '', clinicalInformation: '',
+    technique: '', comparison: '', findings: '', impression: '', recommendation: ''
+  });
+  const [radiologySelectedTemplateCategory, setRadiologySelectedTemplateCategory] = useState('MRI');
+  const [radiologyTemplateSearch, setRadiologyTemplateSearch] = useState('');
+  const [radiologyShowFooter, setRadiologyShowFooter] = useState(true);
+  const [radiologySaving, setRadiologySaving] = useState(false);
+  const [radiologyApproving, setRadiologyApproving] = useState(false);
+  const [radiologyPreviewOpen, setRadiologyPreviewOpen] = useState(false);
+  const radiologyEditorRef = useRef(null);
+
   // Auto-select view based on URL query parameter (?view=approved, ?view=pending, or ?view=transactions)
   useEffect(() => {
+    const dept = (searchParams.get('dept') || searchParams.get('department') || '').toLowerCase();
+    if (['laboratory', 'reception', 'pathology', 'radiology'].includes(dept)) {
+      setActiveDepartment(dept);
+    }
+
     const view = (searchParams.get('view') || searchParams.get('tab') || '').toLowerCase();
     if (view === 'approved') {
       setActiveTab('approved');
@@ -196,6 +458,14 @@ export default function AdminReportTransactionManagementPage() {
       setReportWorkflowTab('Rejected');
     } else if (['queue', 'received_otona', 'received_main', 'investigation', 'transactions', 'reports', 'cleared', 'unfinished'].includes(view)) {
       setActiveTab(view);
+    } else if (['pos', 'waiting', 'waiting-payment', 'reception'].includes(view)) {
+      setActiveDepartment('reception');
+      if (view === 'waiting' || view === 'waiting-payment') setReceptionSubTab('waiting');
+      else setReceptionSubTab('pos');
+    } else if (['pathology', 'biopsy', 'fnac'].includes(view)) {
+      setActiveDepartment('pathology');
+    } else if (['radiology', 'mri', 'ct', 'ultrasound', 'xray'].includes(view)) {
+      setActiveDepartment('radiology');
     }
   }, [searchParams]);
 
@@ -304,7 +574,11 @@ export default function AdminReportTransactionManagementPage() {
     Boolean(editingTransaction) ||
     Boolean(deletingTransaction) ||
     Boolean(showBulkDeleteModal) ||
-    Boolean(addingTransaction)
+    Boolean(addingTransaction) ||
+    Boolean(posReceiptModalPatient) ||
+    Boolean(completingPaymentPatient) ||
+    Boolean(pathologyPreviewOpen) ||
+    Boolean(radiologyPreviewOpen)
   );
 
   // Clear notifications after 5 seconds
@@ -462,6 +736,64 @@ export default function AdminReportTransactionManagementPage() {
     }
   }, [token, selectedBranch, txDatePreset, txCustomDate]);
 
+  // ── RECEPTION DATA LOADER ─────────────────────────────────────────
+  const loadReceptionData = useCallback(async () => {
+    try {
+      setReceptionLoading(true);
+      const branchParam = selectedBranch !== 'All' ? `?branchName=${selectedBranch}` : '';
+      const [dashRes, waitRes, hospRes] = await Promise.all([
+        api(`/reception/dashboard${branchParam}`, { token }).catch(() => null),
+        api(`/reception/waiting-payment${branchParam}`, { token }).catch(() => null),
+        api('/reception/referral-hospitals', { token }).catch(() => null)
+      ]);
+      if (dashRes?.summary) setReceptionDash(dashRes.summary);
+      if (Array.isArray(waitRes?.patients)) setReceptionWaitingList(waitRes.patients);
+      if (Array.isArray(hospRes?.hospitals)) setHospitals(hospRes.hospitals);
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load reception data.');
+    } finally {
+      setReceptionLoading(false);
+    }
+  }, [token, selectedBranch]);
+
+  // ── PATHOLOGY DATA LOADER ─────────────────────────────────────────
+  const loadPathologyData = useCallback(async () => {
+    try {
+      setPathologyLoading(true);
+      const params = new URLSearchParams();
+      if (pathologyDateFilter && pathologyDateFilter !== 'all') params.append('dateFilter', pathologyDateFilter);
+      if (selectedBranch !== 'All') params.append('branch', selectedBranch);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const data = await api(`/pathology/queue${qs}`, { token });
+      setPathologyQueue(Array.isArray(data?.cases) ? data.cases : []);
+      if (typeof data?.activeCount === 'number') setPathologyActiveCount(data.activeCount);
+      if (typeof data?.clearedCount === 'number') setPathologyClearedCount(data.clearedCount);
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load pathology queue.');
+    } finally {
+      setPathologyLoading(false);
+    }
+  }, [token, pathologyDateFilter, selectedBranch]);
+
+  // ── RADIOLOGY DATA LOADER ─────────────────────────────────────────
+  const loadRadiologyData = useCallback(async () => {
+    try {
+      setRadiologyLoading(true);
+      const params = new URLSearchParams();
+      if (radiologyDateFilter && radiologyDateFilter !== 'all') params.append('dateFilter', radiologyDateFilter);
+      if (selectedBranch !== 'All') params.append('branch', selectedBranch);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const data = await api(`/radiology/queue${qs}`, { token });
+      setRadiologyQueue(Array.isArray(data?.cases) ? data.cases : []);
+      if (typeof data?.activeCount === 'number') setRadiologyActiveCount(data.activeCount);
+      if (typeof data?.clearedCount === 'number') setRadiologyClearedCount(data.clearedCount);
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load radiology queue.');
+    } finally {
+      setRadiologyLoading(false);
+    }
+  }, [token, radiologyDateFilter, selectedBranch]);
+
   // Global load trigger
   const loadAll = useCallback(() => {
     loadQueue();
@@ -470,7 +802,10 @@ export default function AdminReportTransactionManagementPage() {
     loadReports();
     loadCleared();
     loadTransactions();
-  }, [loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions]);
+    loadReceptionData();
+    loadPathologyData();
+    loadRadiologyData();
+  }, [loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions, loadReceptionData, loadPathologyData, loadRadiologyData]);
 
   useEffect(() => {
     loadAll();
@@ -494,20 +829,582 @@ export default function AdminReportTransactionManagementPage() {
     const handleReceptionSync = () => {
       loadQueue();
       loadTransactions();
+      loadReceptionData();
+    };
+    const handlePathologySync = () => {
+      loadPathologyData();
+    };
+    const handleRadiologySync = () => {
+      loadRadiologyData();
     };
 
     subscribe('collection:change', handleCollectionSync);
     subscribe('transfers:change', handleTransferSync);
     subscribe('reports:change', handleReportSync);
     subscribe('reception:change', handleReceptionSync);
+    subscribe('pathology:change', handlePathologySync);
+    subscribe('radiology:change', handleRadiologySync);
 
     return () => {
       unsubscribe('collection:change', handleCollectionSync);
       unsubscribe('transfers:change', handleTransferSync);
       unsubscribe('reports:change', handleReportSync);
       unsubscribe('reception:change', handleReceptionSync);
+      unsubscribe('pathology:change', handlePathologySync);
+      unsubscribe('radiology:change', handleRadiologySync);
     };
-  }, [subscribe, unsubscribe, loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions]);
+  }, [subscribe, unsubscribe, loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions, loadReceptionData, loadPathologyData, loadRadiologyData]);
+
+  // Switcher sync effect
+  useEffect(() => {
+    if (activeDepartment === 'reception') loadReceptionData();
+    else if (activeDepartment === 'pathology') loadPathologyData();
+    else if (activeDepartment === 'radiology') loadRadiologyData();
+  }, [activeDepartment, loadReceptionData, loadPathologyData, loadRadiologyData]);
+
+  // ── RECEPTION POS & WAITING HELPERS ────────────────────────────────
+  const allAvailableTests = useMemo(() => {
+    return (catalog || []).flatMap(c => (c.tests || []).map(t => ({
+      ...t,
+      categoryName: c.name || t.categoryName || 'General'
+    })));
+  }, [catalog]);
+
+  const posFilteredCategories = useMemo(() => {
+    if (!catalog || !catalog.length) return [];
+    return catalog.map(cat => {
+      const tests = (cat.tests || []).filter(t => {
+        if (!posSearch.trim()) return true;
+        const s = posSearch.trim().toLowerCase();
+        return (t.name && t.name.toLowerCase().includes(s)) || (cat.name && cat.name.toLowerCase().includes(s));
+      });
+      return { ...cat, tests };
+    }).filter(cat => {
+      if (posActiveCategory !== 'All' && cat.name !== posActiveCategory && cat._id !== posActiveCategory) return false;
+      return cat.tests.length > 0;
+    });
+  }, [catalog, posSearch, posActiveCategory]);
+
+  const posSelectedTests = useMemo(() => {
+    return allAvailableTests.filter(t => posSelectedTestIds.includes(t._id));
+  }, [allAvailableTests, posSelectedTestIds]);
+
+  const posSubtotal = useMemo(() => {
+    return posSelectedTests.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
+  }, [posSelectedTests]);
+
+  const togglePosTest = (testId) => {
+    setPosSelectedTestIds(prev =>
+      prev.includes(testId) ? prev.filter(id => id !== testId) : [...prev, testId]
+    );
+  };
+
+  const handlePosRegister = async (e) => {
+    if (e) e.preventDefault();
+    if (posRegistering) return;
+    if (!posPatientName.trim()) {
+      setError('Patient name is required.');
+      return;
+    }
+    if (!posAge || isNaN(Number(posAge)) || Number(posAge) <= 0) {
+      setError('A valid patient age is required.');
+      return;
+    }
+    if (!posSex) {
+      setError('Patient sex is required.');
+      return;
+    }
+    if (!posPhone.trim()) {
+      setError('Patient phone number is required.');
+      return;
+    }
+    if (posRegistrationType === 'Referral' && !posReferralHospital) {
+      setError('Please select a referral hospital.');
+      return;
+    }
+    if (posRegistrationType === 'Referral' && posReferralHospital === 'Other' && !posOtherHospital.trim()) {
+      setError('Please specify the other referral hospital name.');
+      return;
+    }
+    if (posSelectedTestIds.length === 0 && posRegistrationType !== 'Self Aware') {
+      setError('Please select at least one laboratory test.');
+      return;
+    }
+
+    try {
+      setPosRegistering(true);
+      const isSelfAware = posRegistrationType === 'Self Aware';
+      const finalHospital = posReferralHospital === 'Other' ? posOtherHospital.trim() : posReferralHospital;
+
+      const payload = {
+        name: posPatientName.trim().toUpperCase(),
+        age: Number(posAge),
+        sex: posSex,
+        phone: posPhone.trim(),
+        address: posAddress.trim(),
+        registrationType: isSelfAware ? 'Self Aware' : (posRegistrationType === 'Referral' ? 'Referral' : 'Self'),
+        referralHospital: posRegistrationType === 'Referral' ? finalHospital : '',
+        laboratoryTests: posSelectedTestIds,
+        patientCategory: 'Regular Patient',
+        paymentMethod: posPaymentMethod,
+        paymentStatus: isSelfAware ? 'Waiting for Payment' : 'Paid',
+        systolicBP: posBpSystolic ? Number(posBpSystolic) : null,
+        diastolicBP: posBpDiastolic ? Number(posBpDiastolic) : null
+      };
+
+      const res = await api('/reception/patients', {
+        token,
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      setMessage(isSelfAware ? 'Self-Aware Patient registered (waiting for payment).' : 'Patient registered and payment collected successfully!');
+
+      if (res?.patient) {
+        setPosRecentPatients(prev => [res.patient, ...prev.slice(0, 9)]);
+        if (!isSelfAware) {
+          setPosReceiptModalPatient(res.patient);
+        }
+      }
+
+      // Reset form
+      setPosPatientName('');
+      setPosAge('');
+      setPosPhone('');
+      setPosAddress('');
+      setPosRegistrationType('Self');
+      setPosReferralHospital('');
+      setPosOtherHospital('');
+      setPosBpSystolic('');
+      setPosBpDiastolic('');
+      setPosSelectedTestIds([]);
+
+      loadReceptionData();
+      loadQueue();
+      loadTransactions();
+    } catch (err) {
+      setError(err.message || 'Failed to register patient.');
+    } finally {
+      setPosRegistering(false);
+    }
+  };
+
+  const handleCompleteWaitingPayment = async () => {
+    if (!completingPaymentPatient) return;
+    try {
+      setIsCompletingPayment(true);
+      const res = await api(`/reception/patients/${completingPaymentPatient._id}/complete-payment`, {
+        token,
+        method: 'POST',
+        body: JSON.stringify({ paymentMethod: completingPaymentMethod })
+      });
+
+      setMessage(`Payment completed for ${completingPaymentPatient.name} (Receipt: ${res?.receiptNumber || 'Generated'})`);
+      if (res?.patient) {
+        setPosReceiptModalPatient(res.patient);
+      }
+      setCompletingPaymentPatient(null);
+      loadReceptionData();
+      loadQueue();
+      loadTransactions();
+    } catch (err) {
+      setError(err.message || 'Failed to complete payment.');
+    } finally {
+      setIsCompletingPayment(false);
+    }
+  };
+
+  // ── PATHOLOGY HANDLERS ───────────────────────────────────────────
+  const openPathologyCase = (c, targetTab = 'optionA') => {
+    setSelectedPathologyCase(c);
+    const isOptC = c.reportType === 'Option C' || Boolean(c.templateReport?.templateKey);
+    const effectiveType = isOptC ? 'Option C' : (c.reportType || (targetTab === 'optionB' ? 'Option B' : targetTab === 'optionC' ? 'Option C' : 'Option A'));
+    setPathologyReportType(effectiveType);
+    setPathologySubTab(targetTab === 'optionC' || isOptC ? 'optionC' : targetTab);
+    setPathologyShowFooter(c.showFooter !== undefined ? c.showFooter : true);
+
+    setPathologyStructured({
+      clinicalHistory: c.structuredReport?.clinicalHistory || '',
+      specimen: c.structuredReport?.specimen || (c.testType === 'Biopsy' ? 'Biopsy Tissue' : c.testType === 'FNAC' ? 'Aspiration Cytology' : 'Peripheral Blood Film'),
+      procedure: c.structuredReport?.procedure || '',
+      grossDescription: c.structuredReport?.grossDescription || '',
+      microscopicDescription: c.structuredReport?.microscopicDescription || '',
+      cytologicalFindings: c.structuredReport?.cytologicalFindings || '',
+      rbcMorphology: c.structuredReport?.rbcMorphology || '',
+      wbcMorphology: c.structuredReport?.wbcMorphology || '',
+      plateletMorphology: c.structuredReport?.plateletMorphology || '',
+      peripheralBloodFindings: c.structuredReport?.peripheralBloodFindings || '',
+      impression: c.structuredReport?.impression || '',
+      diagnosis: c.structuredReport?.diagnosis || '',
+      comments: c.structuredReport?.comments || '',
+      recommendation: c.structuredReport?.recommendation || '',
+      pathologistNotes: c.structuredReport?.pathologistNotes || ''
+    });
+
+    const resolvedTpl = resolveOptionCTemplate('pathology', c, c.templateReport);
+    setPathologyTemplateReport(resolvedTpl);
+    setPathologyReportContent(c.reportContent || (effectiveType === 'Option C' ? renderOptionCHtml(resolvedTpl, 'pathology') : ''));
+    setPathologyTemplateSearch('');
+  };
+
+  const applyPathologyTemplate = (tplKey) => {
+    if (!tplKey) {
+      setPathologyTemplateReport(prev => ({ ...prev, templateKey: '' }));
+      return;
+    }
+    const resolved = resolveOptionCTemplate('pathology', selectedPathologyCase, {}, tplKey);
+    setPathologyTemplateReport(resolved);
+    setPathologyReportContent(renderOptionCHtml(resolved, 'pathology'));
+  };
+
+  const handleOpenPathologyPreview = () => {
+    if (pathologyReportType === 'Option C') {
+      const resolved = resolveOptionCTemplate('pathology', selectedPathologyCase, pathologyTemplateReport);
+      setPathologyTemplateReport(resolved);
+      setPathologyReportContent(renderOptionCHtml(resolved, 'pathology'));
+    }
+    setPathologyPreviewOpen(true);
+  };
+
+  const handleSavePathologyDraft = async () => {
+    if (!selectedPathologyCase) return;
+    try {
+      setPathologySaving(true);
+      let htmlContent = pathologyReportType === 'Option A' && pathologyEditorRef.current ? pathologyEditorRef.current.innerHTML : pathologyReportContent;
+      let finalTemplateReport = pathologyTemplateReport;
+      if (pathologyReportType === 'Option C') {
+        finalTemplateReport = resolveOptionCTemplate('pathology', selectedPathologyCase, pathologyTemplateReport);
+        htmlContent = renderOptionCHtml(finalTemplateReport, 'pathology');
+        setPathologyTemplateReport(finalTemplateReport);
+        setPathologyReportContent(htmlContent);
+      }
+      await api(`/pathology/cases/${selectedPathologyCase._id}/draft`, {
+        token,
+        method: 'PATCH',
+        body: JSON.stringify({
+          reportType: pathologyReportType,
+          reportContent: htmlContent,
+          structuredReport: pathologyStructured,
+          templateReport: finalTemplateReport,
+          showFooter: pathologyShowFooter
+        })
+      });
+      setMessage('Pathology draft saved successfully.');
+      loadPathologyData();
+    } catch (e) {
+      setError(e.message || 'Failed to save pathology draft.');
+    } finally {
+      setPathologySaving(false);
+    }
+  };
+
+  const handleApprovePathologyCase = async () => {
+    if (!selectedPathologyCase) return;
+    try {
+      setPathologyApproving(true);
+      let htmlContent = pathologyReportType === 'Option A' && pathologyEditorRef.current ? pathologyEditorRef.current.innerHTML : pathologyReportContent;
+      let finalTemplateReport = pathologyTemplateReport;
+      if (pathologyReportType === 'Option C') {
+        finalTemplateReport = resolveOptionCTemplate('pathology', selectedPathologyCase, pathologyTemplateReport);
+        htmlContent = renderOptionCHtml(finalTemplateReport, 'pathology');
+        setPathologyTemplateReport(finalTemplateReport);
+        setPathologyReportContent(htmlContent);
+      }
+
+      if (pathologyReportType === 'Option A' && (!htmlContent || !htmlContent.trim() || htmlContent === '<br>')) {
+        setError('Please enter or paste the pathology report content before approving.');
+        setPathologyApproving(false);
+        return;
+      }
+      if (pathologyReportType === 'Option B') {
+        const hasField = Object.values(pathologyStructured).some(v => v && String(v).trim());
+        if (!hasField) {
+          setError('Please fill in the structured report fields before approving.');
+          setPathologyApproving(false);
+          return;
+        }
+      }
+      if (pathologyReportType === 'Option C') {
+        const hasField = Boolean(
+          (finalTemplateReport.findings && finalTemplateReport.findings.trim()) ||
+          (finalTemplateReport.impression && finalTemplateReport.impression.trim())
+        );
+        if (!hasField) {
+          setError('Please select a template and enter findings before approving.');
+          setPathologyApproving(false);
+          return;
+        }
+      }
+
+      await api(`/pathology/cases/${selectedPathologyCase._id}/approve`, {
+        token,
+        method: 'POST',
+        body: JSON.stringify({
+          reportType: pathologyReportType,
+          reportContent: htmlContent,
+          structuredReport: pathologyStructured,
+          templateReport: finalTemplateReport,
+          showFooter: pathologyShowFooter
+        })
+      });
+
+      setMessage(`Pathology case for ${selectedPathologyCase.patient?.name || 'Patient'} approved successfully!`);
+      setSelectedPathologyCase(null);
+      setPathologySubTab('queue');
+      loadPathologyData();
+    } catch (e) {
+      setError(e.message || 'Failed to approve pathology case.');
+    } finally {
+      setPathologyApproving(false);
+    }
+  };
+
+  // ── RADIOLOGY HANDLERS ───────────────────────────────────────────
+  const openRadiologyCase = (c, targetTab = 'optionA') => {
+    setSelectedRadiologyCase(c);
+    const isOptC = c.reportType === 'Option C' || Boolean(c.templateReport?.templateKey);
+    const effectiveType = isOptC ? 'Option C' : (c.reportType || (targetTab === 'optionB' ? 'Option B' : targetTab === 'optionC' ? 'Option C' : 'Option A'));
+    setRadiologyReportType(effectiveType);
+    setRadiologySubTab(targetTab === 'optionC' || isOptC ? 'optionC' : targetTab);
+    setRadiologyShowFooter(c.showFooter !== undefined ? c.showFooter : true);
+
+    setRadiologyStructured({
+      examination: c.structuredReport?.examination || (c.ultrasoundSubtype || c.examinationType || ''),
+      clinicalInformation: c.structuredReport?.clinicalInformation || '',
+      technique: c.structuredReport?.technique || '',
+      liver: c.structuredReport?.liver || '',
+      gallbladder: c.structuredReport?.gallbladder || '',
+      biliarySystem: c.structuredReport?.biliarySystem || '',
+      pancreas: c.structuredReport?.pancreas || '',
+      spleen: c.structuredReport?.spleen || '',
+      kidneys: c.structuredReport?.kidneys || '',
+      urinaryBladder: c.structuredReport?.urinaryBladder || '',
+      otherFindings: c.structuredReport?.otherFindings || '',
+      findings: c.structuredReport?.findings || '',
+      impression: c.structuredReport?.impression || '',
+      recommendation: c.structuredReport?.recommendation || '',
+      radiologistNotes: c.structuredReport?.radiologistNotes || ''
+    });
+
+    const resolvedTpl = resolveOptionCTemplate('radiology', c, c.templateReport);
+    setRadiologySelectedTemplateCategory(resolvedTpl.category);
+    setRadiologyTemplateReport(resolvedTpl);
+    setRadiologyReportContent(c.reportContent || (effectiveType === 'Option C' ? renderOptionCHtml(resolvedTpl, 'radiology') : ''));
+    setRadiologyTemplateSearch('');
+  };
+
+  const applyRadiologyTemplate = (tplKey, catOverride) => {
+    const cat = catOverride || radiologySelectedTemplateCategory;
+    if (!tplKey) {
+      setRadiologyTemplateReport(prev => ({ ...prev, templateKey: '' }));
+      return;
+    }
+    const resolved = resolveOptionCTemplate('radiology', selectedRadiologyCase, { category: cat }, tplKey);
+    setRadiologySelectedTemplateCategory(resolved.category);
+    setRadiologyTemplateReport(resolved);
+    setRadiologyReportContent(renderOptionCHtml(resolved, 'radiology'));
+  };
+
+  const handleOpenRadiologyPreview = () => {
+    if (radiologyReportType === 'Option C') {
+      const resolved = resolveOptionCTemplate('radiology', selectedRadiologyCase, { ...radiologyTemplateReport, category: radiologySelectedTemplateCategory });
+      setRadiologySelectedTemplateCategory(resolved.category);
+      setRadiologyTemplateReport(resolved);
+      setRadiologyReportContent(renderOptionCHtml(resolved, 'radiology'));
+    }
+    setRadiologyPreviewOpen(true);
+  };
+
+  const handleSaveRadiologyDraft = async () => {
+    if (!selectedRadiologyCase) return;
+    try {
+      setRadiologySaving(true);
+      let htmlContent = radiologyReportType === 'Option A' && radiologyEditorRef.current ? radiologyEditorRef.current.innerHTML : radiologyReportContent;
+      let finalTemplateReport = radiologyTemplateReport;
+      if (radiologyReportType === 'Option C') {
+        finalTemplateReport = resolveOptionCTemplate('radiology', selectedRadiologyCase, { ...radiologyTemplateReport, category: radiologySelectedTemplateCategory });
+        htmlContent = renderOptionCHtml(finalTemplateReport, 'radiology');
+        setRadiologyTemplateReport(finalTemplateReport);
+        setReportContent(htmlContent);
+      }
+      await api(`/radiology/cases/${selectedRadiologyCase._id}/draft`, {
+        token,
+        method: 'PATCH',
+        body: JSON.stringify({
+          reportType: radiologyReportType,
+          reportContent: htmlContent,
+          structuredReport: radiologyStructured,
+          templateReport: finalTemplateReport,
+          showFooter: radiologyShowFooter
+        })
+      });
+      setMessage('Radiology draft saved successfully.');
+      loadRadiologyData();
+    } catch (e) {
+      setError(e.message || 'Failed to save radiology draft.');
+    } finally {
+      setRadiologySaving(false);
+    }
+  };
+
+  const handleApproveRadiologyCase = async () => {
+    if (!selectedRadiologyCase) return;
+    try {
+      setRadiologyApproving(true);
+      let htmlContent = radiologyReportType === 'Option A' && radiologyEditorRef.current ? radiologyEditorRef.current.innerHTML : radiologyReportContent;
+      let finalTemplateReport = radiologyTemplateReport;
+      if (radiologyReportType === 'Option C') {
+        finalTemplateReport = resolveOptionCTemplate('radiology', selectedRadiologyCase, { ...radiologyTemplateReport, category: radiologySelectedTemplateCategory });
+        htmlContent = renderOptionCHtml(finalTemplateReport, 'radiology');
+        setRadiologyTemplateReport(finalTemplateReport);
+        setRadiologyReportContent(htmlContent);
+      }
+
+      if (radiologyReportType === 'Option A' && (!htmlContent || !htmlContent.trim() || htmlContent === '<br>')) {
+        setError('Please enter or paste the radiology report content before approving.');
+        setRadiologyApproving(false);
+        return;
+      }
+      if (radiologyReportType === 'Option B') {
+        const hasField = Object.values(radiologyStructured).some(v => v && String(v).trim());
+        if (!hasField) {
+          setError('Please fill in the structured report fields before approving.');
+          setRadiologyApproving(false);
+          return;
+        }
+      }
+      if (radiologyReportType === 'Option C') {
+        const hasField = Boolean(
+          (finalTemplateReport.findings && finalTemplateReport.findings.trim()) ||
+          (finalTemplateReport.impression && finalTemplateReport.impression.trim())
+        );
+        if (!hasField) {
+          setError('Please select a template and enter findings before approving.');
+          setRadiologyApproving(false);
+          return;
+        }
+      }
+
+      await api(`/radiology/cases/${selectedRadiologyCase._id}/approve`, {
+        token,
+        method: 'POST',
+        body: JSON.stringify({
+          reportType: radiologyReportType,
+          reportContent: htmlContent,
+          structuredReport: radiologyStructured,
+          templateReport: finalTemplateReport,
+          showFooter: radiologyShowFooter
+        })
+      });
+
+      setMessage(`Radiology case for ${selectedRadiologyCase.patient?.name || 'Patient'} approved successfully!`);
+      setSelectedRadiologyCase(null);
+      setRadiologySubTab('queue');
+      loadRadiologyData();
+    } catch (e) {
+      setError(e.message || 'Failed to approve radiology case.');
+    } finally {
+      setRadiologyApproving(false);
+    }
+  };
+
+  // ── FILTERED CASES FOR PATHOLOGY & RADIOLOGY ─────────────────────
+  const filteredPathologyCases = useMemo(() => {
+    return pathologyQueue.filter(c => {
+      if (!c) return false;
+      if (pathologyStatusFilter !== 'all' && c.status !== pathologyStatusFilter) return false;
+      if (pathologySearch.trim()) {
+        const s = pathologySearch.trim().toLowerCase();
+        const p = c.patient || {};
+        const match =
+          (p.name && p.name.toLowerCase().includes(s)) ||
+          (p.patientId && p.patientId.toLowerCase().includes(s)) ||
+          (c.caseNumber && c.caseNumber.toLowerCase().includes(s)) ||
+          (c.testType && c.testType.toLowerCase().includes(s)) ||
+          (c.branchName && c.branchName.toLowerCase().includes(s));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [pathologyQueue, pathologyStatusFilter, pathologySearch]);
+
+  const filteredRadiologyCases = useMemo(() => {
+    return radiologyQueue.filter(c => {
+      if (!c) return false;
+      if (radiologyStatusFilter !== 'all' && c.status !== radiologyStatusFilter) return false;
+      if (radiologySearch.trim()) {
+        const s = radiologySearch.trim().toLowerCase();
+        const p = c.patient || {};
+        const match =
+          (p.name && p.name.toLowerCase().includes(s)) ||
+          (p.patientId && p.patientId.toLowerCase().includes(s)) ||
+          (c.caseNumber && c.caseNumber.toLowerCase().includes(s)) ||
+          (c.examinationType && c.examinationType.toLowerCase().includes(s)) ||
+          (c.ultrasoundSubtype && c.ultrasoundSubtype.toLowerCase().includes(s)) ||
+          (c.branchName && c.branchName.toLowerCase().includes(s));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [radiologyQueue, radiologyStatusFilter, radiologySearch]);
+
+  const filteredWaitingPayment = useMemo(() => {
+    return receptionWaitingList.filter(p => {
+      if (!p) return false;
+      if (!receptionWaitingSearch.trim()) return true;
+      const s = receptionWaitingSearch.trim().toLowerCase();
+      return (
+        (p.name && p.name.toLowerCase().includes(s)) ||
+        (p.patientId && p.patientId.toLowerCase().includes(s)) ||
+        (p.phone && p.phone.toLowerCase().includes(s))
+      );
+    });
+  }, [receptionWaitingList, receptionWaitingSearch]);
+
+  // Synthetic live reports for preview
+  const livePathologyReport = useMemo(() => {
+    if (!selectedPathologyCase) return null;
+    const currentOptCHtml = pathologyReportType === 'Option C' ? renderOptionCHtml(pathologyTemplateReport, 'pathology') : '';
+    const currentTplReport = pathologyReportType === 'Option C' ? resolveOptionCTemplate('pathology', selectedPathologyCase, pathologyTemplateReport) : pathologyTemplateReport;
+    return {
+      ...selectedPathologyCase,
+      reportType: pathologyReportType,
+      reportContent: pathologyReportType === 'Option A' && pathologyEditorRef.current
+        ? pathologyEditorRef.current.innerHTML
+        : pathologyReportType === 'Option C'
+        ? currentOptCHtml
+        : pathologyReportContent,
+      structuredReport: pathologyStructured,
+      templateReport: currentTplReport,
+      showFooter: pathologyShowFooter,
+      status: selectedPathologyCase.status || 'In Progress',
+      pathologist: user,
+      approvedBy: selectedPathologyCase.approvedBy || user,
+      approvedDate: selectedPathologyCase.approvedAt || new Date()
+    };
+  }, [selectedPathologyCase, pathologyReportType, pathologyReportContent, pathologyStructured, pathologyTemplateReport, pathologyShowFooter, user]);
+
+  const liveRadiologyReport = useMemo(() => {
+    if (!selectedRadiologyCase) return null;
+    const currentOptCHtml = radiologyReportType === 'Option C' ? renderOptionCHtml(radiologyTemplateReport, 'radiology') : '';
+    const currentTplReport = radiologyReportType === 'Option C' ? resolveOptionCTemplate('radiology', selectedRadiologyCase, radiologyTemplateReport) : radiologyTemplateReport;
+    return {
+      ...selectedRadiologyCase,
+      reportType: radiologyReportType,
+      reportContent: radiologyReportType === 'Option A' && radiologyEditorRef.current
+        ? radiologyEditorRef.current.innerHTML
+        : radiologyReportType === 'Option C'
+        ? currentOptCHtml
+        : radiologyReportContent,
+      structuredReport: radiologyStructured,
+      templateReport: currentTplReport,
+      showFooter: radiologyShowFooter,
+      status: selectedRadiologyCase.status || 'In Progress',
+      radiologist: user,
+      approvedBy: selectedRadiologyCase.approvedBy || user,
+      approvedDate: selectedRadiologyCase.approvedAt || new Date()
+    };
+  }, [selectedRadiologyCase, radiologyReportType, radiologyReportContent, radiologyStructured, radiologyTemplateReport, radiologyShowFooter, user]);
 
   // Filtered queue calculation
   const safeQueue = useMemo(() => (Array.isArray(queue) ? queue.filter(x => x && x.patient) : []), [queue]);
@@ -1022,23 +1919,46 @@ export default function AdminReportTransactionManagementPage() {
             </p>
           </div>
 
-          {/* Branch Filter Pills */}
-          {isSuperAdmin && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--card-bg, #131e32)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--card-border, #24344d)' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary, #cbd5e1)' }}>Branch:</span>
-              {['All', 'Main', 'Otona'].map(b => (
-                <button
-                  key={b}
-                  type="button"
-                  className={selectedBranch === b ? 'primary' : 'secondary'}
-                  onClick={() => setSelectedBranch(b)}
-                  style={{ fontSize: '0.78rem', padding: '4px 12px', borderRadius: '16px' }}
-                >
-                  {b === 'All' ? 'All Branches' : `${b} Branch`}
-                </button>
-              ))}
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setAdminInterpModalOpen(true)}
+              className="secondary"
+              style={{
+                fontSize: '0.82rem',
+                padding: '7px 14px',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                background: 'var(--card-bg, #131e32)',
+                border: '1px solid var(--card-border, #24344d)',
+                color: 'var(--text-primary, #ffffff)',
+                fontWeight: 700
+              }}
+            >
+              <span>📚</span> Clinical Interpretation Library
+            </button>
+
+            {/* Branch Filter Pills */}
+            {isSuperAdmin && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--card-bg, #131e32)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--card-border, #24344d)' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary, #cbd5e1)' }}>Branch:</span>
+                {['All', 'Main', 'Otona'].map(b => (
+                  <button
+                    key={b}
+                    type="button"
+                    className={selectedBranch === b ? 'primary' : 'secondary'}
+                    onClick={() => setSelectedBranch(b)}
+                    style={{ fontSize: '0.78rem', padding: '4px 12px', borderRadius: '16px' }}
+                  >
+                    {b === 'All' ? 'All Branches' : `${b} Branch`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1046,8 +1966,81 @@ export default function AdminReportTransactionManagementPage() {
       {error && <div className="alert error">{error}</div>}
       {message && <div className="alert success">{message}</div>}
 
-      {/* Top Main Navigation Tabs */}
-      <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
+      {/* ── TOP UNIFIED DEPARTMENT SWITCHER BAR ──────────────────────── */}
+      <div className="admin-dept-switcher" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '10px 14px',
+        marginBottom: '1.25rem',
+        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%)',
+        border: '1px solid rgba(148, 163, 184, 0.25)',
+        borderRadius: '16px',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+        backdropFilter: 'blur(12px)',
+        overflowX: 'auto'
+      }}>
+        {[
+          { id: 'laboratory', label: '🧪 Laboratory Operations', badge: queuedList.length + reportsCount },
+          { id: 'reception', label: '📋 Reception Department', badge: receptionWaitingList.length > 0 ? `${receptionWaitingList.length} Waiting` : '' },
+          { id: 'pathology', label: '🔬 Pathology Department', badge: pathologyActiveCount > 0 ? pathologyActiveCount : '' },
+          { id: 'radiology', label: '🩻 Radiology Department', badge: radiologyActiveCount > 0 ? radiologyActiveCount : '' }
+        ].map(dept => (
+          <button
+            key={dept.id}
+            type="button"
+            className={activeDepartment === dept.id ? 'primary' : 'secondary'}
+            onClick={() => {
+              setActiveDepartment(dept.id);
+              if (dept.id === 'reception') loadReceptionData();
+              else if (dept.id === 'pathology') loadPathologyData();
+              else if (dept.id === 'radiology') loadRadiologyData();
+            }}
+            style={{
+              padding: '9px 18px',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              borderRadius: '12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              ...(activeDepartment === dept.id ? {
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.45)',
+                border: '1px solid #38bdf8'
+              } : {
+                background: 'rgba(30, 41, 59, 0.65)',
+                color: '#cbd5e1',
+                border: '1px solid rgba(148, 163, 184, 0.15)'
+              })
+            }}
+          >
+            <span>{dept.label}</span>
+            {dept.badge ? (
+              <span style={{
+                background: activeDepartment === dept.id ? 'rgba(255,255,255,0.28)' : '#0284c7',
+                color: '#ffffff',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                fontSize: '0.74rem',
+                fontWeight: 800
+              }}>
+                {dept.badge}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {/* ── LABORATORY OPERATIONS TAB GROUP (PRESERVED 100%) ─────────── */}
+      {activeDepartment === 'laboratory' && (
+        <>
+          {/* Top Main Navigation Tabs */}
+          <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
         {[
           ['queue', `Patient Queue (${queuedList.length})`],
           ['received_otona', `Received From Otona (${countOtona})`],
@@ -1514,10 +2507,11 @@ export default function AdminReportTransactionManagementPage() {
               Period:
             </span>
             {[
-              ['all', 'All'],
-              ['today', "Today's"],
-              ['lastWeek', 'Last Week'],
-              ['lastMonth', 'Last Month']
+              ['today', 'Today'],
+              ['yesterday', 'Yesterday'],
+              ['this_week', 'This Week'],
+              ['last_week', 'Last Week'],
+              ['all', 'All']
             ].map(([p, label]) => (
               <button
                 key={p}
@@ -2323,6 +3317,1988 @@ export default function AdminReportTransactionManagementPage() {
             )}
           </div>
         </section>
+      )}
+        </>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ── RECEPTION DEPARTMENT VIEW ───────────────────────────────────────────── */}
+      {/* ========================================================================= */}
+      {activeDepartment === 'reception' && (
+        <div className="admin-dept-view admin-reception-view" style={{ marginBottom: '2rem' }}>
+          {/* Reception Sub-Tabs Bar */}
+          <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
+            {[
+              ['pos', '🛒 Register [POS] & Thermal Receipt'],
+              ['waiting', `💳 Waiting for Payment (${receptionWaitingList.length})`]
+            ].map(([tabKey, label]) => (
+              <button
+                key={tabKey}
+                type="button"
+                className={receptionSubTab === tabKey ? 'active' : ''}
+                onClick={() => setReceptionSubTab(tabKey)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Reception Metrics Overview */}
+          <div className="collector-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>💵</div>
+              <div className="collector-metric-info">
+                <h3>Today Revenue</h3>
+                <p className="collector-metric-num" style={{ color: '#10b981' }}>
+                  {formatETB(receptionDash?.todayIncome || 0)}
+                </p>
+                <small style={{ color: '#94a3b8' }}>Net: {formatETB(receptionDash?.netDailyIncome || 0)}</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #0284c7' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>👥</div>
+              <div className="collector-metric-info">
+                <h3>Registered Today</h3>
+                <p className="collector-metric-num">{receptionDash?.todayPatients || 0}</p>
+                <small style={{ color: '#94a3b8' }}>All registrations</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>⏳</div>
+              <div className="collector-metric-info">
+                <h3>Waiting for Payment</h3>
+                <p className="collector-metric-num" style={{ color: '#f59e0b' }}>{receptionWaitingList.length}</p>
+                <small style={{ color: '#94a3b8' }}>Awaiting collection</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>📋</div>
+              <div className="collector-metric-info">
+                <h3>Ready Reports</h3>
+                <p className="collector-metric-num">{receptionDash?.readyReports || 0}</p>
+                <small style={{ color: '#94a3b8' }}>Ready for print/pickup</small>
+              </div>
+            </div>
+          </div>
+
+          {/* Sub-tab 1: Register [POS] */}
+          {receptionSubTab === 'pos' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.1fr) minmax(320px, 1.4fr)', gap: '1.25rem', alignItems: 'start' }}>
+              {/* Left Column: Registration Form */}
+              <div className="collector-queue" style={{ padding: '1.25rem' }}>
+                <header style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
+                  <p className="eyebrow" style={{ margin: 0 }}>Patient Intake</p>
+                  <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Register & Collect Payment</h2>
+                </header>
+
+                <form onSubmit={handlePosRegister} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Patient Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ABEBE BIKILA"
+                      value={posPatientName}
+                      onChange={e => setPosPatientName(e.target.value)}
+                      style={{ width: '100%', textTransform: 'uppercase', fontWeight: 600 }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Age (Years) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="125"
+                        required
+                        placeholder="e.g. 35"
+                        value={posAge}
+                        onChange={e => setPosAge(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Sex *
+                      </label>
+                      <select
+                        value={posSex}
+                        onChange={e => setPosSex(e.target.value)}
+                        style={{ width: '100%' }}
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="09..."
+                        value={posPhone}
+                        onChange={e => setPosPhone(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Address / City
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Hawassa, Piassa"
+                        value={posAddress}
+                        onChange={e => setPosAddress(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Registration Type
+                      </label>
+                      <select
+                        value={posRegistrationType}
+                        onChange={e => setPosRegistrationType(e.target.value)}
+                        style={{ width: '100%' }}
+                      >
+                        <option value="Self">Self / Walk-in</option>
+                        <option value="Referral">Referral Hospital</option>
+                        <option value="Self Aware">Self-Awareness (Queue first)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Payment Method
+                      </label>
+                      <select
+                        value={posPaymentMethod}
+                        onChange={e => setPosPaymentMethod(e.target.value)}
+                        style={{ width: '100%' }}
+                        disabled={posRegistrationType === 'Self Aware'}
+                      >
+                        <option value="Cash">Cash</option>
+                        <option value="Telebirr">Telebirr</option>
+                        <option value="CBE Birr">CBE Birr</option>
+                        <option value="Card">Card / POS</option>
+                        <option value="Other">Other Bank</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {posRegistrationType === 'Referral' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: posReferralHospital === 'Other' ? '1fr 1fr' : '1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                          Referral Hospital *
+                        </label>
+                        <select
+                          value={posReferralHospital}
+                          onChange={e => setPosReferralHospital(e.target.value)}
+                          style={{ width: '100%' }}
+                          required
+                        >
+                          <option value="">-- Select Referral Hospital --</option>
+                          {hospitals.map(h => (
+                            <option key={h._id || h.name} value={h.name}>{h.name}</option>
+                          ))}
+                          <option value="Other">Other (Type name)</option>
+                        </select>
+                      </div>
+                      {posReferralHospital === 'Other' && (
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                            Specify Hospital Name *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Hospital Name"
+                            value={posOtherHospital}
+                            onChange={e => setPosOtherHospital(e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Systolic BP (mmHg)
+                      </label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="300"
+                        placeholder="e.g. 120"
+                        value={posBpSystolic}
+                        onChange={e => setPosBpSystolic(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Diastolic BP (mmHg)
+                      </label>
+                      <input
+                        type="number"
+                        min="30"
+                        max="200"
+                        placeholder="e.g. 80"
+                        value={posBpDiastolic}
+                        onChange={e => setPosBpDiastolic(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Summary & Register Action */}
+                  <div style={{
+                    background: 'rgba(15, 23, 42, 0.6)',
+                    border: '1px solid rgba(148, 163, 184, 0.2)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    marginTop: '8px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
+                      <span style={{ color: '#94a3b8' }}>Selected Tests:</span>
+                      <strong>{posSelectedTests.length} item(s)</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: '#38bdf8' }}>
+                      <span>Total Payable:</span>
+                      <span>{formatETB(posSubtotal)}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={posRegistering}
+                    style={{
+                      padding: '12px',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      marginTop: '4px',
+                      background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                    }}
+                  >
+                    {posRegistering ? 'Processing Registration…' : posRegistrationType === 'Self Aware' ? 'Queue Self-Aware Patient' : '💳 Register & Collect Payment'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Test Catalog Selector */}
+              <div className="collector-queue" style={{ padding: '1.25rem' }}>
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '1rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
+                  <div>
+                    <p className="eyebrow" style={{ margin: 0 }}>Investigation Directory</p>
+                    <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Select Laboratory Tests</h2>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                    <span>{posSelectedTestIds.length} Selected</span>
+                  </div>
+                </header>
+
+                {/* Search & Category Filter */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search tests by name, subcategory, or test code…"
+                    value={posSearch}
+                    onChange={e => setPosSearch(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
+                  />
+
+                  {/* Category Pills */}
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                    {['All', ...(catalog || []).map(c => c.name)].map(catName => (
+                      <button
+                        key={catName}
+                        type="button"
+                        onClick={() => setPosActiveCategory(catName)}
+                        className={posActiveCategory === catName ? 'primary' : 'secondary'}
+                        style={{
+                          fontSize: '0.74rem',
+                          padding: '4px 10px',
+                          borderRadius: '16px',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {catName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Test Items Grid */}
+                <div style={{ maxHeight: '480px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                  {posFilteredCategories.length === 0 ? (
+                    <p className="empty" style={{ margin: '20px 0' }}>No tests match your search query.</p>
+                  ) : (
+                    posFilteredCategories.map(cat => (
+                      <div key={cat._id || cat.name} style={{ background: 'rgba(15, 23, 42, 0.4)', borderRadius: '10px', padding: '8px 10px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', marginBottom: '6px' }}>
+                          {cat.name}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '6px' }}>
+                          {(cat.tests || []).map(t => {
+                            const isSelected = posSelectedTestIds.includes(t._id);
+                            return (
+                              <div
+                                key={t._id}
+                                onClick={() => togglePosTest(t._id)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '7px 10px',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.82rem',
+                                  transition: 'all 0.15s ease',
+                                  background: isSelected ? 'rgba(2, 132, 199, 0.25)' : 'rgba(30, 41, 59, 0.5)',
+                                  border: isSelected ? '1px solid #0284c7' : '1px solid rgba(148, 163, 184, 0.12)'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}}
+                                    style={{ margin: 0, cursor: 'pointer' }}
+                                  />
+                                  <span style={{ fontWeight: isSelected ? 700 : 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                    {t.name}
+                                  </span>
+                                </div>
+                                <span style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: '0.78rem', marginLeft: '6px' }}>
+                                  {formatETB(t.price || 0)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Registrations Table (under POS) */}
+          {receptionSubTab === 'pos' && posRecentPatients.length > 0 && (
+            <div className="collector-queue" style={{ marginTop: '1.25rem', padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#cbd5e1' }}>Recently Registered in Current Session</h3>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{posRecentPatients.length} record(s)</span>
+              </header>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="admin-tx-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Patient ID</th>
+                      <th>Patient Name</th>
+                      <th>Age / Sex</th>
+                      <th>Phone</th>
+                      <th>Receipt #</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Total (ETB)</th>
+                      <th style={{ textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {posRecentPatients.map(p => (
+                      <tr key={p._id || p.patientId}>
+                        <td><strong>{p.patientId}</strong></td>
+                        <td>{p.name}</td>
+                        <td>{p.age} yrs / {p.sex}</td>
+                        <td>{p.phone}</td>
+                        <td>{p.receiptNumber || '—'}</td>
+                        <td>
+                          <span className={`collector-status-pill ${p.paymentStatus === 'Paid' ? 'completed' : 'pending'}`}>
+                            {p.paymentStatus || 'Paid'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatETB(p.grandTotal || 0)}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setPosReceiptModalPatient(p)}
+                            style={{ fontSize: '0.78rem', padding: '4px 10px', borderRadius: '8px' }}
+                          >
+                            🖨️ Thermal Receipt
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-tab 2: Waiting for Payment Queue */}
+          {receptionSubTab === 'waiting' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Unpaid / Self-Aware Patients</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Patients Waiting for Payment Collection</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search waiting patients by name, ID, phone…"
+                    value={receptionWaitingSearch}
+                    onChange={e => setReceptionWaitingSearch(e.target.value)}
+                    style={{ minWidth: '260px', padding: '7px 12px', fontSize: '0.85rem' }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadReceptionData}
+                    disabled={receptionLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
+              </header>
+
+              <div style={{ marginTop: '12px' }}>
+                {receptionLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading waiting patients…</strong>
+                  </div>
+                ) : filteredWaitingPayment.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🎉</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Patients Waiting for Payment</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      All registered patients have completed payment, or no pending self-awareness cases exist.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {filteredWaitingPayment.map(p => {
+                      const testsStr = (p.laboratoryTests || []).map(t => typeof t === 'object' ? t.name : t).join(', ') || 'No tests selected';
+                      return (
+                        <div
+                          key={p._id}
+                          className="clinical-patient-case-card"
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '14px 18px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(148, 163, 184, 0.18)',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ minWidth: '220px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{p.name}</strong>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                                ⏳ Waiting for Payment
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                              <span>{p.patientId}</span> · <span>{p.age} YRS / {p.sex}</span> · <span>📞 {p.phone}</span> · <span style={{ color: '#38bdf8' }}>📍 {p.branchName || 'Main'}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: '240px', maxWidth: '500px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px' }}>Ordered Tests</small>
+                            <span style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: 1.4, display: 'inline-block' }}>{testsStr}</span>
+                          </div>
+
+                          <div style={{ textAlign: 'right', minWidth: '120px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.74rem', textTransform: 'uppercase', fontWeight: 700 }}>Total Fee</small>
+                            <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#38bdf8' }}>{formatETB(p.grandTotal || 0)}</span>
+                          </div>
+
+                          <div>
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => {
+                                setCompletingPaymentPatient(p);
+                                setCompletingPaymentMethod('Cash');
+                              }}
+                              style={{
+                                padding: '8px 16px',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                borderRadius: '10px',
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <span>💳</span>
+                              <span>Complete Payment</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ── PATHOLOGY DEPARTMENT VIEW ───────────────────────────────────────────── */}
+      {/* ========================================================================= */}
+      {activeDepartment === 'pathology' && (
+        <div className="admin-dept-view admin-pathology-view" style={{ marginBottom: '2rem' }}>
+          {/* Pathology Sub-Tabs Bar */}
+          <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
+            {[
+              ['queue', `📋 Patient Queue (${pathologyActiveCount})`],
+              ['optionA', '📝 Option A: Specialist Report (Paste / Word)'],
+              ['optionB', '🧪 Option B: Structured Findings'],
+              ['optionC', '📚 Option C: Standardized Templates']
+            ].map(([tabKey, label]) => (
+              <button
+                key={tabKey}
+                type="button"
+                className={pathologySubTab === tabKey ? 'active' : ''}
+                onClick={() => setPathologySubTab(tabKey)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Pathology Metrics Cards */}
+          <div className="collector-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #0284c7' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>🔬</div>
+              <div className="collector-metric-info">
+                <h3>Active Worklist</h3>
+                <p className="collector-metric-num">{pathologyActiveCount}</p>
+                <small style={{ color: '#94a3b8' }}>Total pending cases</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #ef4444' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>🧪</div>
+              <div className="collector-metric-info">
+                <h3>Biopsy Cases</h3>
+                <p className="collector-metric-num">{pathologyQueue.filter(c => c.testType === 'Biopsy').length}</p>
+                <small style={{ color: '#94a3b8' }}>20-day turnaround target</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>💉</div>
+              <div className="collector-metric-info">
+                <h3>FNAC Cases</h3>
+                <p className="collector-metric-num">{pathologyQueue.filter(c => c.testType === 'FNAC').length}</p>
+                <small style={{ color: '#94a3b8' }}>Aspiration cytology</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>✅</div>
+              <div className="collector-metric-info">
+                <h3>Approved / Cleared</h3>
+                <p className="collector-metric-num" style={{ color: '#10b981' }}>
+                  {pathologyQueue.filter(c => ['Approved', 'Ready for Printing'].includes(c.status)).length}
+                </p>
+                <small style={{ color: '#94a3b8' }}>Completed cases</small>
+              </div>
+            </div>
+          </div>
+
+          {/* Sub-tab 1: Patient Worklist Queue */}
+          {pathologySubTab === 'queue' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Histopathology & Cytology Cases</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Pathology Patient Worklist (Cross-Branch)</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadPathologyData}
+                    disabled={pathologyLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh Worklist
+                  </button>
+                </div>
+              </header>
+
+              {/* Filters Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.4)', padding: '10px', borderRadius: '10px' }}>
+                {/* Date Pills */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>📅 Date:</span>
+                  {[
+                    ['all', 'All'],
+                    ['today', 'Today'],
+                    ['yesterday', 'Yesterday'],
+                    ['this_week', 'This Week'],
+                    ['last_week', 'Last Week']
+                  ].map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={pathologyDateFilter === val ? 'primary' : 'secondary'}
+                      onClick={() => setPathologyDateFilter(val)}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Status Pills */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Status:</span>
+                  {[
+                    ['all', 'All'],
+                    ['Queued', 'Queued'],
+                    ['In Progress', 'In Progress'],
+                    ['Approved', 'Approved']
+                  ].map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={pathologyStatusFilter === val ? 'primary' : 'secondary'}
+                      onClick={() => setPathologyStatusFilter(val)}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search patient, ID, case #, test…"
+                    value={pathologySearch}
+                    onChange={e => setPathologySearch(e.target.value)}
+                    style={{ minWidth: '240px', padding: '6px 10px', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Case Cards List */}
+              <div>
+                {pathologyLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading pathology queue…</strong>
+                  </div>
+                ) : filteredPathologyCases.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🔬</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Pathology Cases Found</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      No Biopsy, FNAC, or Peripheral Morphology cases match the selected filters.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {filteredPathologyCases.map(c => {
+                      const countdown = getCountdown(c.reportingDeadline);
+                      const isBiopsy = c.testType === 'Biopsy';
+                      const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
+                      const senderName = c.registeredBy?.fullName || c.patient?.registeredBy?.fullName || 'Reception';
+
+                      return (
+                        <div
+                          key={c._id}
+                          className="clinical-patient-case-card"
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '14px 18px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(148, 163, 184, 0.18)',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ minWidth: '220px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{c.patient?.name || 'Unknown Patient'}</strong>
+                              <span style={{ fontSize: '0.74rem', background: isBiopsy ? 'rgba(239, 68, 68, 0.2)' : 'rgba(139, 92, 246, 0.2)', color: isBiopsy ? '#f87171' : '#c084fc', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>
+                                {c.testType}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                              <span>{c.patient?.patientId}</span> · <span>{c.patient?.age} YRS / {c.patient?.sex}</span> · <span style={{ color: '#38bdf8' }}>📍 {c.branchName} Branch</span> · <span>Sent by: {senderName}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ minWidth: '140px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Fee</small>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#e2e8f0' }}>{formatETB(c.price || 0)}</span>
+                          </div>
+
+                          <div style={{ minWidth: '160px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Turnaround Target</small>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: countdown.isOverdue ? '#ef4444' : isApproved ? '#10b981' : '#f59e0b' }}>
+                              {isApproved ? '✅ Completed' : `⏱️ ${countdown.text}`}
+                            </span>
+                          </div>
+
+                          <div style={{ minWidth: '120px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Status</small>
+                            <span className={`collector-status-pill ${isApproved ? 'completed' : c.status === 'In Progress' ? 'in-progress' : 'pending'}`}>
+                              {isApproved ? 'Ready for Printing' : c.status}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => openPathologyCase(c, 'optionA')}
+                              style={{ fontSize: '0.78rem', padding: '5px 10px', borderRadius: '8px' }}
+                              title="Open in Specialist Rich Report Editor"
+                            >
+                              Option A
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => openPathologyCase(c, 'optionB')}
+                              style={{ fontSize: '0.78rem', padding: '5px 10px', borderRadius: '8px' }}
+                              title="Open in Structured Findings Entry"
+                            >
+                              Option B
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => openPathologyCase(c, 'optionC')}
+                              style={{ fontSize: '0.78rem', padding: '5px 10px', borderRadius: '8px' }}
+                              title="Open in Standardized Template Library"
+                            >
+                              Option C
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab 2: Option A (Specialist Report with Paste / Word Support) */}
+          {pathologySubTab === 'optionA' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              {/* Active Case Selector Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                <div>
+                  <small style={{ color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.74rem' }}>Option A: Specialist Report Workstation</small>
+                  <h3 style={{ margin: '2px 0 0', color: '#f8fafc', fontSize: '1.1rem' }}>
+                    {selectedPathologyCase ? `${selectedPathologyCase.patient?.name} (${selectedPathologyCase.testType})` : 'No Case Currently Selected'}
+                  </h3>
+                  {selectedPathologyCase && (
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {selectedPathologyCase.patient?.patientId} · {selectedPathologyCase.patient?.age} YRS / {selectedPathologyCase.patient?.sex} · 📍 {selectedPathologyCase.branchName} Branch
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick Case Switcher Dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>Select Case:</label>
+                  <select
+                    value={selectedPathologyCase?._id || ''}
+                    onChange={e => {
+                      const c = pathologyQueue.find(x => x._id === e.target.value);
+                      if (c) openPathologyCase(c, 'optionA');
+                    }}
+                    style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: '220px' }}
+                  >
+                    <option value="">-- Choose from Pathology Queue --</option>
+                    {pathologyQueue.map(c => (
+                      <option key={c._id} value={c._id}>
+                        {c.patient?.name} - {c.testType} ({c.status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {!selectedPathologyCase ? (
+                <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👆</div>
+                  <h3 style={{ color: '#f8fafc' }}>Please Select a Pathology Case</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    Choose a patient case from the worklist dropdown above or the Patient Queue sub-tab to enter or paste a specialist report.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.2)', fontSize: '0.84rem', color: '#cbd5e1' }}>
+                    💡 <strong>Specialist Report Instructions:</strong> You can type freely or paste formatted reports directly from Microsoft Word / Google Docs. Full text formatting, bold headings, bullet points, and tables are preserved.
+                  </div>
+
+                  {/* Rich Text Editor */}
+                  <div style={{ background: '#ffffff', color: '#000000', borderRadius: '10px', overflow: 'hidden' }}>
+                    <RichReportEditor
+                      value={pathologyReportContent}
+                      onChange={html => setPathologyReportContent(html)}
+                    />
+                  </div>
+
+                  {/* Footer & Actions Bar */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '6px' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                      <input
+                        type="checkbox"
+                        checked={pathologyShowFooter}
+                        onChange={e => setPathologyShowFooter(e.target.checked)}
+                      />
+                      <span>Include Authorized Signatures & Stamp on Final Report</span>
+                    </label>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={pathologySaving || pathologyApproving}
+                        onClick={handleSavePathologyDraft}
+                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        {pathologySaving ? 'Saving Draft…' : '💾 Save Draft'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setPathologyPreviewOpen(true)}
+                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        👁️ Preview Report
+                      </button>
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={pathologySaving || pathologyApproving}
+                        onClick={handleApprovePathologyCase}
+                        style={{
+                          padding: '8px 20px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        }}
+                      >
+                        {pathologyApproving ? 'Approving…' : '✅ Approve & Finalize'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Sub-tab 3: Option B (Structured Findings Entry) */}
+          {pathologySubTab === 'optionB' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                <div>
+                  <small style={{ color: '#a855f7', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.74rem' }}>Option B: Structured Clinical Findings</small>
+                  <h3 style={{ margin: '2px 0 0', color: '#f8fafc', fontSize: '1.1rem' }}>
+                    {selectedPathologyCase ? `${selectedPathologyCase.patient?.name} (${selectedPathologyCase.testType})` : 'No Case Currently Selected'}
+                  </h3>
+                </div>
+                <select
+                  value={selectedPathologyCase?._id || ''}
+                  onChange={e => {
+                    const c = pathologyQueue.find(x => x._id === e.target.value);
+                    if (c) openPathologyCase(c, 'optionB');
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: '220px' }}
+                >
+                  <option value="">-- Choose from Pathology Queue --</option>
+                  {pathologyQueue.map(c => (
+                    <option key={c._id} value={c._id}>
+                      {c.patient?.name} - {c.testType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedPathologyCase ? (
+                <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👆</div>
+                  <h3 style={{ color: '#f8fafc' }}>Please Select a Pathology Case</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    Select a case to fill in structured specimen, microscopic, and diagnostic fields.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Specimen Type / Source
+                      </label>
+                      <input
+                        type="text"
+                        value={pathologyStructured.specimen}
+                        onChange={e => setPathologyStructured(prev => ({ ...prev, specimen: e.target.value }))}
+                        placeholder="e.g. Skin biopsy, lymph node, thyroid"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Procedure
+                      </label>
+                      <input
+                        type="text"
+                        value={pathologyStructured.procedure}
+                        onChange={e => setPathologyStructured(prev => ({ ...prev, procedure: e.target.value }))}
+                        placeholder="e.g. Excisional biopsy, Fine needle aspiration"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Clinical History & Information
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={pathologyStructured.clinicalHistory}
+                      onChange={e => setPathologyStructured(prev => ({ ...prev, clinicalHistory: e.target.value }))}
+                      placeholder="Relevant clinical presentation, duration, prior treatments..."
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Gross Description
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={pathologyStructured.grossDescription}
+                        onChange={e => setPathologyStructured(prev => ({ ...prev, grossDescription: e.target.value }))}
+                        placeholder="Tissue size, color, consistency, dimensions..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Microscopic Description
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={pathologyStructured.microscopicDescription}
+                        onChange={e => setPathologyStructured(prev => ({ ...prev, microscopicDescription: e.target.value }))}
+                        placeholder="Cellular architecture, nuclear atypia, mitotic figures..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Pathological Diagnosis *
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={pathologyStructured.diagnosis}
+                        onChange={e => setPathologyStructured(prev => ({ ...prev, diagnosis: e.target.value }))}
+                        placeholder="Final histological or cytological diagnosis..."
+                        style={{ width: '100%', fontWeight: 600 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Impression / Summary
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={pathologyStructured.impression}
+                        onChange={e => setPathologyStructured(prev => ({ ...prev, impression: e.target.value }))}
+                        placeholder="Clinical summary and correlation..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Recommendations / Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={pathologyStructured.recommendation}
+                      onChange={e => setPathologyStructured(prev => ({ ...prev, recommendation: e.target.value }))}
+                      placeholder="e.g. IHC recommended, clinical follow-up suggested"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={pathologySaving || pathologyApproving}
+                      onClick={handleSavePathologyDraft}
+                    >
+                      {pathologySaving ? 'Saving…' : '💾 Save Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setPathologyPreviewOpen(true)}
+                    >
+                      👁️ Preview Report
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={pathologySaving || pathologyApproving}
+                      onClick={handleApprovePathologyCase}
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                    >
+                      {pathologyApproving ? 'Approving…' : '✅ Approve & Finalize'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Sub-tab 4: Option C (Standardized Template Library) */}
+          {pathologySubTab === 'optionC' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                <div>
+                  <small style={{ color: '#10b981', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.74rem' }}>Option C: Standardized Template Library</small>
+                  <h3 style={{ margin: '2px 0 0', color: '#f8fafc', fontSize: '1.1rem' }}>
+                    {selectedPathologyCase ? `${selectedPathologyCase.patient?.name} (${selectedPathologyCase.testType})` : 'No Case Currently Selected'}
+                  </h3>
+                </div>
+                <select
+                  value={selectedPathologyCase?._id || ''}
+                  onChange={e => {
+                    const c = pathologyQueue.find(x => x._id === e.target.value);
+                    if (c) openPathologyCase(c, 'optionC');
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: '220px' }}
+                >
+                  <option value="">-- Choose from Pathology Queue --</option>
+                  {pathologyQueue.map(c => (
+                    <option key={c._id} value={c._id}>
+                      {c.patient?.name} - {c.testType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedPathologyCase ? (
+                <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👆</div>
+                  <h3 style={{ color: '#f8fafc' }}>Please Select a Pathology Case</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    Select a case to choose and apply standardized Biopsy, FNAC, or Blood Film templates.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Template Picker */}
+                  <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(148, 163, 184, 0.12)' }}>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8', marginBottom: '6px' }}>
+                      Select Template from Library:
+                    </label>
+                    <select
+                      value={pathologyTemplateReport.templateKey}
+                      onChange={e => applyPathologyTemplate(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
+                    >
+                      <option value="">-- Choose Template --</option>
+                      {(PATHOLOGY_TEMPLATES.Pathology || []).map(t => (
+                        <option key={t.id || t.key} value={t.id || t.key}>
+                          {t.name} ({t.examination})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Examination
+                    </label>
+                    <input
+                      type="text"
+                      value={pathologyTemplateReport.examination}
+                      onChange={e => setPathologyTemplateReport(prev => ({ ...prev, examination: e.target.value }))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Technique & Clinical Information
+                    </label>
+                    <input
+                      type="text"
+                      value={pathologyTemplateReport.technique}
+                      onChange={e => setPathologyTemplateReport(prev => ({ ...prev, technique: e.target.value }))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Findings *
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={pathologyTemplateReport.findings}
+                      onChange={e => setPathologyTemplateReport(prev => ({ ...prev, findings: e.target.value }))}
+                      style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.88rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Impression *
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={pathologyTemplateReport.impression}
+                        onChange={e => setPathologyTemplateReport(prev => ({ ...prev, impression: e.target.value }))}
+                        style={{ width: '100%', fontWeight: 600 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Recommendation
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={pathologyTemplateReport.recommendation}
+                        onChange={e => setPathologyTemplateReport(prev => ({ ...prev, recommendation: e.target.value }))}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={pathologySaving || pathologyApproving}
+                      onClick={handleSavePathologyDraft}
+                    >
+                      {pathologySaving ? 'Saving…' : '💾 Save Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={handleOpenPathologyPreview}
+                    >
+                      👁️ Preview Report
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={pathologySaving || pathologyApproving}
+                      onClick={handleApprovePathologyCase}
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                    >
+                      {pathologyApproving ? 'Approving…' : '✅ Approve & Finalize'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ── RADIOLOGY DEPARTMENT VIEW ───────────────────────────────────────────── */}
+      {/* ========================================================================= */}
+      {activeDepartment === 'radiology' && (
+        <div className="admin-dept-view admin-radiology-view" style={{ marginBottom: '2rem' }}>
+          {/* Radiology Sub-Tabs Bar */}
+          <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
+            {[
+              ['queue', `📋 Patient Queue (${radiologyActiveCount})`],
+              ['optionA', '📝 Option A: Specialist Report (Paste / Word)'],
+              ['optionB', '🫁 Option B: Structured Organ Findings'],
+              ['optionC', '📚 Option C: Standardized Templates (MRI / CT / US)']
+            ].map(([tabKey, label]) => (
+              <button
+                key={tabKey}
+                type="button"
+                className={radiologySubTab === tabKey ? 'active' : ''}
+                onClick={() => setRadiologySubTab(tabKey)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Radiology Metrics Cards */}
+          <div className="collector-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #0284c7' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>🩻</div>
+              <div className="collector-metric-info">
+                <h3>Active Worklist</h3>
+                <p className="collector-metric-num">{radiologyActiveCount}</p>
+                <small style={{ color: '#94a3b8' }}>Total pending exams</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>🔊</div>
+              <div className="collector-metric-info">
+                <h3>Ultrasound Cases</h3>
+                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'Ultrasound').length}</p>
+                <small style={{ color: '#94a3b8' }}>Abdominal, pelvic, obstetric</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>🍩</div>
+              <div className="collector-metric-info">
+                <h3>CT Scan Cases</h3>
+                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'CT Scan').length}</p>
+                <small style={{ color: '#94a3b8' }}>Brain, chest, abdomen</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>🧲</div>
+              <div className="collector-metric-info">
+                <h3>MRI Cases</h3>
+                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'MRI').length}</p>
+                <small style={{ color: '#94a3b8' }}>Magnetic resonance imaging</small>
+              </div>
+            </div>
+          </div>
+
+          {/* Sub-tab 1: Patient Worklist Queue */}
+          {radiologySubTab === 'queue' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Diagnostic Imaging Cases</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Radiology Patient Worklist (Cross-Branch)</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadRadiologyData}
+                    disabled={radiologyLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh Worklist
+                  </button>
+                </div>
+              </header>
+
+              {/* Filters Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.4)', padding: '10px', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>📅 Date:</span>
+                  {[
+                    ['all', 'All'],
+                    ['today', 'Today'],
+                    ['yesterday', 'Yesterday'],
+                    ['this_week', 'This Week'],
+                    ['last_week', 'Last Week']
+                  ].map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={radiologyDateFilter === val ? 'primary' : 'secondary'}
+                      onClick={() => setRadiologyDateFilter(val)}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Status:</span>
+                  {[
+                    ['all', 'All'],
+                    ['Queued', 'Queued'],
+                    ['In Progress', 'In Progress'],
+                    ['Approved', 'Approved']
+                  ].map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={radiologyStatusFilter === val ? 'primary' : 'secondary'}
+                      onClick={() => setRadiologyStatusFilter(val)}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search patient, ID, case #, exam…"
+                    value={radiologySearch}
+                    onChange={e => setRadiologySearch(e.target.value)}
+                    style={{ minWidth: '240px', padding: '6px 10px', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Case Cards List */}
+              <div>
+                {radiologyLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading radiology queue…</strong>
+                  </div>
+                ) : filteredRadiologyCases.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🩻</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Radiology Cases Found</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      No Ultrasound, CT Scan, MRI, or X-Ray cases match the selected filters.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {filteredRadiologyCases.map(c => {
+                      const countdown = getCountdown(c.reportingDeadline);
+                      const isApproved = ['Approved', 'Ready for Printing'].includes(c.status);
+                      const examName = c.customExaminationName || c.ultrasoundSubtype || c.examinationType;
+                      const senderName = c.registeredBy?.fullName || c.patient?.registeredBy?.fullName || 'Reception';
+
+                      return (
+                        <div
+                          key={c._id}
+                          className="clinical-patient-case-card"
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '14px 18px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(148, 163, 184, 0.18)',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ minWidth: '220px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{c.patient?.name || 'Unknown Patient'}</strong>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(2, 132, 199, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>
+                                {examName}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                              <span>{c.patient?.patientId}</span> · <span>{c.patient?.age} YRS / {c.patient?.sex}</span> · <span style={{ color: '#38bdf8' }}>📍 {c.branchName} Branch</span> · <span>Sent by: {senderName}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ minWidth: '140px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Fee</small>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#e2e8f0' }}>{formatETB(c.price || 0)}</span>
+                          </div>
+
+                          <div style={{ minWidth: '160px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Turnaround Target</small>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: countdown.isOverdue ? '#ef4444' : isApproved ? '#10b981' : '#f59e0b' }}>
+                              {isApproved ? '✅ Completed' : `⏱️ ${countdown.text}`}
+                            </span>
+                          </div>
+
+                          <div style={{ minWidth: '120px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Status</small>
+                            <span className={`collector-status-pill ${isApproved ? 'completed' : c.status === 'In Progress' ? 'in-progress' : 'pending'}`}>
+                              {isApproved ? 'Ready for Printing' : c.status}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => openRadiologyCase(c, 'optionA')}
+                              style={{ fontSize: '0.78rem', padding: '5px 10px', borderRadius: '8px' }}
+                              title="Open in Specialist Rich Report Editor"
+                            >
+                              Option A
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => openRadiologyCase(c, 'optionB')}
+                              style={{ fontSize: '0.78rem', padding: '5px 10px', borderRadius: '8px' }}
+                              title="Open in Structured Organ Findings"
+                            >
+                              Option B
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => openRadiologyCase(c, 'optionC')}
+                              style={{ fontSize: '0.78rem', padding: '5px 10px', borderRadius: '8px' }}
+                              title="Open in Standardized Template Library"
+                            >
+                              Option C
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab 2: Option A (Specialist Report with Paste / Word Support) */}
+          {radiologySubTab === 'optionA' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                <div>
+                  <small style={{ color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.74rem' }}>Option A: Specialist Report Workstation</small>
+                  <h3 style={{ margin: '2px 0 0', color: '#f8fafc', fontSize: '1.1rem' }}>
+                    {selectedRadiologyCase ? `${selectedRadiologyCase.patient?.name} (${selectedRadiologyCase.customExaminationName || selectedRadiologyCase.examinationType})` : 'No Case Currently Selected'}
+                  </h3>
+                  {selectedRadiologyCase && (
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {selectedRadiologyCase.patient?.patientId} · {selectedRadiologyCase.patient?.age} YRS / {selectedRadiologyCase.patient?.sex} · 📍 {selectedRadiologyCase.branchName} Branch
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>Select Case:</label>
+                  <select
+                    value={selectedRadiologyCase?._id || ''}
+                    onChange={e => {
+                      const c = radiologyQueue.find(x => x._id === e.target.value);
+                      if (c) openRadiologyCase(c, 'optionA');
+                    }}
+                    style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: '220px' }}
+                  >
+                    <option value="">-- Choose from Radiology Queue --</option>
+                    {radiologyQueue.map(c => (
+                      <option key={c._id} value={c._id}>
+                        {c.patient?.name} - {c.customExaminationName || c.examinationType} ({c.status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {!selectedRadiologyCase ? (
+                <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👆</div>
+                  <h3 style={{ color: '#f8fafc' }}>Please Select a Radiology Case</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    Choose an imaging case from the worklist dropdown above or the Patient Queue sub-tab to enter or paste a specialist report.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.2)', fontSize: '0.84rem', color: '#cbd5e1' }}>
+                    💡 <strong>Specialist Report Instructions:</strong> You can type freely or paste formatted reports directly from Microsoft Word / Google Docs. Full text formatting, bold headings, bullet points, and tables are preserved.
+                  </div>
+
+                  <div style={{ background: '#ffffff', color: '#000000', borderRadius: '10px', overflow: 'hidden' }}>
+                    <RichReportEditor
+                      value={radiologyReportContent}
+                      onChange={html => setRadiologyReportContent(html)}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '6px' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                      <input
+                        type="checkbox"
+                        checked={radiologyShowFooter}
+                        onChange={e => setRadiologyShowFooter(e.target.checked)}
+                      />
+                      <span>Include Authorized Signatures & Stamp on Final Report</span>
+                    </label>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={radiologySaving || radiologyApproving}
+                        onClick={handleSaveRadiologyDraft}
+                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        {radiologySaving ? 'Saving Draft…' : '💾 Save Draft'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setRadiologyPreviewOpen(true)}
+                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        👁️ Preview Report
+                      </button>
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={radiologySaving || radiologyApproving}
+                        onClick={handleApproveRadiologyCase}
+                        style={{
+                          padding: '8px 20px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        }}
+                      >
+                        {radiologyApproving ? 'Approving…' : '✅ Approve & Finalize'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Sub-tab 3: Option B (Structured Organ Findings) */}
+          {radiologySubTab === 'optionB' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                <div>
+                  <small style={{ color: '#06b6d4', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.74rem' }}>Option B: Structured Organ Examination</small>
+                  <h3 style={{ margin: '2px 0 0', color: '#f8fafc', fontSize: '1.1rem' }}>
+                    {selectedRadiologyCase ? `${selectedRadiologyCase.patient?.name} (${selectedRadiologyCase.customExaminationName || selectedRadiologyCase.examinationType})` : 'No Case Currently Selected'}
+                  </h3>
+                </div>
+                <select
+                  value={selectedRadiologyCase?._id || ''}
+                  onChange={e => {
+                    const c = radiologyQueue.find(x => x._id === e.target.value);
+                    if (c) openRadiologyCase(c, 'optionB');
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: '220px' }}
+                >
+                  <option value="">-- Choose from Radiology Queue --</option>
+                  {radiologyQueue.map(c => (
+                    <option key={c._id} value={c._id}>
+                      {c.patient?.name} - {c.customExaminationName || c.examinationType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedRadiologyCase ? (
+                <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👆</div>
+                  <h3 style={{ color: '#f8fafc' }}>Please Select a Radiology Case</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    Select an ultrasound or imaging case to fill in organ-specific findings (Liver, Gallbladder, Kidneys, Spleen, etc.).
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Examination Type / Title
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.examination}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, examination: e.target.value }))}
+                        placeholder="e.g. Abdominal & Pelvic Ultrasound"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Technique & Equipment
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.technique}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, technique: e.target.value }))}
+                        placeholder="e.g. High-frequency 3.5MHz curvilinear probe"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Liver
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.liver}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, liver: e.target.value }))}
+                        placeholder="Normal size, smooth contour, homogeneous echo-texture..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Gallbladder & Biliary Tree
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.gallbladder}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, gallbladder: e.target.value }))}
+                        placeholder="Well distended, thin-walled, no calculi or sludge..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Pancreas & Spleen
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.pancreas}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, pancreas: e.target.value }))}
+                        placeholder="Normal parenchymal appearance, non-enlarged..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Kidneys (Bilateral)
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.kidneys}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, kidneys: e.target.value }))}
+                        placeholder="Bilateral kidneys normal in size, shape, position; normal CMD..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Urinary Bladder & Pelvis
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.urinaryBladder}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, urinaryBladder: e.target.value }))}
+                        placeholder="Adequately distended, smooth regular outline..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Other Findings / Free Fluid
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyStructured.otherFindings}
+                        onChange={e => setRadiologyStructured(prev => ({ ...prev, otherFindings: e.target.value }))}
+                        placeholder="No ascites, no lymphadenopathy noted..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Impression / Conclusion *
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={radiologyStructured.impression}
+                      onChange={e => setRadiologyStructured(prev => ({ ...prev, impression: e.target.value }))}
+                      placeholder="Overall diagnostic impression and clinical correlation..."
+                      style={{ width: '100%', fontWeight: 600 }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Recommendations / Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={radiologyStructured.recommendation}
+                      onChange={e => setRadiologyStructured(prev => ({ ...prev, recommendation: e.target.value }))}
+                      placeholder="Clinical follow-up or additional imaging advised..."
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={radiologySaving || radiologyApproving}
+                      onClick={handleSaveRadiologyDraft}
+                    >
+                      {radiologySaving ? 'Saving…' : '💾 Save Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setRadiologyPreviewOpen(true)}
+                    >
+                      👁️ Preview Report
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={radiologySaving || radiologyApproving}
+                      onClick={handleApproveRadiologyCase}
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                    >
+                      {radiologyApproving ? 'Approving…' : '✅ Approve & Finalize'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Sub-tab 4: Option C (Standardized Template Library: MRI / CT / US) */}
+          {radiologySubTab === 'optionC' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                <div>
+                  <small style={{ color: '#10b981', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.74rem' }}>Option C: Standardized Imaging Template Library</small>
+                  <h3 style={{ margin: '2px 0 0', color: '#f8fafc', fontSize: '1.1rem' }}>
+                    {selectedRadiologyCase ? `${selectedRadiologyCase.patient?.name} (${selectedRadiologyCase.customExaminationName || selectedRadiologyCase.examinationType})` : 'No Case Currently Selected'}
+                  </h3>
+                </div>
+                <select
+                  value={selectedRadiologyCase?._id || ''}
+                  onChange={e => {
+                    const c = radiologyQueue.find(x => x._id === e.target.value);
+                    if (c) openRadiologyCase(c, 'optionC');
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', minWidth: '220px' }}
+                >
+                  <option value="">-- Choose from Radiology Queue --</option>
+                  {radiologyQueue.map(c => (
+                    <option key={c._id} value={c._id}>
+                      {c.patient?.name} - {c.customExaminationName || c.examinationType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedRadiologyCase ? (
+                <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👆</div>
+                  <h3 style={{ color: '#f8fafc' }}>Please Select a Radiology Case</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    Select an imaging case to apply MRI, CT Scan, or Ultrasound templates from the standardized library.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Category Pills & Template Selector */}
+                  <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(148, 163, 184, 0.12)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1' }}>Modality:</span>
+                      {['MRI', 'CT', 'Ultrasound'].map(mod => (
+                        <button
+                          key={mod}
+                          type="button"
+                          className={radiologySelectedTemplateCategory === mod ? 'primary' : 'secondary'}
+                          onClick={() => {
+                            setRadiologySelectedTemplateCategory(mod);
+                            const firstTpl = (RADIOLOGY_TEMPLATES[mod] || [])[0];
+                            if (firstTpl) applyRadiologyTemplate(firstTpl.id || firstTpl.key, mod);
+                          }}
+                          style={{ fontSize: '0.78rem', padding: '4px 12px', borderRadius: '14px' }}
+                        >
+                          {mod}
+                        </button>
+                      ))}
+                    </div>
+
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8', marginBottom: '6px' }}>
+                      Select {radiologySelectedTemplateCategory} Template:
+                    </label>
+                    <select
+                      value={radiologyTemplateReport.templateKey}
+                      onChange={e => applyRadiologyTemplate(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
+                    >
+                      <option value="">-- Choose Template --</option>
+                      {(RADIOLOGY_TEMPLATES[radiologySelectedTemplateCategory] || []).map(t => (
+                        <option key={t.id || t.key} value={t.id || t.key}>
+                          {t.name} ({t.examination})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Examination
+                    </label>
+                    <input
+                      type="text"
+                      value={radiologyTemplateReport.examination}
+                      onChange={e => setRadiologyTemplateReport(prev => ({ ...prev, examination: e.target.value }))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Technique
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyTemplateReport.technique}
+                        onChange={e => setRadiologyTemplateReport(prev => ({ ...prev, technique: e.target.value }))}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Comparison
+                      </label>
+                      <input
+                        type="text"
+                        value={radiologyTemplateReport.comparison}
+                        onChange={e => setRadiologyTemplateReport(prev => ({ ...prev, comparison: e.target.value }))}
+                        placeholder="e.g. None available"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                      Findings *
+                    </label>
+                    <textarea
+                      rows={6}
+                      value={radiologyTemplateReport.findings}
+                      onChange={e => setRadiologyTemplateReport(prev => ({ ...prev, findings: e.target.value }))}
+                      style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.88rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Impression *
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={radiologyTemplateReport.impression}
+                        onChange={e => setRadiologyTemplateReport(prev => ({ ...prev, impression: e.target.value }))}
+                        style={{ width: '100%', fontWeight: 600 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                        Recommendation
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={radiologyTemplateReport.recommendation}
+                        onChange={e => setRadiologyTemplateReport(prev => ({ ...prev, recommendation: e.target.value }))}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={radiologySaving || radiologyApproving}
+                      onClick={handleSaveRadiologyDraft}
+                    >
+                      {radiologySaving ? 'Saving…' : '💾 Save Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={handleOpenRadiologyPreview}
+                    >
+                      👁️ Preview Report
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={radiologySaving || radiologyApproving}
+                      onClick={handleApproveRadiologyCase}
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                    >
+                      {radiologyApproving ? 'Approving…' : '✅ Approve & Finalize'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
       )}
 
       {/* ========================================================================= */}
@@ -3138,6 +6114,153 @@ export default function AdminReportTransactionManagementPage() {
             </form>
           </div>
         </ModalPortal>
+      )}
+
+      {/* POS Thermal 80mm Receipt Modal */}
+      {posReceiptModalPatient && (
+        <ThermalReceiptModal
+          patientData={posReceiptModalPatient}
+          total={posReceiptModalPatient.grandTotal}
+          onClose={() => setPosReceiptModalPatient(null)}
+          token={token}
+          testCategories={catalog}
+        />
+      )}
+
+      {/* Complete Waiting Payment Modal */}
+      {completingPaymentPatient && (
+        <ModalPortal isOpen={true} onClose={() => !isCompletingPayment && setCompletingPaymentPatient(null)}>
+          <div className="transfer-modal" onClick={e => e.stopPropagation()}>
+            <header className="transfer-modal-header">
+              <h3>Complete Payment for {completingPaymentPatient.name}?</h3>
+              <button
+                type="button"
+                className="close-button"
+                disabled={isCompletingPayment}
+                onClick={() => setCompletingPaymentPatient(null)}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="transfer-modal-body">
+              <p style={{ margin: 0, fontSize: '0.9rem', color: '#cbd5e1' }}>
+                Confirm payment collection to mark registration as <strong>Paid</strong> and automatically dispatch investigations to laboratory queues.
+              </p>
+
+              <div className="transfer-info-box" style={{ marginTop: '12px' }}>
+                <div><strong>Patient ID:</strong> <span>{completingPaymentPatient.patientId}</span></div>
+                <div><strong>Patient Name:</strong> <span>{completingPaymentPatient.name}</span></div>
+                <div><strong>Age / Sex:</strong> <span>{completingPaymentPatient.age} YRS / {completingPaymentPatient.sex}</span></div>
+                <div><strong>Branch:</strong> <span>📍 {completingPaymentPatient.branchName || 'Main'}</span></div>
+                <div>
+                  <strong>Total Amount:</strong>
+                  <span style={{ color: '#38bdf8', fontWeight: 800, fontSize: '1.05rem' }}>
+                    {formatETB(completingPaymentPatient.grandTotal || 0)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="transfer-form-group" style={{ marginTop: '14px' }}>
+                <label><strong>Select Payment Method:</strong></label>
+                <select
+                  value={completingPaymentMethod}
+                  onChange={e => setCompletingPaymentMethod(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Telebirr">Telebirr</option>
+                  <option value="CBE Birr">CBE Birr</option>
+                  <option value="Card">Card / POS</option>
+                  <option value="Other">Other Bank</option>
+                </select>
+              </div>
+            </div>
+
+            <footer className="transfer-modal-footer">
+              <button
+                type="button"
+                className="secondary"
+                disabled={isCompletingPayment}
+                onClick={() => setCompletingPaymentPatient(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={isCompletingPayment}
+                onClick={handleCompleteWaitingPayment}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  minWidth: '150px'
+                }}
+              >
+                {isCompletingPayment ? 'Processing…' : '💳 Confirm & Print Receipt'}
+              </button>
+            </footer>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* Live Pathology Report Preview Modal */}
+      {pathologyPreviewOpen && livePathologyReport && (
+        <ModalPortal isOpen={true} onClose={() => setPathologyPreviewOpen(false)}>
+          <div className="report-preview-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.15rem' }}>
+                🔬 Pathology Report Preview · {livePathologyReport.patient?.name}
+              </h3>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setPathologyPreviewOpen(false)}
+                style={{ padding: '4px 10px', fontSize: '0.82rem' }}
+              >
+                Close Preview
+              </button>
+            </div>
+            <ReportPreview
+              report={livePathologyReport}
+              onClose={() => setPathologyPreviewOpen(false)}
+              onPrint={() => printLabReport(livePathologyReport, { showFooter: pathologyShowFooter, brandingLogo: labLogo })}
+            />
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* Live Radiology Report Preview Modal */}
+      {radiologyPreviewOpen && liveRadiologyReport && (
+        <ModalPortal isOpen={true} onClose={() => setRadiologyPreviewOpen(false)}>
+          <div className="report-preview-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.15rem' }}>
+                🩻 Radiology Report Preview · {liveRadiologyReport.patient?.name}
+              </h3>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setRadiologyPreviewOpen(false)}
+                style={{ padding: '4px 10px', fontSize: '0.82rem' }}
+              >
+                Close Preview
+              </button>
+            </div>
+            <ReportPreview
+              report={liveRadiologyReport}
+              onClose={() => setRadiologyPreviewOpen(false)}
+              onPrint={() => printLabReport(liveRadiologyReport, { showFooter: radiologyShowFooter, brandingLogo: labLogo })}
+            />
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* Admin Clinical Interpretation Library Modal */}
+      {adminInterpModalOpen && (
+        <ClinicalInterpretationAdminModal
+          token={token}
+          onClose={() => setAdminInterpModalOpen(false)}
+        />
       )}
     </section>
   );

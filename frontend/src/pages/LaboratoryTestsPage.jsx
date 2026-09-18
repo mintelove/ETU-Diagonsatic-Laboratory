@@ -294,7 +294,8 @@ export default function LaboratoryTestsPage() {
     const isEditingMicroChild = isUrinalysis && (/^Urine Microscopy$/i.test(editingTest?.subcategory || '') || /^Microscopy$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Urine Microscopy' && !editingTest?.isBundle;
     const isEditingChemChild = isUrinalysis && (/^Chemical Analysis$/i.test(editingTest?.subcategory || '') || /^Chemical$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Chemical Analysis' && !editingTest?.isBundle && !/HCG|PREGNANCY/i.test(editingTest?.name || '');
     const isElectrolyte = /^SERUM ELECTROLYTE$/i.test(catName) || /ELECTROLYTE/i.test(catName) || /ELECTROLYTE/i.test(editingTest?.category?.name || '');
-    const isEditingElectrolyteChild = isElectrolyte && !editingTest?.isBundle && !/^Serum Electrolyte/i.test(editingTest?.name || '');
+    const isEditingIndependentElec = /^(Magnesium|Phosphorus|Phosphate|Mg|P)$/i.test(editingTest?.name || '') || /^(Magnesium|Phosphorus|Phosphate|Mg|P)$/i.test(editForm.name || '');
+    const isEditingElectrolyteChild = isElectrolyte && !editingTest?.isBundle && !/^Serum Electrolyte/i.test(editingTest?.name || '') && !isEditingIndependentElec;
 
     const isNonBillableChild = editingTest?.includedInBundle || editingTest?.billableIndividually === false || isEditingCbc || isEditingMicroChild || isEditingChemChild || isEditingElectrolyteChild;
     const price = isNonBillableChild ? 0 : Number(editForm.price);
@@ -597,7 +598,8 @@ export default function LaboratoryTestsPage() {
                           const isCbc = /^CBC$/i.test(test.subcategory || '') && /^HEMATOLOGY$/i.test(selected?.name || '');
                           const isElectrolyteCategory = /^SERUM ELECTROLYTE$/i.test(selected?.name || '') || /ELECTROLYTE/i.test(test.category?.name || '') || /ELECTROLYTE/i.test(selected?.name || '');
                           const isElectrolyteParent = isElectrolyteCategory && (test.isBundle || /^Serum Electrolyte/i.test(test.name));
-                          const isElectrolyteChild = isElectrolyteCategory && !isElectrolyteParent;
+                          const isIndependentElecTest = /^(Magnesium|Phosphorus|Phosphate|Mg|P)$/i.test(test.name || '');
+                          const isElectrolyteChild = isElectrolyteCategory && !isElectrolyteParent && !isIndependentElecTest;
 
                           return (
                             <article className="lab-test-row" key={test._id}>
@@ -783,7 +785,8 @@ export default function LaboratoryTestsPage() {
                                 const isCbcChild = isCbcGroup || (/^CBC$/i.test(test.subcategory || '') && /^HEMATOLOGY$/i.test(selected?.name || ''));
                                 const isElectrolyteCategory = isElectrolyteGroup || /^SERUM ELECTROLYTE$/i.test(selected?.name || '') || /ELECTROLYTE/i.test(test.category?.name || '');
                                 const isElectrolyteBundleParent = isElectrolyteCategory && (test.isBundle || /^Serum Electrolyte/i.test(test.name));
-                                const isElectrolyteChild = isElectrolyteCategory && !isElectrolyteBundleParent;
+                                const isIndependentElecTest = /^(Magnesium|Phosphorus|Phosphate|Mg|P)$/i.test(test.name || '');
+                                const isElectrolyteChild = isElectrolyteCategory && !isElectrolyteBundleParent && !isIndependentElecTest;
 
                                 const isMicroBundleParent = test.isBundle || test.name === 'Urine Microscopy';
                                 const isChemBundleParent = test.isBundle || test.name === 'Chemical Analysis';
@@ -1673,7 +1676,8 @@ export default function LaboratoryTestsPage() {
         const isEditingMicroChild = isUrinalysis && (/^Urine Microscopy$/i.test(editingTest?.subcategory || '') || /^Microscopy$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Urine Microscopy' && !editingTest?.isBundle;
         const isEditingChemChild = isUrinalysis && (/^Chemical Analysis$/i.test(editingTest?.subcategory || '') || /^Chemical$/i.test(editingTest?.subcategory || '')) && editingTest?.name !== 'Chemical Analysis' && !editingTest?.isBundle && !/HCG|PREGNANCY/i.test(editingTest?.name || '');
         const isElectrolyte = /^SERUM ELECTROLYTE$/i.test(catName) || /ELECTROLYTE/i.test(catName) || /ELECTROLYTE/i.test(editingTest?.category?.name || '');
-        const isEditingElectrolyteChild = isElectrolyte && !editingTest?.isBundle && !/^Serum Electrolyte/i.test(editingTest?.name || '');
+        const isEditingIndependentElec = /^(Magnesium|Phosphorus|Phosphate|Mg|P)$/i.test(editingTest?.name || '') || /^(Magnesium|Phosphorus|Phosphate|Mg|P)$/i.test(editForm.name || '');
+        const isEditingElectrolyteChild = isElectrolyte && !editingTest?.isBundle && !/^Serum Electrolyte/i.test(editingTest?.name || '') && !isEditingIndependentElec;
         return (
           <div className="lab-drawer-backdrop" role="presentation" onClick={closeEdit}>
             <form className="lab-edit-drawer" aria-label="Edit laboratory test" onClick={event => event.stopPropagation()} onSubmit={saveEdit}>

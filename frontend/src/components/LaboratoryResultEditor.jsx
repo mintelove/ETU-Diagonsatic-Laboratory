@@ -4,6 +4,13 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { MAIN_CATEGORY_ORDER, CATEGORY_MAP_ALIASES, normalizeCategoryName } from '../utils/categoryHelper.js';
 import { sendResultDirect, sendResultBack } from '../services/transferService.js';
+import {
+  CLINICAL_INTERPRETATION_CATEGORIES,
+  CLINICAL_INTERPRETATIONS_LIBRARY,
+  getRecommendedInterpretations,
+  findMatchingSourceInterpretation
+} from '../constants/clinicalInterpretations.js';
+import ClinicalInterpretationAdminModal from './ClinicalInterpretationAdminModal.jsx';
 
 const CATEGORY_META = {
   'HEMATOLOGY': { icon: '🩸', themeClass: 'cat-theme-hematology', bgGradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' },
@@ -204,122 +211,436 @@ function AddParameterModal({ catName, subcatName, token, onClose, onSuccess }) {
   );
 }
 
-/* ─── Interpretation Selection Modal (Test-Specific) ─────────────────────── */
-function InterpretationSelectionModal({ testName, testId, token, selectedList = [], onSelect, onClose }) {
+/* ─── Interpretation Selection Modal (Category & Search Library) ─────────── */
+function InterpretationSelectionModal({ testName, testId, token, onSelect, onClose }) {
   const [list, setList] = useState([]);
   const [query, setQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedDropdownId, setSelectedDropdownId] = useState('');
 
+  // Initial category detection based on testName
+  useEffect(() => {
+    if (!testName) return;
+    const upper = testName.toUpperCase();
+    if (upper.includes('HEMAT') || upper.includes('CBC') || upper.includes('BLOOD')) {
+      setSelectedCategory('HEMATOLOGY');
+    } else if (upper.includes('CHEM') || upper.includes('LIVER') || upper.includes('LFT') || upper.includes('RENAL') || upper.includes('RFT') || upper.includes('LIPID') || upper.includes('ELECTRO') || upper.includes('GLUCOSE')) {
+      setSelectedCategory('CLINICAL CHEMISTRY');
+    } else if (upper.includes('URIN')) {
+      setSelectedCategory('URINALYSIS');
+    } else if (upper.includes('STOOL') || upper.includes('PARASIT')) {
+      setSelectedCategory('PARASITOLOGY');
+    } else if (upper.includes('IMMUN') || upper.includes('SEROL') || upper.includes('CRP')) {
+      setSelectedCategory('IMMUNOLOGY / INFLAMMATION');
+    } else if (upper.includes('FLUID') || upper.includes('SEMEN') || upper.includes('CSF') || upper.includes('SYNOVIAL')) {
+      setSelectedCategory('BODY FLUIDS & SPECIAL');
+    }
+  }, [testName]);
+
+  // Load from backend API with fallback to offline constant library
   useEffect(() => {
     setLoading(true);
-    const q = new URLSearchParams();
-    if (testName) q.set('testName', testName);
-    if (testId) q.set('testId', testId);
+    setError('');
 
-    api(`/clinical-interpretations?${q.toString()}`, { token })
-      .then(res => setList(Array.isArray(res?.interpretations) ? res.interpretations : []))
-      .catch(err => setError(err.message || 'Failed to load interpretations.'))
+    const params = new URLSearchParams();
+    if (selectedCategory && selectedCategory !== 'ALL') params.set('category', selectedCategory);
+    if (query.trim()) params.set('search', query.trim());
+    else if (testName) params.set('testName', testName);
+
+    api(`/clinical-interpretations?${params.toString()}`, { token })
+      .then(res => {
+        if (Array.isArray(res?.interpretations) && res.interpretations.length > 0) {
+          setList(res.interpretations);
+        } else {
+          // Fallback to our authentic document-derived library constants
+          setList(CLINICAL_INTERPRETATIONS_LIBRARY);
+        }
+      })
+      .catch(() => {
+        // Safe graceful fallback
+        setList(CLINICAL_INTERPRETATIONS_LIBRARY);
+      })
       .finally(() => setLoading(false));
-  }, [testName, testId, token]);
+  }, [testName, selectedCategory, query, token]);
 
+  // Filtered interpretations for card view and dropdown
   const filtered = useMemo(() => {
-    if (!query.trim()) return list;
-    const q = query.toLowerCase();
-    return list.filter(item =>
-      (item.title || '').toLowerCase().includes(q) ||
-      (item.interpretation || '').toLowerCase().includes(q) ||
-      (item.laboratoryTestName || '').toLowerCase().includes(q)
-    );
-  }, [list, query]);
+    const rawList = list.length > 0 ? list : CLINICAL_INTERPRETATIONS_LIBRARY;
+    const s = query.trim().toLowerCase();
+    const cat = selectedCategory.toUpperCase();
 
-  const isSelected = (item) => {
-    return selectedList.some(s => s.interpretationId === String(item._id) || s.title === item.title);
-  };
+    return rawList.filter(item => {
+      const itemCat = (item.categoryName || item.category || '').toUpperCase();
+      const catMatch = cat === 'ALL' || itemCat.includes(cat) || cat.includes(itemCat);
+
+      if (!s) return catMatch;
+
+      const titleMatch = (item.title || '').toLowerCase().includes(s);
+      const textMatch = (item.interpretation || '').toLowerCase().includes(s);
+      const testMatch = (item.laboratoryTestName || '').toLowerCase().includes(s);
+      const kwMatch = Array.isArray(item.keywords) && item.keywords.some(k => k.toLowerCase().includes(s));
+      const testNamesMatch = Array.isArray(item.testNames) && item.testNames.some(t => t.toLowerCase().includes(s));
+
+      return catMatch && (titleMatch || textMatch || testMatch || kwMatch || testNamesMatch);
+    });
+  }, [list, query, selectedCategory]);
+
+  // Sync selected dropdown item
+  useEffect(() => {
+    if (filtered.length > 0 && (!selectedDropdownId || !filtered.some(f => (f._id || f.id) === selectedDropdownId))) {
+      setSelectedDropdownId(filtered[0]._id || filtered[0].id);
+    }
+  }, [filtered, selectedDropdownId]);
+
+  const activeDropdownItem = useMemo(() => {
+    return filtered.find(f => (f._id || f.id) === selectedDropdownId) || filtered[0] || null;
+  }, [filtered, selectedDropdownId]);
+
+  const QUICK_KEYWORDS = [
+    { label: 'CBC', q: 'cbc' },
+    { label: 'Kidney / eGFR', q: 'kidney' },
+    { label: 'Liver Function', q: 'liver' },
+    { label: 'Lipid / Cholesterol', q: 'cholesterol' },
+    { label: 'Electrolytes', q: 'electrolyte' },
+    { label: 'Urinalysis', q: 'urinalysis' },
+    { label: 'CRP / hs-CRP', q: 'crp' },
+    { label: 'Diabetic / Glucose', q: 'glucose' },
+    { label: 'Iron Studies', q: 'iron' },
+    { label: 'Calcium & Phos', q: 'calcium' }
+  ];
 
   return (
     <div
       className="etu-modal-backdrop"
-      style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9500,
+        background: 'rgba(0,0,0,0.65)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px'
+      }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="etu-modal-content"
-        style={{ background: 'var(--card-bg, #ffffff)', borderRadius: '16px', boxShadow: '0 24px 60px rgba(0,0,0,0.35)', width: '100%', maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--card-border, #e2e8f0)', overflow: 'hidden' }}
+        style={{
+          background: 'var(--card-bg, #ffffff)',
+          borderRadius: '16px',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.38)',
+          width: '100%',
+          maxWidth: '780px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          border: '1px solid var(--card-border, #e2e8f0)',
+          overflow: 'hidden'
+        }}
       >
-        {/* Header */}
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--card-border, #e2e8f0)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+        {/* Modal Header */}
+        <div style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--card-border, #e2e8f0)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'linear-gradient(135deg, #075c91 0%, #0369a1 100%)',
+          color: '#ffffff'
+        }}>
           <div>
-            <p style={{ margin: '0 0 2px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary, #075c91)' }}>
-              Clinical Interpretations
+            <p style={{ margin: '0 0 2px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.9 }}>
+              Clinical Interpretation Library
             </p>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)' }}>
-              For: <span style={{ color: '#075c91' }}>{testName}</span>
+            <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, color: '#ffffff' }}>
+              Select Interpretation for: <span style={{ color: '#fef08a' }}>{testName}</span>
             </h3>
           </div>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: 'var(--text-muted, #64748b)', lineHeight: 1, padding: '2px 6px', borderRadius: '6px' }} aria-label="Close">×</button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '1.4rem',
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: '4px 10px',
+              borderRadius: '8px'
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
         </div>
 
-        {/* Search Bar */}
-        <div style={{ padding: '14px 24px', background: 'var(--color-surface-container, #f8fafc)', borderBottom: '1px solid var(--card-border, #e2e8f0)' }}>
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="🔍 Search interpretations..."
-            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1.5px solid var(--card-border, #cbd5e1)', background: 'var(--card-bg, #ffffff)', color: 'var(--text-primary, #0f172a)', fontSize: '0.88rem', boxSizing: 'border-box', outline: 'none' }}
-          />
+        {/* Category & Search Filter Bar */}
+        <div style={{
+          padding: '14px 20px',
+          background: 'var(--color-surface-container, #f8fafc)',
+          borderBottom: '1px solid var(--card-border, #e2e8f0)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          {/* Category Dropdown / Selector */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: '180px' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted, #64748b)', marginBottom: '4px', letterSpacing: '0.04em' }}>
+                Category:
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--card-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-primary, #0f172a)',
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  outline: 'none'
+                }}
+              >
+                {CLINICAL_INTERPRETATION_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ flex: 2, minWidth: '220px' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted, #64748b)', marginBottom: '4px', letterSpacing: '0.04em' }}>
+                Search Interpretations:
+              </label>
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="🔍 Search kidney, CBC, liver, cholesterol, iron..."
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--card-border, #cbd5e1)',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-primary, #0f172a)',
+                  fontSize: '0.86rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Quick Keyword Pills */}
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', WebkitOverflowScrolling: 'touch' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted, #64748b)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
+              Quick filter:
+            </span>
+            {QUICK_KEYWORDS.map(kw => (
+              <button
+                key={kw.q}
+                type="button"
+                onClick={() => { setQuery(kw.q); setSelectedCategory('ALL'); }}
+                style={{
+                  padding: '3px 9px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--card-border, #cbd5e1)',
+                  background: query.toLowerCase() === kw.q.toLowerCase() ? '#075c91' : 'var(--card-bg, #ffffff)',
+                  color: query.toLowerCase() === kw.q.toLowerCase() ? '#ffffff' : 'var(--text-secondary, #475569)',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {kw.label}
+              </button>
+            ))}
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                style={{ padding: '3px 8px', borderRadius: '12px', border: 'none', background: '#fee2e2', color: '#b91c1c', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                Clear ✕
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Body List */}
-        <div style={{ padding: '16px 24px', flex: 1, overflowY: 'auto' }}>
+        {/* Quick Dropdown Copy Bar (Section 4 & 5 Requirement) */}
+        {filtered.length > 0 && (
+          <div style={{
+            padding: '12px 20px',
+            background: 'color-mix(in srgb, #075c91 5%, var(--card-bg, #ffffff))',
+            borderBottom: '1px solid var(--card-border, #e2e8f0)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <small style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: '#075c91', marginBottom: '2px' }}>
+                Interpretation:
+              </small>
+              <select
+                value={selectedDropdownId}
+                onChange={e => setSelectedDropdownId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  border: '1.5px solid #075c91',
+                  background: 'var(--card-bg, #ffffff)',
+                  color: 'var(--text-primary, #0f172a)',
+                  fontSize: '0.84rem',
+                  fontWeight: 600
+                }}
+              >
+                {filtered.map(item => (
+                  <option key={item._id || item.id} value={item._id || item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              disabled={!activeDropdownItem}
+              onClick={() => {
+                if (activeDropdownItem) onSelect(activeDropdownItem);
+              }}
+              style={{
+                background: '#075c91',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '9px 18px',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(7,92,145,0.3)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span>📋</span> Copy to Clinical Interpretation
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable Results List */}
+        <div style={{ padding: '16px 20px', flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {loading ? (
-            <p style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted, #64748b)' }}>⏳ Loading preloaded interpretations…</p>
+            <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted, #64748b)' }}>
+              ⏳ Loading clinical interpretations from library…
+            </div>
           ) : error ? (
-            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '12px', borderRadius: '8px', color: '#b91c1c', fontSize: '0.88rem' }}>⚠ {error}</div>
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '12px', borderRadius: '8px', color: '#b91c1c', fontSize: '0.88rem' }}>
+              ⚠ {error}
+            </div>
           ) : filtered.length === 0 ? (
-            <p style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted, #64748b)' }}>
-              No interpretations found matching "{query}".
-            </p>
+            <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted, #64748b)' }}>
+              <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px' }}>🔍</span>
+              <strong>No interpretations found matching your filter.</strong>
+              <p style={{ margin: '4px 0 0', fontSize: '0.84rem' }}>
+                Try switching the category to "ALL" or clearing search keywords.
+              </p>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {filtered.map(item => {
-                const chosen = isSelected(item);
+                const isCurrent = (item._id || item.id) === selectedDropdownId;
+                const catBadge = item.categoryName || item.category || 'GENERAL';
                 return (
                   <div
-                    key={item._id || item.title}
+                    key={item._id || item.id || item.title}
                     style={{
                       padding: '14px 16px',
-                      borderRadius: '10px',
-                      background: chosen ? 'var(--color-surface-dim, #f1f5f9)' : 'var(--card-bg, #ffffff)',
-                      border: chosen ? '1.5px solid #075c91' : '1px solid var(--card-border, #e2e8f0)',
+                      borderRadius: '12px',
+                      background: isCurrent ? 'color-mix(in srgb, #075c91 4%, var(--card-bg, #ffffff))' : 'var(--card-bg, #ffffff)',
+                      border: isCurrent ? '2px solid #075c91' : '1px solid var(--card-border, #e2e8f0)',
                       boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '8px'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                      <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary, #0f172a)' }}>{item.title}</strong>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          <span style={{
+                            background: '#e0f2fe',
+                            color: '#0369a1',
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            textTransform: 'uppercase'
+                          }}>
+                            {catBadge}
+                          </span>
+                          {item.laboratoryTestName && (
+                            <span style={{
+                              background: '#f1f5f9',
+                              color: '#475569',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '6px'
+                            }}>
+                              {item.laboratoryTestName}
+                            </span>
+                          )}
+                        </div>
+                        <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary, #0f172a)' }}>
+                          {item.title}
+                        </strong>
+                      </div>
+
                       <button
                         type="button"
-                        disabled={chosen}
                         onClick={() => onSelect(item)}
                         style={{
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          fontSize: '0.78rem',
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
                           fontWeight: 700,
                           border: 'none',
-                          background: chosen ? '#cbd5e1' : '#075c91',
-                          color: chosen ? '#475569' : '#ffffff',
-                          cursor: chosen ? 'not-allowed' : 'pointer'
+                          background: '#075c91',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          boxShadow: '0 2px 4px rgba(7,92,145,0.2)'
                         }}
                       >
-                        {chosen ? '✓ Selected' : '＋ Add'}
+                        <span>📋</span> Copy to Clinical Interpretation
                       </button>
                     </div>
-                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary, #334155)', lineHeight: 1.5 }}>
+
+                    <p style={{
+                      margin: 0,
+                      fontSize: '0.85rem',
+                      color: 'var(--text-secondary, #334155)',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-line',
+                      background: 'var(--color-surface-dim, #f8fafc)',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--card-border, #f1f5f9)'
+                    }}>
                       {item.interpretation}
                     </p>
                   </div>
@@ -329,9 +650,32 @@ function InterpretationSelectionModal({ testName, testId, token, selectedList = 
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--card-border, #e2e8f0)', background: 'var(--color-surface-container, #f8fafc)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid var(--card-border, #cbd5e1)', background: 'var(--card-bg, #ffffff)', color: 'var(--text-primary, #0f172a)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
+        {/* Modal Footer */}
+        <div style={{
+          padding: '12px 20px',
+          borderTop: '1px solid var(--card-border, #e2e8f0)',
+          background: 'var(--color-surface-container, #f8fafc)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)' }}>
+            {filtered.length} predefined interpretation{filtered.length === 1 ? '' : 's'} available
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: '1.5px solid var(--card-border, #cbd5e1)',
+              background: 'var(--card-bg, #ffffff)',
+              color: 'var(--text-primary, #0f172a)',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
             Done
           </button>
         </div>
@@ -340,70 +684,236 @@ function InterpretationSelectionModal({ testName, testId, token, selectedList = 
   );
 }
 
-/* ─── Test Clinical Interpretation Container ────────────────────────────── */
-function TestClinicalInterpretationSection({ testName, testInterpretations = [], onAddClick, onRemove }) {
+/* ─── Test Clinical Interpretation Container (Editable & Predefined Copy) ── */
+function TestClinicalInterpretationSection({
+  testName,
+  testInterpretations = [],
+  onAddClick,
+  onRemove,
+  onUpdateText,
+  onToggleShowOnReport,
+  onAddCustom,
+  onOpenAdmin,
+  isAdmin
+}) {
   const currentTestEntry = testInterpretations.find(t => t.testName?.toUpperCase() === testName.toUpperCase());
   const selectedList = currentTestEntry?.interpretations || [];
 
   return (
-    <div style={{ margin: '16px 16px 16px 16px', padding: '16px', background: 'var(--color-surface-container, #f8fafc)', border: '1px solid var(--card-border, #e2e8f0)', borderRadius: '12px', borderLeft: '4px solid var(--color-primary, #075c91)' }}>
+    <div style={{
+      margin: '16px 16px 16px 16px',
+      padding: '16px',
+      background: 'var(--color-surface-container, #f8fafc)',
+      border: '1px solid var(--card-border, #e2e8f0)',
+      borderRadius: '12px',
+      borderLeft: '4px solid var(--color-primary, #075c91)'
+    }}>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
         <div>
           <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary, #075c91)', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>🩺</span> Clinical Interpretation
           </h4>
           <small style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.78rem' }}>
-            Test-specific interpretations mapped to {testName}
+            Predefined or editable clinical explanatory text for {testName}
           </small>
         </div>
-        <button
-          type="button"
-          onClick={onAddClick}
-          style={{ background: '#075c91', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 6px rgba(7,92,145,0.25)' }}
-        >
-          ＋ Add Interpretation
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={onAddClick}
+            style={{
+              background: '#075c91',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(7,92,145,0.25)'
+            }}
+          >
+            <span>💡</span> Choose Clinical Interpretation
+          </button>
+
+          <button
+            type="button"
+            onClick={onAddCustom}
+            style={{
+              background: 'var(--card-bg, #ffffff)',
+              color: 'var(--text-primary, #0f172a)',
+              border: '1.5px solid var(--card-border, #cbd5e1)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            ＋ Add Custom Note
+          </button>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              style={{
+                background: 'var(--color-surface-dim, #f1f5f9)',
+                color: '#075c91',
+                border: '1px solid var(--card-border, #cbd5e1)',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+              title="Admin Library Management"
+            >
+              ⚙ Manage Library
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Body: List of Editable Clinical Interpretations */}
       {selectedList.length === 0 ? (
-        <div style={{ padding: '14px', textAlign: 'center', background: 'var(--card-bg, #ffffff)', border: '1px dashed var(--card-border, #cbd5e1)', borderRadius: '8px', color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>
-          No clinical interpretation selected. Click "＋ Add Interpretation" to select preloaded professional interpretations for this test.
+        <div style={{
+          padding: '16px',
+          textAlign: 'center',
+          background: 'var(--card-bg, #ffffff)',
+          border: '1.5px dashed var(--card-border, #cbd5e1)',
+          borderRadius: '10px',
+          color: 'var(--text-muted, #64748b)',
+          fontSize: '0.85rem'
+        }}>
+          <p style={{ margin: '0 0 10px' }}>
+            No clinical interpretation entered for <strong>{testName}</strong>.
+          </p>
+          <button
+            type="button"
+            onClick={onAddClick}
+            style={{
+              background: '#075c91',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '7px 16px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>💡</span> Choose Clinical Interpretation
+          </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {selectedList.map((item, idx) => (
-            <div
-              key={item.interpretationId || item.title || idx}
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                background: 'var(--card-bg, #ffffff)',
-                border: '1px solid var(--card-border, #cbd5e1)',
-                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-                display: 'flex',
-                justify: 'space-between',
-                alignItems: 'flex-start',
-                gap: '12px'
-              }}
-            >
-              <div>
-                <strong style={{ display: 'block', fontSize: '0.88rem', color: 'var(--text-primary, #0f172a)', marginBottom: '4px' }}>
-                  {item.title}
-                </strong>
-                <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary, #334155)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                  {item.interpretation}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onRemove(item)}
-                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '1.2rem', cursor: 'pointer', padding: '0 4px', lineHeight: 1, borderRadius: '4px' }}
-                title="Remove from this report"
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {selectedList.map((item, idx) => {
+            const isShown = item.showOnReport !== false;
+            return (
+              <div
+                key={item.interpretationId || item.title || idx}
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: isShown ? 'var(--card-bg, #ffffff)' : '#f8fafc',
+                  border: isShown ? '1px solid var(--card-border, #cbd5e1)' : '1px dashed #94a3b8',
+                  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  opacity: isShown ? 1 : 0.8
+                }}
               >
-                ×
-              </button>
-            </div>
-          ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                  <strong style={{ fontSize: '0.88rem', color: isShown ? 'var(--text-primary, #0f172a)' : '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📋</span> {item.title || 'Clinical Interpretation'}
+                  </strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Show/Hide Toggle Control (Requirement 8) */}
+                    <button
+                      type="button"
+                      onClick={() => onToggleShowOnReport(testName, idx)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: isShown ? '1px solid #10b981' : '1px solid #cbd5e1',
+                        background: isShown ? '#ecfdf5' : '#f1f5f9',
+                        color: isShown ? '#065f46' : '#64748b'
+                      }}
+                      title={isShown ? 'Currently included on report. Click to hide.' : 'Currently hidden from report. Click to show.'}
+                    >
+                      <span>{isShown ? '👁' : '🚫'}</span>
+                      <span>{isShown ? 'Show on Report' : 'Hide on Report'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onRemove(item)}
+                      style={{
+                        background: '#fee2e2',
+                        border: '1px solid #fca5a5',
+                        color: '#b91c1c',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: '4px 10px',
+                        borderRadius: '6px'
+                      }}
+                      title="Remove from this report"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                </div>
+
+                {/* Directly Editable Text Area */}
+                <div>
+                  <textarea
+                    rows={4}
+                    value={item.interpretation || ''}
+                    onChange={e => onUpdateText(testName, idx, e.target.value)}
+                    placeholder="Enter or edit clinical explanatory text..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: isShown ? '1.5px solid var(--card-border, #cbd5e1)' : '1.5px dashed #cbd5e1',
+                      background: isShown ? 'var(--card-bg, #ffffff)' : '#f1f5f9',
+                      color: isShown ? 'var(--text-primary, #0f172a)' : '#64748b',
+                      fontSize: '0.86rem',
+                      lineHeight: 1.5,
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                      resize: 'vertical'
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '6px' }}>
+                    <small style={{ color: isShown ? '#059669' : '#dc2626', fontSize: '0.74rem', fontWeight: 700 }}>
+                      {isShown ? '✓ Visible on printed and patient report.' : '🚫 Hidden from printed and patient report.'}
+                    </small>
+                    <small style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.72rem' }}>
+                      Edits apply strictly to this patient report.
+                    </small>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -431,12 +941,14 @@ export default function LaboratoryResultEditor({
   otherEquipmentForm,
   onCatalogRefresh
 }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
   const [entryMode, setEntryMode] = useState('result');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [activeSubcatsMap, setActiveSubcatsMap] = useState({});
   const [addParamModal, setAddParamModal] = useState(null); // { catName, subcatName }
   const [interpModalTest, setInterpModalTest] = useState(null); // testName string or null
+  const [adminInterpModalOpen, setAdminInterpModalOpen] = useState(false);
   const [addParamToast, setAddParamToast] = useState('');
   const [transferToast, setTransferToast] = useState('');
   const [directModal, setDirectModal] = useState({ open: false, sendBackOpen: false, busy: false, error: '' });
@@ -855,6 +1367,104 @@ export default function LaboratoryResultEditor({
 
   // Test Interpretation Handlers
   const testInterpretations = Array.isArray(reportData?.testInterpretations) ? reportData.testInterpretations : [];
+  const autoLoadedCatsRef = useRef(new Set());
+  const userRemovedInterpsRef = useRef(new Set());
+
+  // Reset tracking when switching patients
+  useEffect(() => {
+    autoLoadedCatsRef.current = new Set();
+    userRemovedInterpsRef.current = new Set();
+  }, [patient?._id]);
+
+  // Automatic Clinical Interpretation Loading (Requirement 7 & 16)
+  useEffect(() => {
+    if (!selectedCategories || selectedCategories.length === 0) return;
+
+    let updatedList = [...testInterpretations];
+    let changed = false;
+
+    selectedCategories.forEach(catName => {
+      const normCat = catName.toUpperCase();
+      if (autoLoadedCatsRef.current.has(normCat)) return;
+      autoLoadedCatsRef.current.add(normCat);
+
+      // Check if this test already has interpretations recorded in current reportData
+      let testEntry = updatedList.find(t => t.testName?.toUpperCase() === normCat);
+      if (testEntry && Array.isArray(testEntry.interpretations) && testEntry.interpretations.length > 0) {
+        // Patient report already has interpretations saved, do not overwrite historical data!
+        return;
+      }
+
+      // Collect candidate interpretations from authentic source document only
+      const candidateInterps = [];
+
+      // 1. Check patient's requested test names within this category
+      const catScoped = requestedInfo.categoryScopedNames?.get(catName);
+      if (catScoped && catScoped.size > 0) {
+        catScoped.forEach(testName => {
+          const match = findMatchingSourceInterpretation(testName);
+          if (match && !candidateInterps.some(c => c.id === match.id)) {
+            const removeKey = `${normCat}:${match.id}`;
+            if (!userRemovedInterpsRef.current.has(removeKey)) {
+              candidateInterps.push(match);
+            }
+          }
+        });
+      }
+
+      // 2. Also check patient.laboratoryTests directly
+      if (Array.isArray(patient?.laboratoryTests)) {
+        patient.laboratoryTests.forEach(t => {
+          const tName = typeof t === 'string' ? t : (t?.name || '');
+          const tCat = normalizeCategoryName(typeof t === 'object' && t?.category?.name ? t.category.name : (typeof t?.category === 'string' ? t.category : ''));
+          if (tName && (tCat === catName || !tCat)) {
+            const match = findMatchingSourceInterpretation(tName);
+            if (match && !candidateInterps.some(c => c.id === match.id)) {
+              const removeKey = `${normCat}:${match.id}`;
+              if (!userRemovedInterpsRef.current.has(removeKey)) {
+                candidateInterps.push(match);
+              }
+            }
+          }
+        });
+      }
+
+      // 3. Fallback to category-level match (e.g. HEMATOLOGY -> CBC, URINALYSIS -> Routine Urinalysis)
+      if (candidateInterps.length === 0) {
+        const catMatch = findMatchingSourceInterpretation(catName);
+        if (catMatch) {
+          const removeKey = `${normCat}:${catMatch.id}`;
+          if (!userRemovedInterpsRef.current.has(removeKey)) {
+            candidateInterps.push(catMatch);
+          }
+        }
+      }
+
+      // If authentic source matches found, auto-load them into this test category
+      if (candidateInterps.length > 0) {
+        changed = true;
+        const newInterps = candidateInterps.map(m => ({
+          interpretationId: m.id,
+          title: m.title,
+          interpretation: m.interpretation,
+          showOnReport: true
+        }));
+
+        if (testEntry) {
+          testEntry.interpretations = newInterps;
+        } else {
+          updatedList.push({
+            testName: catName,
+            interpretations: newInterps
+          });
+        }
+      }
+    });
+
+    if (changed) {
+      onChange({ ...reportData, testInterpretations: updatedList });
+    }
+  }, [selectedCategories, requestedInfo, patient, testInterpretations, reportData, onChange]);
 
   const handleSelectInterpretation = (testName, interpItem) => {
     const list = [...testInterpretations];
@@ -866,20 +1476,80 @@ export default function LaboratoryResultEditor({
     }
 
     const currentInterps = Array.isArray(testEntry.interpretations) ? [...testEntry.interpretations] : [];
-    const exists = currentInterps.some(i => i.interpretationId === String(interpItem._id) || i.title === interpItem.title);
+    const existsIdx = currentInterps.findIndex(i =>
+      (i.interpretationId && (i.interpretationId === String(interpItem._id) || i.interpretationId === String(interpItem.id))) ||
+      i.title === interpItem.title
+    );
 
-    if (!exists) {
+    if (existsIdx === -1) {
       currentInterps.push({
-        interpretationId: String(interpItem._id || ''),
+        interpretationId: String(interpItem._id || interpItem.id || ''),
         title: interpItem.title,
-        interpretation: interpItem.interpretation
+        interpretation: interpItem.interpretation,
+        showOnReport: true
       });
-      testEntry.interpretations = currentInterps;
+    } else {
+      currentInterps[existsIdx] = {
+        ...currentInterps[existsIdx],
+        interpretation: interpItem.interpretation,
+        showOnReport: true
+      };
+    }
+
+    testEntry.interpretations = currentInterps;
+    onChange({ ...reportData, testInterpretations: list });
+    setInterpModalTest(null);
+    setAddParamToast(`✅ Predefined interpretation copied into ${testName}! Text is ready for editing.`);
+    setTimeout(() => setAddParamToast(''), 4000);
+  };
+
+  const handleToggleShowOnReport = (testName, interpIndex) => {
+    const list = [...testInterpretations];
+    const testEntry = list.find(t => t.testName?.toUpperCase() === testName.toUpperCase());
+    if (testEntry && Array.isArray(testEntry.interpretations) && testEntry.interpretations[interpIndex]) {
+      const cur = testEntry.interpretations[interpIndex];
+      testEntry.interpretations[interpIndex] = {
+        ...cur,
+        showOnReport: cur.showOnReport === false ? true : false
+      };
       onChange({ ...reportData, testInterpretations: list });
     }
   };
 
+  const handleUpdateInterpretationText = (testName, interpIndex, updatedText) => {
+    const list = [...testInterpretations];
+    const testEntry = list.find(t => t.testName?.toUpperCase() === testName.toUpperCase());
+    if (testEntry && Array.isArray(testEntry.interpretations) && testEntry.interpretations[interpIndex]) {
+      testEntry.interpretations[interpIndex] = {
+        ...testEntry.interpretations[interpIndex],
+        interpretation: updatedText
+      };
+      onChange({ ...reportData, testInterpretations: list });
+    }
+  };
+
+  const handleAddCustomInterpretation = (testName) => {
+    const list = [...testInterpretations];
+    let testEntry = list.find(t => t.testName?.toUpperCase() === testName.toUpperCase());
+    if (!testEntry) {
+      testEntry = { testName, interpretations: [] };
+      list.push(testEntry);
+    }
+    const currentInterps = Array.isArray(testEntry.interpretations) ? [...testEntry.interpretations] : [];
+    currentInterps.push({
+      interpretationId: 'custom-' + Date.now(),
+      title: `${testName} Clinical Note`,
+      interpretation: '',
+      showOnReport: true
+    });
+    testEntry.interpretations = currentInterps;
+    onChange({ ...reportData, testInterpretations: list });
+  };
+
   const handleRemoveInterpretation = (testName, interpItem) => {
+    const removeKey = `${testName.toUpperCase()}:${interpItem.interpretationId || interpItem.title}`;
+    userRemovedInterpsRef.current.add(removeKey);
+
     const list = testInterpretations.map(t => {
       if (t.testName?.toUpperCase() === testName.toUpperCase()) {
         return {
@@ -926,14 +1596,21 @@ export default function LaboratoryResultEditor({
         />
       )}
 
-      {/* INTERPRETATION SELECTION MODAL (TEST-SPECIFIC) */}
+      {/* INTERPRETATION SELECTION MODAL (CATEGORY & SEARCH LIBRARY) */}
       {interpModalTest && (
         <InterpretationSelectionModal
           testName={interpModalTest}
           token={token}
-          selectedList={(testInterpretations.find(t => t.testName?.toUpperCase() === interpModalTest.toUpperCase())?.interpretations) || []}
           onSelect={(item) => handleSelectInterpretation(interpModalTest, item)}
           onClose={() => setInterpModalTest(null)}
+        />
+      )}
+
+      {/* ADMIN CLINICAL INTERPRETATION LIBRARY MANAGEMENT MODAL */}
+      {adminInterpModalOpen && (
+        <ClinicalInterpretationAdminModal
+          token={token}
+          onClose={() => setAdminInterpModalOpen(false)}
         />
       )}
 
@@ -1337,6 +2014,11 @@ export default function LaboratoryResultEditor({
                     testInterpretations={testInterpretations}
                     onAddClick={() => setInterpModalTest(catName)}
                     onRemove={(item) => handleRemoveInterpretation(catName, item)}
+                    onUpdateText={handleUpdateInterpretationText}
+                    onToggleShowOnReport={handleToggleShowOnReport}
+                    onAddCustom={() => handleAddCustomInterpretation(catName)}
+                    onOpenAdmin={() => setAdminInterpModalOpen(true)}
+                    isAdmin={isAdmin}
                   />
 
                 </div>

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { MAIN_CATEGORY_ORDER, normalizeCategoryName } from '../utils/categoryHelper.js';
 import { buildPublicReportUrl } from '../utils/publicUrlHelper.js';
 import { formatApproverDoctorName } from '../utils/doctorNameHelper.js';
+import { resolveOptionCTemplate } from '../utils/templateReportHelper.js';
 
 import labLogo from '../assets/etu.jpg';
 import labStampImg from '../assets/etu_lab.png';
@@ -92,8 +93,8 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
   const p = (report.patient && typeof report.patient === 'object') ? report.patient : report;
   const isApproved = ['Approved', 'Ready for Printing'].includes(report.status);
 
-  const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology);
-  const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings);
+  const isPathology = report?.testType || report?.docType === 'PathologyCase' || Boolean(report?.structuredReport?.grossDescription || report?.structuredReport?.cytologicalFindings || report?.structuredReport?.rbcMorphology || report?.templateReport?.category === 'Pathology');
+  const isRadiology = report?.examinationType || report?.docType === 'RadiologyCase' || Boolean(report?.structuredReport?.liver || report?.structuredReport?.findings || ['MRI', 'CT', 'Ultrasound'].includes(report?.templateReport?.category));
   const isInternalMedicine = Boolean(
     report?.isInternalMedicineForm === true ||
     p?.examinationFormType === 'Internal Medicine Speciality Examination Form'
@@ -117,9 +118,9 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
   const currentToken = report.publicReport?.token || fetchedToken;
 
   const reportSubTitle = isPathology
-    ? `Pathology Examination Report — ${report.testType || 'Biopsy'}`
+    ? `Pathology Examination Report — ${report.templateReport?.examination || report.testType || 'Biopsy'}`
     : isRadiology
-    ? `Radiology & Imaging Report — ${report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging')}`
+    ? `Radiology & Imaging Report — ${report.templateReport?.examination || report.customExaminationName || (report.ultrasoundSubtype ? `Ultrasound — ${report.ultrasoundSubtype}` : report.examinationType || 'Diagnostic Imaging')}`
     : isInternalMedicine
     ? 'Internal Medicine Speciality Examination Form'
     : 'LABORATORY TEST REPORT';
@@ -437,6 +438,47 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
               </section>
             );
           }
+          if (report.reportType === 'Option C' || (!report.reportType && (report.templateReport?.examination || report.templateReport?.templateKey))) {
+            const t = resolveOptionCTemplate('pathology', report, report.templateReport);
+            if (!t.findings && report.reportContent) {
+              return (
+                <section className="report-preview-section a4-section">
+                  <div
+                    className="a4-rich-body"
+                    dangerouslySetInnerHTML={{ __html: report.reportContent }}
+                  />
+                </section>
+              );
+            }
+            return (
+              <section className="report-preview-section a4-section">
+                <h2 className="report-preview-section-title">{t.examination || 'Standardized Pathology Examination Report'}</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {t.clinicalInformation && (
+                    <div><b style={{ color: '#0ea5e9' }}>Clinical Information / History:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.clinicalInformation}</div></div>
+                  )}
+                  {t.technique && (
+                    <div><b style={{ color: '#0ea5e9' }}>Specimen / Technique:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.technique}</div></div>
+                  )}
+                  {t.comparison && (
+                    <div><b style={{ color: '#0ea5e9' }}>Comparison:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.comparison}</div></div>
+                  )}
+                  {t.findings && (
+                    <div><b style={{ color: '#0ea5e9' }}>Microscopic &amp; Gross Findings:</b> <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{t.findings}</div></div>
+                  )}
+                  {t.impression && (
+                    <div className="report-preview-interp-box" style={{ borderLeftColor: '#0284c7' }}>
+                      <b style={{ color: '#0ea5e9', fontSize: '12px', textTransform: 'uppercase' }}>Pathological Diagnosis / Impression:</b>
+                      <div style={{ fontWeight: 'bold', fontSize: '13.5px', marginTop: '4px', whiteSpace: 'pre-wrap' }}>{t.impression}</div>
+                    </div>
+                  )}
+                  {t.recommendation && (
+                    <div><b style={{ color: '#0ea5e9' }}>Recommendations:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.recommendation}</div></div>
+                  )}
+                </div>
+              </section>
+            );
+          }
           const s = report.structuredReport || {};
           return (
             <section className="report-preview-section a4-section">
@@ -477,6 +519,47 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
                   className="a4-rich-body"
                   dangerouslySetInnerHTML={{ __html: report.reportContent || '<p>No content recorded.</p>' }}
                 />
+              </section>
+            );
+          }
+          if (report.reportType === 'Option C' || (!report.reportType && (report.templateReport?.examination || report.templateReport?.templateKey))) {
+            const t = resolveOptionCTemplate('radiology', report, report.templateReport);
+            if (!t.findings && report.reportContent) {
+              return (
+                <section className="report-preview-section a4-section">
+                  <div
+                    className="a4-rich-body"
+                    dangerouslySetInnerHTML={{ __html: report.reportContent }}
+                  />
+                </section>
+              );
+            }
+            return (
+              <section className="report-preview-section a4-section">
+                <h2 className="report-preview-section-title">{t.examination || 'Standardized Medical Imaging Report'}</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {t.clinicalInformation && (
+                    <div><b style={{ color: '#0ea5e9' }}>Clinical Information / Indication:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.clinicalInformation}</div></div>
+                  )}
+                  {t.technique && (
+                    <div><b style={{ color: '#0ea5e9' }}>Technique:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.technique}</div></div>
+                  )}
+                  {t.comparison && (
+                    <div><b style={{ color: '#0ea5e9' }}>Comparison:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.comparison}</div></div>
+                  )}
+                  {t.findings && (
+                    <div><b style={{ color: '#0ea5e9' }}>Findings:</b> <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{t.findings}</div></div>
+                  )}
+                  {t.impression && (
+                    <div className="report-preview-interp-box" style={{ borderLeftColor: '#0284c7' }}>
+                      <b style={{ color: '#0ea5e9', fontSize: '12px', textTransform: 'uppercase' }}>Radiological Impression:</b>
+                      <div style={{ fontWeight: 'bold', fontSize: '13.5px', marginTop: '4px', whiteSpace: 'pre-wrap' }}>{t.impression}</div>
+                    </div>
+                  )}
+                  {t.recommendation && (
+                    <div><b style={{ color: '#0ea5e9' }}>Recommendations:</b> <div style={{ whiteSpace: 'pre-wrap' }}>{t.recommendation}</div></div>
+                  )}
+                </div>
               </section>
             );
           }
@@ -653,20 +736,24 @@ export function ReportPreview({ report, showFooter = true, stampType: stampTypeP
                   })}
 
                   {/* Render Clinical Interpretation */}
-                  {testInterps.length > 0 && (
-                    <div className="report-preview-interp-box">
-                      <strong className="report-preview-interp-header">
-                        🩺 Clinical Interpretation
-                      </strong>
-                      <div>
-                        {testInterps.map((item, idx) => (
-                          <div key={idx} className="report-preview-interp-item">
-                            <strong style={{ color: 'var(--color-primary, #38bdf8)' }}>{item.title}:</strong> <span>{item.interpretation}</span>
-                          </div>
-                        ))}
+                  {(() => {
+                    const activeInterps = testInterps.filter(item => item.showOnReport !== false && item.hidden !== true);
+                    if (activeInterps.length === 0) return null;
+                    return (
+                      <div className="report-preview-interp-box">
+                        <strong className="report-preview-interp-header">
+                          🩺 Clinical Interpretation
+                        </strong>
+                        <div>
+                          {activeInterps.map((item, idx) => (
+                            <div key={idx} className="report-preview-interp-item" style={{ marginTop: '4px' }}>
+                              <strong style={{ color: 'var(--color-primary, #38bdf8)' }}>{item.title}:</strong> <span style={{ whiteSpace: 'pre-line' }}>{item.interpretation}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}

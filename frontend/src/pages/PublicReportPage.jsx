@@ -461,7 +461,7 @@ export function PublicReportViewer() {
             
             {sortedGroups.length > 0 ? (
               sortedGroups.map(([catName, subMap]) => {
-                const testInterps = findTestInterps(catName);
+                const testInterps = findTestInterps(catName).filter(item => item.showOnReport !== false && item.hidden !== true);
                 return (
                   <div key={catName} style={{ marginBottom: '22px' }}>
                     <h4 className="public-category-header" style={{ margin: '0 0 8px 0', padding: '7px 12px', background: '#075c91', color: '#ffffff', borderRadius: '5px', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>

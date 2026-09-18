@@ -179,7 +179,7 @@ export async function seedLaboratoryTests(force = false) {
 
         let matches = await LaboratoryTest.find({ $or: categoryScopedQueries });
 
-        if (matches.length === 0) {
+        if (matches.length === 0 && !['Magnesium', 'Phosphorus', 'Phosphate', 'Direct Coombs Test', 'Indirect Coombs Test'].includes(testName)) {
           const anyCategoryQueries = [
             { name: new RegExp(`^${escapeRegex(testName)}$`, 'i') },
             ...aliases.map(a => ({ name: new RegExp(`^${escapeRegex(a)}$`, 'i') }))
@@ -378,11 +378,11 @@ export async function seedLaboratoryTests(force = false) {
         }
       );
 
-      // 2. Mark all child parameters of Serum Electrolyte as non-billable (price: 0, billableIndividually: false, includedInBundle: true)
+      // 2. Mark true child parameters of Serum Electrolyte bundle as non-billable (price: 0, billableIndividually: false, includedInBundle: true)
       await LaboratoryTest.updateMany(
         {
           category: elecCatDoc._id,
-          name: { $not: /Serum Electrolyte/i }
+          name: { $not: /Serum Electrolyte|Magnesium|Phosphorus|Phosphate|Mg/i }
         },
         {
           $set: {
@@ -394,6 +394,64 @@ export async function seedLaboratoryTests(force = false) {
           }
         }
       );
+
+      // 3. Ensure Magnesium and Phosphorus in SERUM ELECTROLYTE are independent tests (1,000 ETB, isBundle: false, billable: true)
+      for (const testName of ['Magnesium', 'Phosphorus']) {
+        await LaboratoryTest.findOneAndUpdate(
+          {
+            category: elecCatDoc._id,
+            name: new RegExp(`^${testName}$`, 'i')
+          },
+          {
+            $set: {
+              name: testName,
+              category: elecCatDoc._id,
+              price: 1000,
+              isBundle: false,
+              billableIndividually: true,
+              includedInBundle: false,
+              parentBundle: '',
+              status: 'Active',
+              description: `${testName} independent laboratory test (1,000 ETB)`
+            },
+            $setOnInsert: {
+              requiredSampleTypes: serumSample ? [serumSample] : []
+            }
+          },
+          { upsert: true }
+        );
+      }
+    }
+
+    // Ensure Magnesium and Phosphorus in CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS are independent tests (1,000 ETB)
+    const chemCatDoc = categoryMap.get('CLINICAL CHEMISTRY AND IMMUNOASSAY TESTS') || await LaboratoryTestCategory.findOne({ name: /^CLINICAL CHEMISTRY/i });
+    if (chemCatDoc) {
+      for (const testName of ['Magnesium', 'Phosphorus']) {
+        await LaboratoryTest.findOneAndUpdate(
+          {
+            category: chemCatDoc._id,
+            name: new RegExp(`^${testName}$`, 'i')
+          },
+          {
+            $set: {
+              name: testName,
+              category: chemCatDoc._id,
+              subcategory: 'OTHER CHEMISTRY TESTS',
+              price: 1000,
+              isBundle: false,
+              billableIndividually: true,
+              includedInBundle: false,
+              parentBundle: '',
+              status: 'Active',
+              description: `${testName} independent laboratory test (1,000 ETB)`
+            },
+            $setOnInsert: {
+              requiredSampleTypes: serumSample ? [serumSample] : []
+            }
+          },
+          { upsert: true }
+        );
+      }
     }
 
     await seedReferralTests();

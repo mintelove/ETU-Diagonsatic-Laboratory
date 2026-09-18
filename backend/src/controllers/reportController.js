@@ -137,14 +137,16 @@ export async function exportPdf(req, res, next) {
  */
 export async function getTransactionsReport(req, res, next) {
   try {
-    const { mode, date, dateFrom, dateTo, receptionist, collector } = req.query;
+    const rawDateFrom = req.query.dateFrom || req.query.startDate;
+    const rawDateTo = req.query.dateTo || req.query.endDate;
+    const { mode, date, receptionist, collector } = req.query;
 
-    let startDate, endDate, reportMode = mode || 'single', reportDateLabel = '';
+    let startDate, endDate, reportMode = mode || ((rawDateFrom && rawDateTo) ? 'range' : 'single'), reportDateLabel = '';
 
-    if (reportMode === 'range' || (dateFrom && dateTo)) {
+    if (reportMode === 'range' || (rawDateFrom && rawDateTo)) {
       reportMode = 'range';
-      const fromStr = String(dateFrom || date || new Date().toISOString().slice(0, 10)).trim();
-      const toStr = String(dateTo || date || new Date().toISOString().slice(0, 10)).trim();
+      const fromStr = String(rawDateFrom || date || new Date().toISOString().slice(0, 10)).trim();
+      const toStr = String(rawDateTo || date || new Date().toISOString().slice(0, 10)).trim();
 
       const [fY, fM, fD] = fromStr.split('-').map(Number);
       const [tY, tM, tD] = toStr.split('-').map(Number);
@@ -179,6 +181,15 @@ export async function getTransactionsReport(req, res, next) {
       reportDateLabel = `Past 4 Days (${fourDaysAgo.toISOString().slice(0, 10)} to ${todayEnd.toISOString().slice(0, 10)})`;
     }
 
+    /* Receptionist clamp: Maximum two days (Today + Yesterday) and strict account ownership */
+    const isReception = req.user.role === 'Reception';
+    const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+    if (isReception) {
+      if (!startDate || startDate < startOfYesterday) startDate = startOfYesterday;
+      if (!endDate || endDate > todayEnd) endDate = todayEnd;
+      reportDateLabel = `Today + Yesterday (${startOfYesterday.toISOString().slice(0, 10)} to ${todayEnd.toISOString().slice(0, 10)})`;
+    }
+
     const branchFilter = req.user.role !== 'Admin'
       ? (req.user.branchName || 'Main')
       : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : (req.query.branch && req.query.branch !== 'All' ? req.query.branch : null));
@@ -191,7 +202,12 @@ export async function getTransactionsReport(req, res, next) {
     };
     if (branchFilter) query.branchName = branchFilter;
 
-    if (receptionist && receptionist !== 'all' && mongoose.Types.ObjectId.isValid(receptionist)) {
+    if (isReception) {
+      const userOid = new mongoose.Types.ObjectId(req.user.id);
+      query.$and = [
+        { $or: [{ registeredBy: userOid }, { collectedBy: userOid }] }
+      ];
+    } else if (receptionist && receptionist !== 'all' && mongoose.Types.ObjectId.isValid(receptionist)) {
       query.registeredBy = receptionist;
     }
 

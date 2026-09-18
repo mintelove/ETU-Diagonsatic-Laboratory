@@ -5,7 +5,9 @@ import {
   getInterpretationsForTest,
   adminListInterpretations,
   createInterpretation,
-  updateInterpretation
+  updateInterpretation,
+  deleteInterpretation,
+  resetLibrary
 } from '../controllers/clinicalInterpretationController.js';
 
 const router = Router();
@@ -17,7 +19,9 @@ router.get('/', allowRoles(ROLES.ADMIN, ROLES.SAMPLE_COLLECTOR, ROLES.APPROVER),
 
 // Admin catalog management
 router.get('/admin', allowRoles(ROLES.ADMIN), adminListInterpretations);
+router.post('/admin/reset', allowRoles(ROLES.ADMIN), resetLibrary);
 router.post('/', allowRoles(ROLES.ADMIN), createInterpretation);
 router.put('/:id', allowRoles(ROLES.ADMIN), updateInterpretation);
+router.delete('/:id', allowRoles(ROLES.ADMIN), deleteInterpretation);
 
 export default router;

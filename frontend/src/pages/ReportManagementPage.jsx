@@ -39,7 +39,7 @@ export default function ReportManagementPage() {
   const initialTab = searchParams.get('tab') || searchParams.get('status') || 'Draft';
   const [tab, setTab] = useState(initialTab);
   const [q, setQ] = useState('');
-  const [range, setRange] = useState('All');
+  const [range, setRange] = useState('Today');
   const [selected, setSelected] = useState(null);
   const [showReportLogo, setShowReportLogo] = useState(true);
   const [showReportFooter, setShowReportFooter] = useState(true);
@@ -195,13 +195,28 @@ export default function ReportManagementPage() {
     const samples = (r.patient?.sampleTypes || []).map(x => x?.name).filter(Boolean);
     const text = `${r.patient?.name || ''} ${r.patient?.patientId || ''} ${r.patient?.barcode || ''} ${tests.join(' ')} ${samples.join(' ')}`.toLowerCase();
     if (q && !text.includes(q.toLowerCase())) return false;
-    const d = new Date(r.submittedAt || r.createdDate);
+    if (!range || String(range).toLowerCase() === 'all') return true;
+    const d = new Date(r.approvedDate || r.submittedAt || r.createdDate);
     const now = new Date();
     if (range === 'Today') return d.toDateString() === now.toDateString();
+    if (range === 'Yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      return d.toDateString() === y.toDateString();
+    }
     if (range === 'This Week') {
-      const start = new Date(now);
-      start.setDate(now.getDate() - 7);
-      return d >= start;
+      const currentDay = now.getDay();
+      const diffToMon = (currentDay === 0 ? -6 : 1) - currentDay;
+      const startOfThisWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon, 0, 0, 0, 0);
+      return d >= startOfThisWeek;
+    }
+    if (range === 'Last Week') {
+      const currentDay = now.getDay();
+      const diffToMon = (currentDay === 0 ? -6 : 1) - currentDay;
+      const startOfThisWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon, 0, 0, 0, 0);
+      const startOfLastWeek = new Date(startOfThisWeek);
+      startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+      return d >= startOfLastWeek && d < startOfThisWeek;
     }
     return true;
   }), [reports, tab, q, range]);
@@ -852,7 +867,9 @@ export default function ReportManagementPage() {
               <select value={range} onChange={e => setRange(e.target.value)}>
                 <option>All</option>
                 <option>Today</option>
+                <option>Yesterday</option>
                 <option>This Week</option>
+                <option>Last Week</option>
               </select>
             </div>
           </div>

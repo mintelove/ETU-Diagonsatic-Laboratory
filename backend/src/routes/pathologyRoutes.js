@@ -8,10 +8,13 @@ const router = Router();
 router.use(requireAuth);
 
 // Work queue & case examination routes
+router.get('/templates', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST), c.getTemplates);
 router.get('/queue', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST, ROLES.RECEPTION), c.queue);
 router.get('/cases/:id', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST, ROLES.RECEPTION), c.getCase);
 router.patch('/cases/:id/draft', allowRoles(ROLES.ADMIN, ROLES.PATHOLOGIST), c.saveDraft);
 router.post('/cases/:id/approve', allowRoles(ROLES.ADMIN, ROLES.PATHOLOGIST), c.approveCase);
+router.post('/cases/:id/clear', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST), c.clearCase);
+router.post('/cases/:id/restore', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST), c.restoreCase);
 
 // Catalog / Price management routes (Sub Admin can only read; Admin can mutate)
 router.get('/catalog', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST, ROLES.RECEPTION), c.getCatalog);

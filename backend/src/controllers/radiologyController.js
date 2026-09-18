@@ -8,15 +8,62 @@ import Notification from '../models/Notification.js';
 import { AppError } from '../utils/appError.js';
 import { recordActivity } from '../services/activityService.js';
 import { emit } from '../services/sseService.js';
+import { RADIOLOGY_TEMPLATES } from '../constants/radiologyTemplates.js';
+
+// Helper: date range generator for queue filtering
+export function getDateRange(filterType) {
+  if (!filterType || filterType === 'all') return null;
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  switch (filterType.toLowerCase()) {
+    case 'today':
+      return { $gte: startOfToday, $lte: endOfToday };
+    case 'yesterday': {
+      const startOfYesterday = new Date(startOfToday);
+      startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+      const endOfYesterday = new Date(endOfToday);
+      endOfYesterday.setDate(endOfYesterday.getDate() - 1);
+      return { $gte: startOfYesterday, $lte: endOfYesterday };
+    }
+    case 'this_week': {
+      const currentDay = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+      const diffToMonday = (currentDay === 0 ? -6 : 1) - currentDay;
+      const startOfWeek = new Date(startOfToday);
+      startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+      return { $gte: startOfWeek, $lte: endOfToday };
+    }
+    case 'last_week': {
+      const currentDay = now.getDay();
+      const diffToMonday = (currentDay === 0 ? -6 : 1) - currentDay;
+      const startOfThisWeek = new Date(startOfToday);
+      startOfThisWeek.setDate(startOfThisWeek.getDate() + diffToMonday);
+
+      const startOfLastWeek = new Date(startOfThisWeek);
+      startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+      const endOfLastWeek = new Date(startOfThisWeek);
+      endOfLastWeek.setMilliseconds(-1);
+      return { $gte: startOfLastWeek, $lte: endOfLastWeek };
+    }
+    default:
+      return null;
+  }
+}
 
 /**
  * GET /api/radiology/queue
  * List radiology examination queue for Radiologist (global cross-branch) & Admin
+ * Supports ?cleared=true|false and ?dateFilter=today|yesterday|this_week|last_week|all
  */
 export async function queue(req, res, next) {
   try {
     const q = String(req.query.q || '').trim();
     const status = req.query.status;
+    const isCleared = req.query.cleared === 'true' || req.query.cleared === true;
+    const dateFilter = req.query.dateFilter || 'all';
     
     // Radiologist is GLOBAL across all branches (Main and Otona combined)
     // Admin can optionally filter by query branch if provided
@@ -29,6 +76,29 @@ export async function queue(req, res, next) {
     }
     if (status && status !== 'all') filter.status = status;
 
+    // Filter by Cleared vs Active queue
+    if (isCleared) {
+      filter.isCleared = true;
+    } else {
+      filter.isCleared = { $ne: true };
+    }
+
+    // Apply date range filter (on clearedAt for cleared queue, createdDate for active queue)
+    const dateRange = getDateRange(dateFilter);
+    if (dateRange) {
+      if (isCleared) {
+        filter.$or = [
+          { clearedAt: dateRange },
+          { clearedAt: null, createdDate: dateRange },
+          { clearedAt: { $exists: false }, createdDate: dateRange }
+        ];
+      } else {
+        filter.createdDate = dateRange;
+      }
+    }
+
+    const sortOption = isCleared ? { clearedAt: -1, createdDate: -1 } : { createdDate: -1 };
+
     let cases = await RadiologyCase.find(filter)
       .populate({
         path: 'patient',
@@ -38,7 +108,8 @@ export async function queue(req, res, next) {
       .populate('laboratoryTest', 'name price subcategory description')
       .populate('radiologist', 'fullName username role')
       .populate('approvedBy', 'fullName username role')
-      .sort({ createdDate: -1 })
+      .populate('clearedBy', 'fullName username role')
+      .sort(sortOption)
       .lean();
 
     if (q) {
@@ -57,7 +128,22 @@ export async function queue(req, res, next) {
       });
     }
 
-    res.json({ cases });
+    // Queue counts for tab switcher badges
+    const baseCountFilter = {};
+    if (req.user.role === 'Admin' && req.query.branchName && req.query.branchName !== 'All') {
+      baseCountFilter.branchName = req.query.branchName;
+    } else if (req.user.role === 'Reception') {
+      baseCountFilter.branchName = req.user.branchName || 'Main';
+      baseCountFilter.registeredBy = req.user.id;
+    }
+    if (status && status !== 'all') baseCountFilter.status = status;
+
+    const [activeCount, clearedCount] = await Promise.all([
+      RadiologyCase.countDocuments({ ...baseCountFilter, isCleared: { $ne: true } }),
+      RadiologyCase.countDocuments({ ...baseCountFilter, isCleared: true })
+    ]);
+
+    res.json({ cases, activeCount, clearedCount });
   } catch (e) {
     next(e);
   }
@@ -94,8 +180,20 @@ export async function getCase(req, res, next) {
 }
 
 /**
+ * GET /api/radiology/templates
+ * Standardized template library (MRI, CT, Ultrasound)
+ */
+export async function getTemplates(req, res, next) {
+  try {
+    res.json({ templates: RADIOLOGY_TEMPLATES });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
  * PATCH /api/radiology/cases/:id/draft
- * Save draft report (Option A or Option B) - Supports both new drafts and editing existing reports
+ * Save draft report (Option A, Option B, or Option C) - Supports both new drafts and editing existing reports
  */
 export async function saveDraft(req, res, next) {
   try {
@@ -106,7 +204,7 @@ export async function saveDraft(req, res, next) {
       throw new AppError('Unauthorized.', 403);
     }
 
-    const { reportType, reportContent, structuredReport, showFooter } = req.body;
+    const { reportType, reportContent, structuredReport, templateReport, showFooter } = req.body;
 
     if (reportType) item.reportType = reportType;
     if (reportContent !== undefined) item.reportContent = String(reportContent || '');
@@ -127,6 +225,19 @@ export async function saveDraft(req, res, next) {
         impression: String(structuredReport.impression !== undefined ? structuredReport.impression : item.structuredReport?.impression || ''),
         recommendation: String(structuredReport.recommendation !== undefined ? structuredReport.recommendation : item.structuredReport?.recommendation || ''),
         radiologistNotes: String(structuredReport.radiologistNotes !== undefined ? structuredReport.radiologistNotes : item.structuredReport?.radiologistNotes || '')
+      };
+    }
+    if (templateReport && typeof templateReport === 'object') {
+      item.templateReport = {
+        category: String(templateReport.category !== undefined ? templateReport.category : item.templateReport?.category || ''),
+        templateKey: String(templateReport.templateKey !== undefined ? templateReport.templateKey : item.templateReport?.templateKey || ''),
+        examination: String(templateReport.examination !== undefined ? templateReport.examination : item.templateReport?.examination || ''),
+        clinicalInformation: String(templateReport.clinicalInformation !== undefined ? templateReport.clinicalInformation : item.templateReport?.clinicalInformation || ''),
+        technique: String(templateReport.technique !== undefined ? templateReport.technique : item.templateReport?.technique || ''),
+        comparison: String(templateReport.comparison !== undefined ? templateReport.comparison : item.templateReport?.comparison || ''),
+        findings: String(templateReport.findings !== undefined ? templateReport.findings : item.templateReport?.findings || ''),
+        impression: String(templateReport.impression !== undefined ? templateReport.impression : item.templateReport?.impression || ''),
+        recommendation: String(templateReport.recommendation !== undefined ? templateReport.recommendation : item.templateReport?.recommendation || '')
       };
     }
     if (showFooter !== undefined) item.showFooter = Boolean(showFooter);
@@ -169,7 +280,7 @@ export async function approveCase(req, res, next) {
       throw new AppError('Only authenticated Radiologists can confirm and approve Radiology reports.', 403);
     }
 
-    const { reportType, reportContent, structuredReport, showFooter } = req.body;
+    const { reportType, reportContent, structuredReport, templateReport, showFooter } = req.body;
 
     if (reportType) item.reportType = reportType;
     if (reportContent !== undefined) item.reportContent = String(reportContent || '');
@@ -192,6 +303,19 @@ export async function approveCase(req, res, next) {
         radiologistNotes: String(structuredReport.radiologistNotes !== undefined ? structuredReport.radiologistNotes : item.structuredReport?.radiologistNotes || '')
       };
     }
+    if (templateReport && typeof templateReport === 'object') {
+      item.templateReport = {
+        category: String(templateReport.category !== undefined ? templateReport.category : item.templateReport?.category || ''),
+        templateKey: String(templateReport.templateKey !== undefined ? templateReport.templateKey : item.templateReport?.templateKey || ''),
+        examination: String(templateReport.examination !== undefined ? templateReport.examination : item.templateReport?.examination || ''),
+        clinicalInformation: String(templateReport.clinicalInformation !== undefined ? templateReport.clinicalInformation : item.templateReport?.clinicalInformation || ''),
+        technique: String(templateReport.technique !== undefined ? templateReport.technique : item.templateReport?.technique || ''),
+        comparison: String(templateReport.comparison !== undefined ? templateReport.comparison : item.templateReport?.comparison || ''),
+        findings: String(templateReport.findings !== undefined ? templateReport.findings : item.templateReport?.findings || ''),
+        impression: String(templateReport.impression !== undefined ? templateReport.impression : item.templateReport?.impression || ''),
+        recommendation: String(templateReport.recommendation !== undefined ? templateReport.recommendation : item.templateReport?.recommendation || '')
+      };
+    }
     if (showFooter !== undefined) item.showFooter = Boolean(showFooter);
 
     // Validate that report has content
@@ -200,12 +324,19 @@ export async function approveCase(req, res, next) {
       item.structuredReport &&
       Object.values(item.structuredReport).some(v => v && String(v).trim())
     );
+    const hasOptionC = Boolean(
+      item.templateReport &&
+      Object.values(item.templateReport).some(v => v && String(v).trim())
+    );
 
     if (item.reportType === 'Option A' && !hasOptionA) {
       throw new AppError('Cannot approve empty report. Please paste report content or enter structured findings.', 422);
     }
     if (item.reportType === 'Option B' && !hasOptionB) {
       throw new AppError('Cannot approve empty report. Please enter structured findings or paste report content.', 422);
+    }
+    if (item.reportType === 'Option C' && !hasOptionC) {
+      throw new AppError('Cannot approve empty template report. Please select a template or enter examination findings.', 422);
     }
 
     item.status = 'Approved';
@@ -434,3 +565,82 @@ export async function deleteTest(req, res, next) {
     next(e);
   }
 }
+
+/**
+ * POST /api/radiology/cases/:id/clear
+ * Move patient examination from active queue to cleared queue (Soft clear - zero data deletion)
+ */
+export async function clearCase(req, res, next) {
+  try {
+    const item = await RadiologyCase.findById(req.params.id).populate('patient', 'name patientId');
+    if (!item) throw new AppError('Radiology examination not found.', 404);
+
+    if (item.isCleared) {
+      return res.json({ message: 'Case is already cleared.', case: item });
+    }
+
+    item.isCleared = true;
+    item.clearedAt = new Date();
+    item.clearedBy = req.user.id;
+    await item.save();
+
+    await recordActivity(
+      req.user.id,
+      'Cleared radiology examination from active queue',
+      'RadiologyCase',
+      item.id,
+      `Case ${item.caseNumber || item._id} for ${item.patient?.name || 'Patient'} (${item.patient?.patientId || ''})`,
+      { role: req.user.role, ipAddress: req.ip }
+    );
+
+    emit('radiology:change', { action: 'case_cleared', caseId: item.id });
+
+    res.json({
+      success: true,
+      message: 'Patient successfully cleared from active queue.',
+      case: item
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * POST /api/radiology/cases/:id/restore
+ * Restore patient examination from cleared queue back to active queue
+ */
+export async function restoreCase(req, res, next) {
+  try {
+    const item = await RadiologyCase.findById(req.params.id).populate('patient', 'name patientId');
+    if (!item) throw new AppError('Radiology examination not found.', 404);
+
+    if (!item.isCleared) {
+      return res.json({ message: 'Case is already in the active queue.', case: item });
+    }
+
+    item.isCleared = false;
+    item.clearedAt = null;
+    item.clearedBy = null;
+    await item.save();
+
+    await recordActivity(
+      req.user.id,
+      'Restored radiology examination to active queue',
+      'RadiologyCase',
+      item.id,
+      `Case ${item.caseNumber || item._id} for ${item.patient?.name || 'Patient'} (${item.patient?.patientId || ''})`,
+      { role: req.user.role, ipAddress: req.ip }
+    );
+
+    emit('radiology:change', { action: 'case_restored', caseId: item.id });
+
+    res.json({
+      success: true,
+      message: 'Patient successfully restored to active queue.',
+      case: item
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+

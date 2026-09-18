@@ -21,10 +21,14 @@
  */
 export function isSerumElectrolyteTest(t, categoryName = '') {
   if (!t) return false;
+  const name = (t.name || '').trim().toUpperCase();
+  // Magnesium and Phosphorus are INDEPENDENT tests, NOT part of the Electrolyte bundle
+  if (/^MAGNESIUM/i.test(name) || /^PHOSPHORUS/i.test(name) || /^PHOSPHATE/i.test(name) || name === 'MG') {
+    return false;
+  }
   const cat = (categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || t.categoryName || '').trim().toUpperCase();
   if (cat === 'OTHER TESTS' || cat === 'REFERRAL') return false;
   const sub = (t.subcategory || '').trim().toUpperCase();
-  const name = (t.name || '').trim().toUpperCase();
   return (
     cat === 'SERUM ELECTROLYTE' ||
     /^SERUM ELECTROLYTE$/i.test(cat) ||
