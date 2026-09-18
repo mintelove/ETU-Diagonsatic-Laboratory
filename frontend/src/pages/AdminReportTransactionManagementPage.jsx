@@ -37,9 +37,45 @@ import RichReportEditor from '../components/RichReportEditor.jsx';
 import { PATHOLOGY_TEMPLATES } from '../constants/pathologyTemplates.js';
 import { RADIOLOGY_TEMPLATES } from '../constants/radiologyTemplates.js';
 import { resolveOptionCTemplate, renderOptionCHtml } from '../utils/templateReportHelper.js';
-import { preparePOS80ReceiptData, printPOS80ThermalReceipt } from '../utils/receiptDataHelper.js';
+import {
+  preparePOS80ReceiptData,
+  printPOS80ThermalReceipt,
+  isCbcParameter,
+  isUrineChemicalParameter,
+  isUrineMicroscopyParameter,
+  isHcgParameter,
+  isSerumElectrolyteParameter
+} from '../utils/receiptDataHelper.js';
 import labLogo from '../assets/etu.jpg';
 import '../styles/pages/collection-queue.css';
+
+const CATEGORY_THEMES = {
+  'HEMATOLOGY':           { icon: '🩸', gradient: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)', accent: '#dc2626', light: 'rgba(220,38,38,0.08)' },
+  'CLINICAL CHEMISTRY':   { icon: '🧪', gradient: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)', accent: '#2563eb', light: 'rgba(37,99,235,0.08)' },
+  'COAGULATION':          { icon: '🔬', gradient: 'linear-gradient(135deg, #9333ea 0%, #6b21a8 100%)', accent: '#9333ea', light: 'rgba(147,51,234,0.08)' },
+  'SERUM ELECTROLYTE':    { icon: '⚡', gradient: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)', accent: '#ea580c', light: 'rgba(234,88,12,0.08)' },
+  'HORMONE':              { icon: '💊', gradient: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)', accent: '#0891b2', light: 'rgba(8,145,178,0.08)' },
+  'SEROLOGY':             { icon: '🧬', gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)', accent: '#059669', light: 'rgba(5,150,105,0.08)' },
+  'BLOOD SUGAR':          { icon: '🍬', gradient: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)', accent: '#d97706', light: 'rgba(217,119,6,0.08)' },
+  'URINALYSIS':           { icon: '🧫', gradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', accent: '#0d9488', light: 'rgba(13,148,136,0.08)' },
+  'BACTERIOLOGY':         { icon: '🦠', gradient: 'linear-gradient(135deg, #65a30d 0%, #4d7c0f 100%)', accent: '#65a30d', light: 'rgba(101,163,13,0.08)' },
+  'PARASITOLOGY':         { icon: '🦠', gradient: 'linear-gradient(135deg, #65a30d 0%, #4d7c0f 100%)', accent: '#65a30d', light: 'rgba(101,163,13,0.08)' },
+  'SEMEN':                { icon: '🔬', gradient: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)', accent: '#7c3aed', light: 'rgba(124,58,237,0.08)' },
+  'STOOL':                { icon: '🔎', gradient: 'linear-gradient(135deg, #b45309 0%, #92400e 100%)', accent: '#b45309', light: 'rgba(180,83,9,0.08)' },
+  'URINE AND BODY FLUID': { icon: '💧', gradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', accent: '#0284c7', light: 'rgba(2,132,199,0.08)' },
+  'REFERRAL':             { icon: '🏥', gradient: 'linear-gradient(135deg, #6b7280 0%, #374151 100%)', accent: '#6b7280', light: 'rgba(107,114,128,0.08)' },
+  'INTERNAL MEDICINE':    { icon: '🩺', gradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', accent: '#0284c7', light: 'rgba(2,132,199,0.08)' },
+  'EXAMINATION FORM':     { icon: '📋', gradient: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)', accent: '#0f766e', light: 'rgba(15,118,110,0.08)' },
+  '_DEFAULT':             { icon: '🧪', gradient: 'linear-gradient(135deg, #475569 0%, #334155 100%)', accent: '#475569', light: 'rgba(71,85,105,0.08)' }
+};
+
+function getCatTheme(catName) {
+  const n = (catName || '').toUpperCase();
+  for (const [key, val] of Object.entries(CATEGORY_THEMES)) {
+    if (key !== '_DEFAULT' && (n.includes(key) || key.includes(n))) return val;
+  }
+  return CATEGORY_THEMES._DEFAULT;
+}
 
 // Live countdown calculator for pathology & radiology deadlines
 function getCountdown(deadlineStr) {
@@ -373,6 +409,22 @@ export default function AdminReportTransactionManagementPage() {
   const [posSelectedTestIds, setPosSelectedTestIds] = useState([]);
   const [posSearch, setPosSearch] = useState('');
   const [posActiveCategory, setPosActiveCategory] = useState('All');
+  const [posWizardStep, setPosWizardStep] = useState(1); // 1: Patient Intake, 2: Test Selection, 3: Payment
+  const [posExpandedCategories, setPosExpandedCategories] = useState([]);
+  const [posCategorySearch, setPosCategorySearch] = useState({});
+  const [posTestFilter, setPosTestFilter] = useState('All');
+  const [posServiceDiscountType, setPosServiceDiscountType] = useState('Regular Patient');
+  const [posAmountReceived, setPosAmountReceived] = useState('');
+  const [testSettings, setTestSettings] = useState({
+    staffDiscount: 20,
+    collaboratorDiscount: 20,
+    counselingStatus: 'Free',
+    counselingPrice: 0,
+    cbcGroupPrice: 150,
+    urineChemicalPrice: 300,
+    urineMicroscopyPrice: 300,
+    serumElectrolytePrice: 1000
+  });
   const [posRegistering, setPosRegistering] = useState(false);
   const [posRecentPatients, setPosRecentPatients] = useState([]);
   const [posReceiptModalPatient, setPosReceiptModalPatient] = useState(null);
@@ -741,14 +793,17 @@ export default function AdminReportTransactionManagementPage() {
     try {
       setReceptionLoading(true);
       const branchParam = selectedBranch !== 'All' ? `?branchName=${selectedBranch}` : '';
-      const [dashRes, waitRes, hospRes] = await Promise.all([
+      const [dashRes, waitRes, hospRes, catRes] = await Promise.all([
         api(`/reception/dashboard${branchParam}`, { token }).catch(() => null),
         api(`/reception/waiting-payment${branchParam}`, { token }).catch(() => null),
-        api('/reception/referral-hospitals', { token }).catch(() => null)
+        api('/reception/referral-hospitals', { token }).catch(() => null),
+        api('/laboratory-tests/catalog', { token }).catch(() => null)
       ]);
       if (dashRes?.summary) setReceptionDash(dashRes.summary);
       if (Array.isArray(waitRes?.patients)) setReceptionWaitingList(waitRes.patients);
       if (Array.isArray(hospRes?.hospitals)) setHospitals(hospRes.hospitals);
+      if (Array.isArray(catRes?.categories)) setCatalog(catRes.categories);
+      if (catRes?.settings) setTestSettings(prev => ({ ...prev, ...catRes.settings }));
     } catch (e) {
       if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load reception data.');
     } finally {
@@ -870,33 +925,235 @@ export default function AdminReportTransactionManagementPage() {
     })));
   }, [catalog]);
 
-  const posFilteredCategories = useMemo(() => {
-    if (!catalog || !catalog.length) return [];
-    return catalog.map(cat => {
-      const tests = (cat.tests || []).filter(t => {
-        if (!posSearch.trim()) return true;
-        const s = posSearch.trim().toLowerCase();
-        return (t.name && t.name.toLowerCase().includes(s)) || (cat.name && cat.name.toLowerCase().includes(s));
-      });
-      return { ...cat, tests };
-    }).filter(cat => {
-      if (posActiveCategory !== 'All' && cat.name !== posActiveCategory && cat._id !== posActiveCategory) return false;
-      return cat.tests.length > 0;
-    });
-  }, [catalog, posSearch, posActiveCategory]);
+  const isCbcTest = useCallback((t) => {
+    if (!t) return false;
+    if (t.parentBundle === 'Urine Microscopy' || t.parentBundle === 'Chemical Analysis') return false;
+    const sub = (t.subcategory || '').trim().toUpperCase();
+    if (sub === 'URINE MICROSCOPY' || sub === 'CHEMICAL ANALYSIS' || /MICROSCOP/i.test(sub) || /^CHEM/i.test(sub)) return false;
+    const catName = (t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '').trim().toUpperCase();
+    if (catName === 'URINALYSIS' || /^URIN/i.test(catName) || catName.includes('URINE')) return false;
+    return isCbcParameter(t, catName);
+  }, []);
+
+  const isSerumElectrolyteTest = useCallback((t) => {
+    if (!t) return false;
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isSerumElectrolyteParameter(t, catName);
+  }, []);
+
+  const isUrineChemTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isUrineChemicalParameter(t, catName);
+  }, []);
+
+  const isUrineMicroTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isUrineMicroscopyParameter(t, catName);
+  }, []);
+
+  const isHcgTest = useCallback((t) => {
+    const catName = t.categoryName || (typeof t.category === 'object' ? t.category?.name : t.category) || '';
+    return isHcgParameter(t, catName);
+  }, []);
+
+  const posVisibleCategories = useMemo(() => {
+    return (catalog || []).map(category => ({
+      ...category,
+      tests: (category.tests || []).filter(test => {
+        const matchSearch = !posSearch || `${test.name} ${test.description || ''} ${category.name}`.toLowerCase().includes(posSearch.toLowerCase());
+        const matchFilter = posTestFilter === 'All'
+          || (posTestFilter === 'Selected' && posSelectedTestIds.includes(test._id))
+          || (posTestFilter === 'Referral' && /referral/i.test(category.name))
+          || (posTestFilter === 'Active' && test.status === 'Active')
+          || posTestFilter === 'Popular'
+          || posTestFilter === 'Recently Added';
+        return matchSearch && matchFilter;
+      })
+    })).filter(category => category.tests.length > 0);
+  }, [catalog, posSearch, posTestFilter, posSelectedTestIds]);
 
   const posSelectedTests = useMemo(() => {
     return allAvailableTests.filter(t => posSelectedTestIds.includes(t._id));
   }, [allAvailableTests, posSelectedTestIds]);
 
-  const posSubtotal = useMemo(() => {
-    return posSelectedTests.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
-  }, [posSelectedTests]);
+  const calcCategoryTotal = useCallback((catTests) => {
+    const selected = catTests.filter(t => posSelectedTestIds.includes(t._id));
+    const microTests = selected.filter(isUrineMicroTest);
+    const chemTests = selected.filter(isUrineChemTest);
+    const hcgTests = selected.filter(isHcgTest);
+    const cbcTests = selected.filter(isCbcTest);
+    const elecTests = selected.filter(isSerumElectrolyteTest);
+    const otherTests = selected.filter(t => !isUrineMicroTest(t) && !isUrineChemTest(t) && !isHcgTest(t) && !isCbcTest(t) && !isSerumElectrolyteTest(t) && t.billableIndividually !== false && !t.includedInBundle);
 
-  const togglePosTest = (testId) => {
+    let total = otherTests.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
+    if (cbcTests.length > 0) total += Number(testSettings.cbcGroupPrice ?? 150);
+    if (chemTests.length > 0) total += Number(testSettings.urineChemicalPrice ?? 300);
+    if (microTests.length > 0) total += Number(testSettings.urineMicroscopyPrice ?? 300);
+    if (elecTests.length > 0) total += Number(testSettings.serumElectrolytePrice ?? 1000);
+    hcgTests.forEach(t => { total += (Number(t.price) || 200); });
+    return total;
+  }, [posSelectedTestIds, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest, isSerumElectrolyteTest]);
+
+  const posBillSubtotal = useMemo(() => {
+    const cbcGroupPrice = Number(testSettings.cbcGroupPrice ?? 150);
+    const chemGroupPrice = Number(testSettings.urineChemicalPrice ?? 300);
+    const microGroupPrice = Number(testSettings.urineMicroscopyPrice ?? 300);
+    const serumElecPrice = Number(testSettings.serumElectrolytePrice ?? 1000);
+    const cbcTests = [];
+    const chemTests = [];
+    const microTests = [];
+    const hcgTests = [];
+    const elecTests = [];
+    const otherTests = [];
+
+    posSelectedTests.forEach(s => {
+      if (isUrineMicroTest(s)) microTests.push(s);
+      else if (isUrineChemTest(s)) chemTests.push(s);
+      else if (isHcgTest(s)) hcgTests.push(s);
+      else if (isCbcTest(s)) cbcTests.push(s);
+      else if (isSerumElectrolyteTest(s)) elecTests.push(s);
+      else if (s.billableIndividually !== false && !s.includedInBundle) otherTests.push(s);
+    });
+
+    let subtotal = otherTests.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    if (cbcTests.length > 0) subtotal += cbcGroupPrice;
+    if (chemTests.length > 0) subtotal += chemGroupPrice;
+    if (microTests.length > 0) subtotal += microGroupPrice;
+    if (elecTests.length > 0) subtotal += serumElecPrice;
+    hcgTests.forEach(t => { subtotal += (Number(t.price) || 200); });
+    return subtotal;
+  }, [posSelectedTests, testSettings, isCbcTest, isUrineChemTest, isUrineMicroTest, isHcgTest, isSerumElectrolyteTest]);
+
+  const posDiscountPercent = posServiceDiscountType === 'Staff Member'
+    ? Number(testSettings.staffDiscount || 20)
+    : posServiceDiscountType === 'Collaborator'
+    ? Number(testSettings.collaboratorDiscount || 20)
+    : 0;
+
+  const posDiscountAmount = posServiceDiscountType === 'Counseling Only' ? 0 : (posBillSubtotal * posDiscountPercent / 100);
+  const posBillTotal = posServiceDiscountType === 'Counseling Only'
+    ? (testSettings.counselingStatus === 'Paid' ? Number(testSettings.counselingPrice || 0) : 0)
+    : posBillSubtotal - posDiscountAmount;
+
+  const posBalanceDue = useMemo(() => {
+    if (!posAmountReceived) return 0;
+    return Math.max(0, Number(posAmountReceived) - posBillTotal);
+  }, [posAmountReceived, posBillTotal]);
+
+  const handleTogglePosTest = (testId) => {
+    const test = allAvailableTests.find(s => s._id === testId);
+    if (!test) return;
+
+    const isChemParent = test.name === 'Chemical Analysis' || test.parentBundle === 'Chemical Analysis';
+    const isMicroParent = test.name === 'Urine Microscopy' || test.parentBundle === 'Urine Microscopy';
+    const isCbcParent = test.name === 'CBC' || test.name === 'Complete Blood Count (CBC)';
+    const isElecParent = isSerumElectrolyteTest(test) && /^Serum Electrolyte/i.test(test.name);
+
+    if (isChemParent) {
+      const chemChildTests = allAvailableTests.filter(s => isUrineChemTest(s) && !isHcgTest(s));
+      const allSelected = chemChildTests.every(s => posSelectedTestIds.includes(s._id));
+      if (allSelected) {
+        setPosSelectedTestIds(prev => prev.filter(id => !chemChildTests.some(c => c._id === id)));
+      } else {
+        setPosSelectedTestIds(prev => [...new Set([...prev, ...chemChildTests.map(c => c._id)])]);
+      }
+      return;
+    }
+
+    if (isMicroParent) {
+      const microChildTests = allAvailableTests.filter(isUrineMicroTest);
+      const allSelected = microChildTests.every(s => posSelectedTestIds.includes(s._id));
+      if (allSelected) {
+        setPosSelectedTestIds(prev => prev.filter(id => !microChildTests.some(c => c._id === id)));
+      } else {
+        setPosSelectedTestIds(prev => [...new Set([...prev, ...microChildTests.map(c => c._id)])]);
+      }
+      return;
+    }
+
+    if (isCbcParent) {
+      const cbcChildTests = allAvailableTests.filter(isCbcTest);
+      const allSelected = cbcChildTests.every(s => posSelectedTestIds.includes(s._id));
+      if (allSelected) {
+        setPosSelectedTestIds(prev => prev.filter(id => !cbcChildTests.some(c => c._id === id)));
+      } else {
+        setPosSelectedTestIds(prev => [...new Set([...prev, ...cbcChildTests.map(c => c._id)])]);
+      }
+      return;
+    }
+
+    if (isElecParent) {
+      const elecChildTests = allAvailableTests.filter(isSerumElectrolyteTest);
+      const allSelected = elecChildTests.every(s => posSelectedTestIds.includes(s._id));
+      if (allSelected) {
+        setPosSelectedTestIds(prev => prev.filter(id => !elecChildTests.some(c => c._id === id)));
+      } else {
+        setPosSelectedTestIds(prev => [...new Set([...prev, ...elecChildTests.map(c => c._id)])]);
+      }
+      return;
+    }
+
     setPosSelectedTestIds(prev =>
       prev.includes(testId) ? prev.filter(id => id !== testId) : [...prev, testId]
     );
+  };
+
+  const handleToggleCbcGroup = (subTests) => {
+    const subTestIds = subTests.map(t => t._id);
+    const allSelected = subTestIds.length > 0 && subTestIds.every(id => posSelectedTestIds.includes(id));
+    if (allSelected) {
+      setPosSelectedTestIds(prev => prev.filter(id => !subTestIds.includes(id)));
+    } else {
+      setPosSelectedTestIds(prev => [...new Set([...prev, ...subTestIds])]);
+    }
+  };
+
+  const handleProceedToTestSelection = (e) => {
+    if (e) e.preventDefault();
+    if (!posPatientName.trim()) {
+      setError('Patient full name is required.');
+      return;
+    }
+    if (!posAge || isNaN(Number(posAge)) || Number(posAge) <= 0) {
+      setError('A valid patient age is required.');
+      return;
+    }
+    if (!posSex) {
+      setError('Patient sex is required.');
+      return;
+    }
+    if (!posPhone.trim()) {
+      setError('Patient phone number is required.');
+      return;
+    }
+    if (posRegistrationType === 'Referral' && !posReferralHospital) {
+      setError('Please select a referral hospital.');
+      return;
+    }
+    if (posRegistrationType === 'Referral' && posReferralHospital === 'Other' && !posOtherHospital.trim()) {
+      setError('Please specify the referral hospital name.');
+      return;
+    }
+    if (posBpSystolic && (Number(posBpSystolic) < 50 || Number(posBpSystolic) > 300)) {
+      setError('Systolic BP must be between 50 and 300 mmHg.');
+      return;
+    }
+    if (posBpDiastolic && (Number(posBpDiastolic) < 30 || Number(posBpDiastolic) > 200)) {
+      setError('Diastolic BP must be between 30 and 200 mmHg.');
+      return;
+    }
+    setError('');
+    setPosWizardStep(2);
+  };
+
+  const handleProceedToPayment = () => {
+    if (posServiceDiscountType !== 'Counseling Only' && posSelectedTestIds.length === 0) {
+      setError('Please select at least one laboratory test.');
+      return;
+    }
+    setError('');
+    setPosAmountReceived(String(posBillTotal));
+    setPosWizardStep(3);
   };
 
   const handlePosRegister = async (e) => {
@@ -926,15 +1183,16 @@ export default function AdminReportTransactionManagementPage() {
       setError('Please specify the other referral hospital name.');
       return;
     }
-    if (posSelectedTestIds.length === 0 && posRegistrationType !== 'Self Aware') {
+    const isSelfAware = posRegistrationType === 'Self Aware';
+    if (!isSelfAware && posServiceDiscountType !== 'Counseling Only' && posSelectedTestIds.length === 0) {
       setError('Please select at least one laboratory test.');
       return;
     }
 
     try {
       setPosRegistering(true);
-      const isSelfAware = posRegistrationType === 'Self Aware';
       const finalHospital = posReferralHospital === 'Other' ? posOtherHospital.trim() : posReferralHospital;
+      const branchToAssign = selectedBranch !== 'All' ? selectedBranch : (user?.branchName && user.branchName !== 'All' ? user.branchName : 'Main');
 
       const payload = {
         name: posPatientName.trim().toUpperCase(),
@@ -944,10 +1202,11 @@ export default function AdminReportTransactionManagementPage() {
         address: posAddress.trim(),
         registrationType: isSelfAware ? 'Self Aware' : (posRegistrationType === 'Referral' ? 'Referral' : 'Self'),
         referralHospital: posRegistrationType === 'Referral' ? finalHospital : '',
-        laboratoryTests: posSelectedTestIds,
-        patientCategory: 'Regular Patient',
+        laboratoryTests: isSelfAware ? [] : posSelectedTestIds,
+        patientCategory: posServiceDiscountType === 'Counseling Only' ? 'Regular Patient' : posServiceDiscountType,
         paymentMethod: posPaymentMethod,
         paymentStatus: isSelfAware ? 'Waiting for Payment' : 'Paid',
+        branchName: branchToAssign,
         systolicBP: posBpSystolic ? Number(posBpSystolic) : null,
         diastolicBP: posBpDiastolic ? Number(posBpDiastolic) : null
       };
@@ -958,7 +1217,7 @@ export default function AdminReportTransactionManagementPage() {
         body: JSON.stringify(payload)
       });
 
-      setMessage(isSelfAware ? 'Self-Aware Patient registered (waiting for payment).' : 'Patient registered and payment collected successfully!');
+      setMessage(isSelfAware ? 'Self-Aware Patient registered and queued for sample collection.' : `Patient registered and payment collected successfully! (Receipt #${res?.patient?.receiptNumber || res?.receiptNumber || 'Generated'})`);
 
       if (res?.patient) {
         setPosRecentPatients(prev => [res.patient, ...prev.slice(0, 9)]);
@@ -967,7 +1226,7 @@ export default function AdminReportTransactionManagementPage() {
         }
       }
 
-      // Reset form
+      // Reset form to Step 1
       setPosPatientName('');
       setPosAge('');
       setPosPhone('');
@@ -978,12 +1237,15 @@ export default function AdminReportTransactionManagementPage() {
       setPosBpSystolic('');
       setPosBpDiastolic('');
       setPosSelectedTestIds([]);
+      setPosAmountReceived('');
+      setPosServiceDiscountType('Regular Patient');
+      setPosWizardStep(1);
 
       loadReceptionData();
       loadQueue();
       loadTransactions();
     } catch (err) {
-      setError(err.message || 'Failed to register patient.');
+      setError(err.message || 'Failed to complete registration.');
     } finally {
       setPosRegistering(false);
     }
@@ -3004,8 +3266,14 @@ export default function AdminReportTransactionManagementPage() {
                             </span>
                           </td>
                           <td style={{ padding: '10px 12px' }}>
-                            <strong>{t.receptionist || 'Receptionist'}</strong>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #cbd5e1)' }}>Receptionist</div>
+                            <strong>{t.registeredBy || t.receptionist || 'Receptionist'}</strong>
+                            <div style={{
+                              fontSize: '0.72rem',
+                              color: (t.creatorRole === 'Admin' || (t.registeredBy && /admin/i.test(t.registeredBy))) ? '#38bdf8' : 'var(--text-secondary, #cbd5e1)',
+                              fontWeight: 600
+                            }}>
+                              {(t.creatorRole === 'Admin' || (t.registeredBy && /admin/i.test(t.registeredBy))) ? '🛡️ Admin' : '👤 Receptionist'}
+                            </div>
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: (t.branchName || 'Main') === 'Main' ? '#0284c7' : '#0d9488', color: '#fff' }}>
@@ -3385,320 +3653,1179 @@ export default function AdminReportTransactionManagementPage() {
           </div>
 
           {/* Sub-tab 1: Register [POS] */}
+          {/* Sub-tab 1: Register [POS] — 3-Step Wizard Registration Workflow */}
           {receptionSubTab === 'pos' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.1fr) minmax(320px, 1.4fr)', gap: '1.25rem', alignItems: 'start' }}>
-              {/* Left Column: Registration Form */}
-              <div className="collector-queue" style={{ padding: '1.25rem' }}>
-                <header style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
-                  <p className="eyebrow" style={{ margin: 0 }}>Patient Intake</p>
-                  <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Register & Collect Payment</h2>
-                </header>
-
-                <form onSubmit={handlePosRegister} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                      Patient Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. ABEBE BIKILA"
-                      value={posPatientName}
-                      onChange={e => setPosPatientName(e.target.value)}
-                      style={{ width: '100%', textTransform: 'uppercase', fontWeight: 600 }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Age (Years) *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="125"
-                        required
-                        placeholder="e.g. 35"
-                        value={posAge}
-                        onChange={e => setPosAge(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Sex *
-                      </label>
-                      <select
-                        value={posSex}
-                        onChange={e => setPosSex(e.target.value)}
-                        style={{ width: '100%' }}
+            <div className="registration-wizard" style={{ marginTop: '0.5rem' }}>
+              {/* Wizard Step Progress Tracker */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--surface-container, #131e32)',
+                border: '1px solid var(--card-border, #24344d)',
+                borderRadius: '12px',
+                padding: '10px 16px',
+                marginBottom: '1.25rem',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { step: 1, label: '1. Patient Intake', icon: '🧑‍⚕️', badge: posPatientName ? '✓' : '' },
+                    { step: 2, label: '2. Select Tests & Pricing', icon: '🧪', badge: posSelectedTestIds.length > 0 ? `${posSelectedTestIds.length}` : '' },
+                    { step: 3, label: '3. Payment & Receipt', icon: '💳', badge: posBillTotal > 0 ? `${formatETB(posBillTotal)}` : '' }
+                  ].map(s => {
+                    const isActive = posWizardStep === s.step;
+                    const isCompleted = posWizardStep > s.step;
+                    return (
+                      <button
+                        key={s.step}
+                        type="button"
+                        onClick={() => {
+                          if (s.step === 2 && !posPatientName) {
+                            handleProceedToTestSelection();
+                          } else if (s.step === 3 && posSelectedTestIds.length === 0 && posServiceDiscountType !== 'Counseling Only') {
+                            handleProceedToPayment();
+                          } else {
+                            setPosWizardStep(s.step);
+                          }
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '20px',
+                          fontSize: '0.82rem',
+                          fontWeight: isActive ? 700 : 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          background: isActive ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : (isCompleted ? 'rgba(34, 197, 94, 0.18)' : 'rgba(30, 41, 59, 0.6)'),
+                          color: isActive ? '#ffffff' : (isCompleted ? '#4ade80' : '#94a3b8'),
+                          border: isActive ? '1px solid #38bdf8' : (isCompleted ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(148, 163, 184, 0.2)')
+                        }}
                       >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-                  </div>
+                        <span>{s.icon}</span>
+                        <span>{s.label}</span>
+                        {s.badge && (
+                          <span style={{
+                            background: isActive ? 'rgba(255, 255, 255, 0.25)' : (isCompleted ? '#22c55e' : '#38bdf8'),
+                            color: '#ffffff',
+                            borderRadius: '10px',
+                            padding: '1px 6px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700
+                          }}>
+                            {s.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Phone Number *
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="09..."
-                        value={posPhone}
-                        onChange={e => setPosPhone(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Address / City
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Hawassa, Piassa"
-                        value={posAddress}
-                        onChange={e => setPosAddress(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Mode:</span>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: 'rgba(2, 132, 199, 0.2)',
+                    color: '#38bdf8',
+                    padding: '2px 10px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(56, 189, 248, 0.3)'
+                  }}>
+                    🛡️ Admin Receptionist Mode
+                  </span>
+                </div>
+              </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Registration Type
-                      </label>
-                      <select
-                        value={posRegistrationType}
-                        onChange={e => setPosRegistrationType(e.target.value)}
-                        style={{ width: '100%' }}
-                      >
-                        <option value="Self">Self / Walk-in</option>
-                        <option value="Referral">Referral Hospital</option>
-                        <option value="Self Aware">Self-Awareness (Queue first)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Payment Method
-                      </label>
-                      <select
-                        value={posPaymentMethod}
-                        onChange={e => setPosPaymentMethod(e.target.value)}
-                        style={{ width: '100%' }}
-                        disabled={posRegistrationType === 'Self Aware'}
-                      >
-                        <option value="Cash">Cash</option>
-                        <option value="Telebirr">Telebirr</option>
-                        <option value="CBE Birr">CBE Birr</option>
-                        <option value="Card">Card / POS</option>
-                        <option value="Other">Other Bank</option>
-                      </select>
-                    </div>
-                  </div>
+              {/* Main Content Grid: Step Body + Live Bill Summary Sidebar */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.65fr) minmax(320px, 0.9fr)', gap: '1.25rem', alignItems: 'start' }}>
+                
+                {/* ── LEFT COLUMN: STEP CONTENT ── */}
+                <div>
+                  {/* STEP 1: PATIENT INTAKE */}
+                  {posWizardStep === 1 && (
+                    <div className="collector-queue" style={{ padding: '1.25rem' }}>
+                      <header style={{ marginBottom: '1.25rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
+                        <p className="eyebrow" style={{ margin: 0 }}>Step 1 — Patient Registration</p>
+                        <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Patient Demographic Intake &amp; Referral Details</h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                          Registered by {user?.fullName || 'Admin'} (Admin Account). Patient will be directed downstream to Sample Collection.
+                        </p>
+                      </header>
 
-                  {posRegistrationType === 'Referral' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: posReferralHospital === 'Other' ? '1fr 1fr' : '1fr', gap: '10px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                          Referral Hospital *
-                        </label>
-                        <select
-                          value={posReferralHospital}
-                          onChange={e => setPosReferralHospital(e.target.value)}
-                          style={{ width: '100%' }}
-                          required
-                        >
-                          <option value="">-- Select Referral Hospital --</option>
-                          {hospitals.map(h => (
-                            <option key={h._id || h.name} value={h.name}>{h.name}</option>
-                          ))}
-                          <option value="Other">Other (Type name)</option>
-                        </select>
-                      </div>
-                      {posReferralHospital === 'Other' && (
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                            Specify Hospital Name *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Hospital Name"
-                            value={posOtherHospital}
-                            onChange={e => setPosOtherHospital(e.target.value)}
-                            style={{ width: '100%' }}
-                          />
+                      <form onSubmit={posRegistrationType === 'Self Aware' ? handlePosRegister : handleProceedToTestSelection} style={{ display: 'flex', flexDirection: 'column', gap: '0.95rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Patient Full Name <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. ABEBE BIKILA"
+                              value={posPatientName}
+                              onChange={e => setPosPatientName(e.target.value)}
+                              style={{ width: '100%', textTransform: 'uppercase', fontWeight: 600 }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Registration Type
+                            </label>
+                            <select
+                              value={posRegistrationType}
+                              onChange={e => setPosRegistrationType(e.target.value)}
+                              style={{ width: '100%' }}
+                            >
+                              <option value="Self">Self / Walk-in</option>
+                              <option value="Referral">Referral Hospital</option>
+                              <option value="Self Aware">Self Aware (Queue first, pay later)</option>
+                            </select>
+                          </div>
                         </div>
-                      )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Age (Years) <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="125"
+                              required
+                              placeholder="e.g. 35"
+                              value={posAge}
+                              onChange={e => setPosAge(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Sex <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                            <select
+                              value={posSex}
+                              onChange={e => setPosSex(e.target.value)}
+                              style={{ width: '100%' }}
+                              required
+                            >
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Phone Number <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                            <input
+                              type="tel"
+                              required
+                              placeholder="09..."
+                              value={posPhone}
+                              onChange={e => setPosPhone(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Address / City
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Hawassa, Piassa"
+                              value={posAddress}
+                              onChange={e => setPosAddress(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
+
+                        {posRegistrationType === 'Referral' && (
+                          <div style={{
+                            background: 'rgba(15, 23, 42, 0.5)',
+                            padding: '12px',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(148, 163, 184, 0.2)'
+                          }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: posReferralHospital === 'Other' ? '1fr 1fr' : '1fr', gap: '10px' }}>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                                  Referral Hospital <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <select
+                                  value={posReferralHospital}
+                                  onChange={e => setPosReferralHospital(e.target.value)}
+                                  style={{ width: '100%' }}
+                                  required
+                                >
+                                  <option value="">-- Select Referral Hospital --</option>
+                                  {hospitals.map(h => (
+                                    <option key={h._id || h.name} value={h.name}>{h.name}</option>
+                                  ))}
+                                  <option value="Other">Other (Specify below)</option>
+                                </select>
+                              </div>
+                              {posReferralHospital === 'Other' && (
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                                    Hospital Name <span style={{ color: '#ef4444' }}>*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    required
+                                    placeholder="Type hospital name"
+                                    value={posOtherHospital}
+                                    onChange={e => setPosOtherHospital(e.target.value)}
+                                    style={{ width: '100%' }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Vital Signs (BP) */}
+                        <div style={{
+                          background: 'rgba(15, 23, 42, 0.4)',
+                          border: '1px solid rgba(148, 163, 184, 0.15)',
+                          borderRadius: '10px',
+                          padding: '12px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            <span>🫀</span>
+                            <strong style={{ fontSize: '0.84rem', color: '#38bdf8' }}>Vital Signs (Blood Pressure)</strong>
+                            <small style={{ color: '#94a3b8' }}>— Optional</small>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '3px' }}>Systolic BP (mmHg)</label>
+                              <input
+                                type="number"
+                                min="50"
+                                max="300"
+                                placeholder="e.g. 120"
+                                value={posBpSystolic}
+                                onChange={e => setPosBpSystolic(e.target.value)}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '3px' }}>Diastolic BP (mmHg)</label>
+                              <input
+                                type="number"
+                                min="30"
+                                max="200"
+                                placeholder="e.g. 80"
+                                value={posBpDiastolic}
+                                onChange={e => setPosBpDiastolic(e.target.value)}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step 1 Actions */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                          {posRegistrationType === 'Self Aware' ? (
+                            <button
+                              type="submit"
+                              disabled={posRegistering}
+                              className="primary"
+                              style={{
+                                padding: '10px 20px',
+                                fontWeight: 700,
+                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                              }}
+                            >
+                              {posRegistering ? 'Registering…' : 'Queue Self-Aware Patient (Sample Collection) →'}
+                            </button>
+                          ) : (
+                            <button
+                              type="submit"
+                              className="primary"
+                              style={{
+                                padding: '10px 22px',
+                                fontWeight: 700,
+                                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                              }}
+                            >
+                              Select Tests &amp; Pricing →
+                            </button>
+                          )}
+                        </div>
+                      </form>
                     </div>
                   )}
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Systolic BP (mmHg)
-                      </label>
-                      <input
-                        type="number"
-                        min="50"
-                        max="300"
-                        placeholder="e.g. 120"
-                        value={posBpSystolic}
-                        onChange={e => setPosBpSystolic(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
-                        Diastolic BP (mmHg)
-                      </label>
-                      <input
-                        type="number"
-                        min="30"
-                        max="200"
-                        placeholder="e.g. 80"
-                        value={posBpDiastolic}
-                        onChange={e => setPosBpDiastolic(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Summary & Register Action */}
-                  <div style={{
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    border: '1px solid rgba(148, 163, 184, 0.2)',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    marginTop: '8px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
-                      <span style={{ color: '#94a3b8' }}>Selected Tests:</span>
-                      <strong>{posSelectedTests.length} item(s)</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: '#38bdf8' }}>
-                      <span>Total Payable:</span>
-                      <span>{formatETB(posSubtotal)}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={posRegistering}
-                    style={{
-                      padding: '12px',
-                      fontSize: '0.95rem',
-                      fontWeight: 700,
-                      marginTop: '4px',
-                      background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
-                    }}
-                  >
-                    {posRegistering ? 'Processing Registration…' : posRegistrationType === 'Self Aware' ? 'Queue Self-Aware Patient' : '💳 Register & Collect Payment'}
-                  </button>
-                </form>
-              </div>
-
-              {/* Right Column: Test Catalog Selector */}
-              <div className="collector-queue" style={{ padding: '1.25rem' }}>
-                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '1rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
-                  <div>
-                    <p className="eyebrow" style={{ margin: 0 }}>Investigation Directory</p>
-                    <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Select Laboratory Tests</h2>
-                  </div>
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                    <span>{posSelectedTestIds.length} Selected</span>
-                  </div>
-                </header>
-
-                {/* Search & Category Filter */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search tests by name, subcategory, or test code…"
-                    value={posSearch}
-                    onChange={e => setPosSearch(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
-                  />
-
-                  {/* Category Pills */}
-                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-                    {['All', ...(catalog || []).map(c => c.name)].map(catName => (
-                      <button
-                        key={catName}
-                        type="button"
-                        onClick={() => setPosActiveCategory(catName)}
-                        className={posActiveCategory === catName ? 'primary' : 'secondary'}
-                        style={{
-                          fontSize: '0.74rem',
-                          padding: '4px 10px',
-                          borderRadius: '16px',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {catName}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Test Items Grid */}
-                <div style={{ maxHeight: '480px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
-                  {posFilteredCategories.length === 0 ? (
-                    <p className="empty" style={{ margin: '20px 0' }}>No tests match your search query.</p>
-                  ) : (
-                    posFilteredCategories.map(cat => (
-                      <div key={cat._id || cat.name} style={{ background: 'rgba(15, 23, 42, 0.4)', borderRadius: '10px', padding: '8px 10px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', marginBottom: '6px' }}>
-                          {cat.name}
+                  {/* STEP 2: LABORATORY TEST TYPE SELECTION */}
+                  {posWizardStep === 2 && (
+                    <div className="collector-queue" style={{ padding: '1.25rem' }}>
+                      <div className="lab-step2-header" style={{ marginBottom: '14px' }}>
+                        <div className="lab-step2-title-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="lab-step2-title-icon" style={{ fontSize: '1.6rem' }}>🧬</div>
+                          <div>
+                            <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Laboratory Test Selection</h2>
+                            <p className="lab-step2-subtitle" style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                              Select requested tests. Specimens and barcodes are assigned automatically upon registration.
+                            </p>
+                          </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '6px' }}>
-                          {(cat.tests || []).map(t => {
-                            const isSelected = posSelectedTestIds.includes(t._id);
-                            return (
-                              <div
-                                key={t._id}
-                                onClick={() => togglePosTest(t._id)}
+                        {posSelectedTestIds.length > 0 && (
+                          <div className="lab-step2-selection-pill" style={{ marginTop: '8px' }}>
+                            <span className="lab-step2-pill-count" style={{ fontWeight: 800, color: '#38bdf8' }}>{posSelectedTestIds.length}</span>
+                            <span style={{ fontSize: '0.82rem', color: '#cbd5e1', marginLeft: '6px' }}>test{posSelectedTestIds.length !== 1 ? 's' : ''} selected</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Global Search & Filter Toolbar */}
+                      <div className="lab-v2-toolbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                        <div className="lab-v2-search-box" style={{ display: 'flex', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(148, 163, 184, 0.2)', borderRadius: '8px', padding: '0 12px' }}>
+                          <span className="lab-v2-search-icon" style={{ marginRight: '8px' }}>🔍</span>
+                          <input
+                            value={posSearch}
+                            onChange={e => setPosSearch(e.target.value)}
+                            placeholder="Search tests across all categories..."
+                            aria-label="Search laboratory tests"
+                            style={{ flex: 1, border: 'none', background: 'transparent', color: '#fff', padding: '9px 0', fontSize: '0.88rem' }}
+                          />
+                          {posSearch && (
+                            <button
+                              type="button"
+                              className="lab-v2-search-clear"
+                              onClick={() => setPosSearch('')}
+                              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="lab-v2-filter-chips" role="toolbar" style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                          {['All', 'Popular', 'Recently Added', 'Referral', 'Active', 'Selected'].map(item => (
+                            <button
+                              key={item}
+                              type="button"
+                              className={`lab-v2-chip ${posTestFilter === item ? 'active' : ''}`}
+                              onClick={() => setPosTestFilter(item)}
+                              style={{
+                                fontSize: '0.74rem',
+                                padding: '5px 12px',
+                                borderRadius: '16px',
+                                whiteSpace: 'nowrap',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                background: posTestFilter === item ? '#0284c7' : 'rgba(30, 41, 59, 0.6)',
+                                color: posTestFilter === item ? '#fff' : '#cbd5e1',
+                                border: posTestFilter === item ? '1px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.15)'
+                              }}
+                            >
+                              {item === 'Selected' && posSelectedTestIds.length > 0 && (
+                                <span className="lab-v2-chip-badge" style={{ marginRight: '5px', background: '#38bdf8', color: '#0f172a', padding: '1px 5px', borderRadius: '10px', fontWeight: 800, fontSize: '0.7rem' }}>
+                                  {posSelectedTestIds.length}
+                                </span>
+                              )}
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Category Cards Grid */}
+                      <div className="lab-v2-categories" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {posVisibleCategories.map((category, catIdx) => {
+                          const expanded = posExpandedCategories.includes(category._id);
+                          const selectedCount = (category.tests || []).filter(t => posSelectedTestIds.includes(t._id)).length;
+                          const theme = getCatTheme(category.name);
+                          const catSearchVal = posCategorySearch[category._id] || '';
+                          const totalTests = (category.tests || []).length;
+
+                          const filteredTests = catSearchVal
+                            ? (category.tests || []).filter(t => `${t.name} ${t.description || ''}`.toLowerCase().includes(catSearchVal.toLowerCase()))
+                            : (category.tests || []);
+
+                          return (
+                            <section
+                              key={category._id}
+                              className={`lab-v2-cat-card ${expanded ? 'expanded' : ''}`}
+                              style={{
+                                background: 'rgba(15, 23, 42, 0.5)',
+                                border: '1px solid rgba(148, 163, 184, 0.15)',
+                                borderRadius: '12px',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              {/* Category Header */}
+                              <button
+                                type="button"
+                                className="lab-v2-cat-header"
+                                aria-expanded={expanded}
+                                onClick={() => setPosExpandedCategories(current => expanded ? current.filter(id => id !== category._id) : [...current, category._id])}
                                 style={{
+                                  width: '100%',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
-                                  padding: '7px 10px',
-                                  borderRadius: '8px',
+                                  padding: '10px 14px',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'inherit',
                                   cursor: 'pointer',
-                                  fontSize: '0.82rem',
-                                  transition: 'all 0.15s ease',
-                                  background: isSelected ? 'rgba(2, 132, 199, 0.25)' : 'rgba(30, 41, 59, 0.5)',
-                                  border: isSelected ? '1px solid #0284c7' : '1px solid rgba(148, 163, 184, 0.12)'
+                                  textAlign: 'left'
                                 }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => {}}
-                                    style={{ margin: 0, cursor: 'pointer' }}
-                                  />
-                                  <span style={{ fontWeight: isSelected ? 700 : 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                                    {t.name}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div className="lab-v2-cat-icon-wrap" style={{
+                                    background: theme.gradient,
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '1rem'
+                                  }}>
+                                    <span>{theme.icon}</span>
+                                  </div>
+                                  <div>
+                                    <strong style={{ fontSize: '0.92rem', color: '#f8fafc', display: 'block' }}>{category.name}</strong>
+                                    <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                                      {totalTests} test{totalTests !== 1 ? 's' : ''} available
+                                    </span>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {selectedCount > 0 && (
+                                    <span style={{
+                                      fontSize: '0.74rem',
+                                      fontWeight: 700,
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      background: 'rgba(56, 189, 248, 0.2)',
+                                      color: '#38bdf8',
+                                      border: '1px solid rgba(56, 189, 248, 0.3)'
+                                    }}>
+                                      ✓ {selectedCount}
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: '0.9rem', color: '#94a3b8', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
+                                    ▼
                                   </span>
                                 </div>
-                                <span style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: '0.78rem', marginLeft: '6px' }}>
-                                  {formatETB(t.price || 0)}
-                                </span>
-                              </div>
-                            );
-                          })}
+                              </button>
+
+                              {/* Expanded Category Body */}
+                              {expanded && (
+                                <div style={{ padding: '10px 14px 14px', borderTop: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(30, 41, 59, 0.6)', borderRadius: '6px', padding: '0 8px', border: '1px solid rgba(148, 163, 184, 0.15)', minWidth: '220px' }}>
+                                      <span style={{ fontSize: '0.75rem', marginRight: '6px' }}>🔍</span>
+                                      <input
+                                        value={catSearchVal}
+                                        onChange={e => setPosCategorySearch(prev => ({ ...prev, [category._id]: e.target.value }))}
+                                        placeholder={`Search in ${category.name}...`}
+                                        style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: '0.8rem', padding: '5px 0' }}
+                                      />
+                                      {catSearchVal && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setPosCategorySearch(prev => ({ ...prev, [category._id]: '' }))}
+                                          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem' }}
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {selectedCount > 0 && (
+                                      <span style={{ fontSize: '0.76rem', color: '#38bdf8', fontWeight: 600 }}>
+                                        {selectedCount} selected · {formatETB(calcCategoryTotal(category.tests || []))}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Test Items Render */}
+                                  {(() => {
+                                    const isElecCat = /^SERUM ELECTROLYTE$/i.test(category.name) || /^ELECTROLYTE/i.test(category.name);
+                                    const elecTests = (category.tests || []).filter(isSerumElectrolyteTest);
+                                    const allElecSelected = elecTests.length > 0 && elecTests.every(t => posSelectedTestIds.includes(t._id));
+                                    const hasSubcats = filteredTests.some(t => t.subcategory);
+
+                                    if (!hasSubcats) {
+                                      return (
+                                        <>
+                                          {isElecCat && (
+                                            <div
+                                              onClick={() => handleToggleCbcGroup(elecTests)}
+                                              style={{
+                                                margin: '6px 0 12px',
+                                                padding: '10px 14px',
+                                                border: allElecSelected ? '2px solid #ea580c' : '2px dashed rgba(234, 88, 12, 0.5)',
+                                                background: allElecSelected ? 'rgba(234, 88, 12, 0.2)' : 'rgba(234, 88, 12, 0.08)',
+                                                borderRadius: '10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={allElecSelected}
+                                                  onChange={() => handleToggleCbcGroup(elecTests)}
+                                                  style={{ margin: 0, cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                  <strong style={{ fontSize: '0.92rem', color: '#fb923c' }}>
+                                                    ⚡ Serum Electrolyte — Complete Bundle
+                                                  </strong>
+                                                  <small style={{ color: '#cbd5e1', display: 'block', fontSize: '0.74rem' }}>
+                                                    Single fixed price · Automatically includes all {elecTests.length} electrolyte parameters
+                                                  </small>
+                                                </div>
+                                              </div>
+                                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fb923c' }}>
+                                                {formatETB(testSettings.serumElectrolytePrice ?? 1000)}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '8px' }}>
+                                            {filteredTests.map(test => {
+                                              const isSelected = posSelectedTestIds.includes(test._id);
+                                              const isHcg = isHcgTest(test);
+                                              const isElec = isSerumElectrolyteTest(test);
+                                              const isBundleParent = test.isBundle || test.name === 'Urine Microscopy' || test.name === 'Chemical Analysis' || test.name === 'CBC' || (isElec && /^Serum Electrolyte/i.test(test.name));
+                                              const isIncludedChild = (test.includedInBundle || test.billableIndividually === false || isUrineMicroTest(test) || (isUrineChemTest(test) && !isHcg) || isCbcTest(test) || isElec) && !isBundleParent;
+
+                                              return (
+                                                <div
+                                                  key={test._id}
+                                                  onClick={() => handleTogglePosTest(test._id)}
+                                                  style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.82rem',
+                                                    transition: 'all 0.15s ease',
+                                                    background: isSelected ? 'rgba(2, 132, 199, 0.25)' : 'rgba(30, 41, 59, 0.5)',
+                                                    border: isSelected ? '1px solid #0284c7' : '1px solid rgba(148, 163, 184, 0.12)'
+                                                  }}
+                                                >
+                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={isSelected}
+                                                      onChange={() => {}}
+                                                      style={{ margin: 0, cursor: 'pointer' }}
+                                                    />
+                                                    <span style={{ fontWeight: isSelected ? 700 : 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                                      {test.name}
+                                                    </span>
+                                                  </div>
+                                                  <span style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: '0.78rem', marginLeft: '6px' }}>
+                                                    {isIncludedChild ? (
+                                                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Bundle Child</span>
+                                                    ) : (
+                                                      formatETB(test.price || (isHcg ? 200 : 0))
+                                                    )}
+                                                  </span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </>
+                                      );
+                                    }
+
+                                    // Subcategory grouping (CBC, Urinalysis, etc.)
+                                    const subMap = new Map();
+                                    filteredTests.forEach(test => {
+                                      const sc = test.subcategory || 'GENERAL';
+                                      if (!subMap.has(sc)) subMap.set(sc, []);
+                                      subMap.get(sc).push(test);
+                                    });
+
+                                    return Array.from(subMap.entries()).map(([subName, subTests]) => {
+                                      const isCbcSub = /^CBC$/i.test(subName) && /^HEMATOLOGY$/i.test(category.name);
+                                      const isChemSub = (/^Chemical Analysis$/i.test(subName) || /^Chemical$/i.test(subName)) && (/^URINALYSIS$/i.test(category.name) || /^URINE/i.test(category.name));
+                                      const isMicroSub = (/^Urine Microscopy$/i.test(subName) || /^Microscopy$/i.test(subName)) && (/^URINALYSIS$/i.test(category.name) || /^URINE/i.test(category.name));
+                                      const bundleTests = isChemSub ? subTests.filter(t => !isHcgTest(t)) : subTests;
+                                      const bundleTestIds = bundleTests.map(t => t._id);
+                                      const allBundleSelected = bundleTestIds.length > 0 && bundleTestIds.every(id => posSelectedTestIds.includes(id));
+                                      const subSelected = subTests.filter(t => posSelectedTestIds.includes(t._id)).length;
+
+                                      return (
+                                        <div key={subName} style={{ marginBottom: '12px' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0 6px' }}>
+                                            <span style={{ width: '4px', height: '14px', background: theme.accent, borderRadius: '2px' }}></span>
+                                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>{subName}</span>
+                                            <small style={{ color: '#94a3b8', fontSize: '0.72rem' }}>({subTests.length} tests)</small>
+                                            {subSelected > 0 && (
+                                              <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 600, marginLeft: 'auto' }}>
+                                                {subSelected} selected
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* CBC Bundle Card */}
+                                          {isCbcSub && (
+                                            <div
+                                              onClick={() => handleToggleCbcGroup(bundleTests)}
+                                              style={{
+                                                margin: '6px 0 10px',
+                                                padding: '10px 14px',
+                                                border: allBundleSelected ? '2px solid #0284c7' : '2px dashed rgba(2, 132, 199, 0.5)',
+                                                background: allBundleSelected ? 'rgba(2, 132, 199, 0.2)' : 'rgba(2, 132, 199, 0.08)',
+                                                borderRadius: '10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={allBundleSelected}
+                                                  onChange={() => handleToggleCbcGroup(bundleTests)}
+                                                  style={{ margin: 0, cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                  <strong style={{ fontSize: '0.92rem', color: '#38bdf8' }}>
+                                                    🩸 CBC — Complete Blood Count (Complete Group)
+                                                  </strong>
+                                                  <small style={{ color: '#cbd5e1', display: 'block', fontSize: '0.74rem' }}>
+                                                    Fixed bundle price · Includes all {bundleTests.length} CBC sub-parameters
+                                                  </small>
+                                                </div>
+                                              </div>
+                                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#38bdf8' }}>
+                                                {formatETB(testSettings.cbcGroupPrice ?? 150)}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Chemical Analysis Bundle Card */}
+                                          {isChemSub && (
+                                            <div
+                                              onClick={() => handleToggleCbcGroup(bundleTests)}
+                                              style={{
+                                                margin: '6px 0 10px',
+                                                padding: '10px 14px',
+                                                border: allBundleSelected ? '2px solid #0d9488' : '2px dashed rgba(13, 148, 136, 0.5)',
+                                                background: allBundleSelected ? 'rgba(13, 148, 136, 0.2)' : 'rgba(13, 148, 136, 0.08)',
+                                                borderRadius: '10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={allBundleSelected}
+                                                  onChange={() => handleToggleCbcGroup(bundleTests)}
+                                                  style={{ margin: 0, cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                  <strong style={{ fontSize: '0.92rem', color: '#2dd4bf' }}>
+                                                    🧪 Chemical Analysis (Complete Group)
+                                                  </strong>
+                                                  <small style={{ color: '#cbd5e1', display: 'block', fontSize: '0.74rem' }}>
+                                                    Fixed bundle price · Includes all {bundleTests.length} Chemical Analysis sub-parameters
+                                                  </small>
+                                                </div>
+                                              </div>
+                                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#2dd4bf' }}>
+                                                {formatETB(Number(testSettings.urineChemicalPrice ?? 300))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Urine Microscopy Bundle Card */}
+                                          {isMicroSub && (
+                                            <div
+                                              onClick={() => handleToggleCbcGroup(bundleTests)}
+                                              style={{
+                                                margin: '6px 0 10px',
+                                                padding: '10px 14px',
+                                                border: allBundleSelected ? '2px solid #0d9488' : '2px dashed rgba(13, 148, 136, 0.5)',
+                                                background: allBundleSelected ? 'rgba(13, 148, 136, 0.2)' : 'rgba(13, 148, 136, 0.08)',
+                                                borderRadius: '10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                cursor: 'pointer'
+                                              }}
+                                            >
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={allBundleSelected}
+                                                  onChange={() => handleToggleCbcGroup(bundleTests)}
+                                                  style={{ margin: 0, cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                  <strong style={{ fontSize: '0.92rem', color: '#2dd4bf' }}>
+                                                    🔬 Urine Microscopy (Complete Group)
+                                                  </strong>
+                                                  <small style={{ color: '#cbd5e1', display: 'block', fontSize: '0.74rem' }}>
+                                                    Fixed bundle price · Includes all {bundleTests.length} Microscopy sub-parameters
+                                                  </small>
+                                                </div>
+                                              </div>
+                                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#2dd4bf' }}>
+                                                {formatETB(Number(testSettings.urineMicroscopyPrice ?? 300))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '8px' }}>
+                                            {subTests.map(test => {
+                                              const isSelected = posSelectedTestIds.includes(test._id);
+                                              const isHcg = isHcgTest(test);
+                                              const isBundleParent = test.isBundle || test.name === 'Urine Microscopy' || test.name === 'Chemical Analysis' || test.name === 'CBC';
+                                              const isIncludedChild = (isCbcSub || isChemSub || isMicroSub || test.includedInBundle || test.billableIndividually === false) && !isBundleParent && !isHcg;
+
+                                              return (
+                                                <div
+                                                  key={test._id}
+                                                  onClick={() => handleTogglePosTest(test._id)}
+                                                  style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.82rem',
+                                                    transition: 'all 0.15s ease',
+                                                    background: isSelected ? 'rgba(2, 132, 199, 0.25)' : 'rgba(30, 41, 59, 0.5)',
+                                                    border: isSelected ? '1px solid #0284c7' : '1px solid rgba(148, 163, 184, 0.12)'
+                                                  }}
+                                                >
+                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={isSelected}
+                                                      onChange={() => {}}
+                                                      style={{ margin: 0, cursor: 'pointer' }}
+                                                    />
+                                                    <span style={{ fontWeight: isSelected ? 700 : 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                                      {test.name}
+                                                    </span>
+                                                  </div>
+                                                  <span style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: '0.78rem', marginLeft: '6px' }}>
+                                                    {isIncludedChild ? (
+                                                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Bundle Child</span>
+                                                    ) : (
+                                                      formatETB(test.price || (isHcg ? 200 : 0))
+                                                    )}
+                                                  </span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              )}
+                            </section>
+                          );
+                        })}
+                      </div>
+
+                      {/* Navigation buttons */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.25rem' }}>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setPosWizardStep(1)}
+                          style={{ padding: '8px 16px', fontSize: '0.88rem' }}
+                        >
+                          ← Back to Patient Intake
+                        </button>
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={handleProceedToPayment}
+                          style={{
+                            padding: '8px 20px',
+                            fontSize: '0.88rem',
+                            fontWeight: 700,
+                            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                          }}
+                        >
+                          Proceed to Payment ({posSelectedTestIds.length} Selected) →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP 3: PAYMENT */}
+                  {posWizardStep === 3 && (
+                    <div className="collector-queue" style={{ padding: '1.25rem' }}>
+                      <header style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '0.75rem' }}>
+                        <p className="eyebrow" style={{ margin: 0 }}>Step 3 — Payment &amp; Confirmation</p>
+                        <h2 style={{ fontSize: '1.2rem', margin: '4px 0 0' }}>Collect Payment &amp; Generate Thermal Receipt</h2>
+                      </header>
+
+                      {/* Patient Recap Banner */}
+                      <div style={{
+                        background: 'rgba(15, 23, 42, 0.6)',
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        marginBottom: '1rem',
+                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '10px'
+                      }}>
+                        <div>
+                          <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{posPatientName}</strong>
+                          <span style={{ color: '#94a3b8', fontSize: '0.85rem', marginLeft: '8px' }}>
+                            ({posAge} YRS / {posSex} · 📞 {posPhone})
+                          </span>
+                        </div>
+                        <div>
+                          {(posBpSystolic || posBpDiastolic) && (
+                            <span style={{
+                              background: 'rgba(2, 132, 199, 0.2)',
+                              color: '#38bdf8',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              border: '1px solid rgba(56, 189, 248, 0.3)'
+                            }}>
+                              🫀 BP: {posBpSystolic || '—'}/{posBpDiastolic || '—'} mmHg
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ))
+
+                      {/* Discount & Service Options */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                            Service &amp; Discount Category
+                          </label>
+                          <select
+                            value={posServiceDiscountType}
+                            onChange={e => {
+                              const next = e.target.value;
+                              setPosServiceDiscountType(next);
+                              setPosAmountReceived('');
+                            }}
+                            style={{ width: '100%' }}
+                          >
+                            <option value="Regular Patient">Regular Patient (Standard)</option>
+                            <option value="Staff Member">Staff Member ({testSettings.staffDiscount || 20}% Discount)</option>
+                            <option value="Collaborator">Collaborator ({testSettings.collaboratorDiscount || 20}% Discount)</option>
+                            <option value="Counseling Only">Counseling Only</option>
+                          </select>
+                          <small style={{ color: '#94a3b8', display: 'block', marginTop: '3px', fontSize: '0.74rem' }}>
+                            {posServiceDiscountType === 'Counseling Only'
+                              ? `Counseling fee: ${formatETB(posBillTotal)}`
+                              : posDiscountPercent > 0
+                              ? `${posDiscountPercent}% discount applied: ${formatETB(posDiscountAmount)}`
+                              : 'Standard laboratory service pricing.'}
+                          </small>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                            Payment Method <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <select
+                            value={posPaymentMethod}
+                            onChange={e => setPosPaymentMethod(e.target.value)}
+                            style={{ width: '100%' }}
+                          >
+                            <option value="Cash">Cash</option>
+                            <option value="Telebirr">Telebirr</option>
+                            <option value="CBE Birr">CBE Birr</option>
+                            <option value="Card">Card / POS</option>
+                            <option value="Other">Other Bank Transfer</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Payment Inputs & Live Calculations */}
+                      <div style={{
+                        background: 'rgba(15, 23, 42, 0.6)',
+                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                        borderRadius: '10px',
+                        padding: '14px',
+                        marginBottom: '1rem'
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '12px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Amount Received (ETB)
+                            </label>
+                            <input
+                              type="number"
+                              placeholder={`e.g. ${posBillTotal}`}
+                              value={posAmountReceived}
+                              onChange={e => setPosAmountReceived(e.target.value)}
+                              style={{ width: '100%', fontSize: '1rem', fontWeight: 700 }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>
+                              Change Balance
+                            </label>
+                            <div style={{
+                              padding: '8px 12px',
+                              background: 'rgba(30, 41, 59, 0.6)',
+                              borderRadius: '8px',
+                              fontSize: '1.1rem',
+                              fontWeight: 800,
+                              color: posBalanceDue > 0 ? '#4ade80' : '#94a3b8'
+                            }}>
+                              {formatETB(posBalanceDue)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.15)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Total Amount Due:</span>
+                          <strong style={{ fontSize: '1.3rem', color: '#38bdf8' }}>{formatETB(posBillTotal)}</strong>
+                        </div>
+                      </div>
+
+                      {/* Navigation & Submit Buttons */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setPosWizardStep(2)}
+                          style={{ padding: '10px 18px' }}
+                        >
+                          ← Back to Test Selection
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handlePosRegister}
+                          disabled={posRegistering}
+                          className="primary"
+                          style={{
+                            padding: '10px 24px',
+                            fontWeight: 700,
+                            fontSize: '0.95rem',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                          }}
+                        >
+                          {posRegistering ? 'Completing Registration…' : '💳 Confirm Payment & Complete Registration'}
+                        </button>
+                      </div>
+                    </div>
                   )}
+                </div>
+
+                {/* ── RIGHT COLUMN: LIVE BILL SUMMARY SIDEBAR ── */}
+                <div>
+                  <div className="bill-summary-card lab-bill-summary lab-v2-bill" style={{
+                    background: 'var(--surface-container, #131e32)',
+                    border: '1px solid var(--card-border, #24344d)',
+                    borderRadius: '12px',
+                    padding: '16px'
+                  }}>
+                    <div className="lab-v2-bill-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '10px' }}>
+                      <div className="lab-v2-bill-icon" style={{ fontSize: '1.4rem' }}>💰</div>
+                      <div>
+                        <small style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>LIVE BILLING</small>
+                        <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#f8fafc' }}>Receipt Summary</h3>
+                      </div>
+                    </div>
+
+                    <div className="lab-v2-bill-items" style={{ maxHeight: '340px', overflowY: 'auto', marginBottom: '14px' }}>
+                      {posSelectedTests.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '24px 10px', color: '#94a3b8' }}>
+                          <span style={{ fontSize: '2rem' }}>🧪</span>
+                          <p style={{ margin: '8px 0 2px', fontSize: '0.88rem', fontWeight: 600 }}>No tests selected yet</p>
+                          <small style={{ fontSize: '0.75rem' }}>Select laboratory tests to begin live billing</small>
+                        </div>
+                      ) : (() => {
+                        const grouped = new Map();
+                        posSelectedTests.forEach(s => {
+                          const catName = s.categoryName || (catalog || []).find(c => (c.tests || []).some(t => t._id === s._id))?.name || 'Other';
+                          if (!grouped.has(catName)) grouped.set(catName, []);
+                          grouped.get(catName).push(s);
+                        });
+
+                        return Array.from(grouped.entries()).map(([catName, tests]) => {
+                          const catTheme = getCatTheme(catName);
+                          const isHematology = /^HEMATOLOGY$/i.test(catName);
+                          const isUrinalysis = /^URINALYSIS$/i.test(catName) || /^URINE/i.test(catName);
+                          const isElecCat = /^SERUM ELECTROLYTE$/i.test(catName) || /^ELECTROLYTE/i.test(catName);
+
+                          const cbcTests = isHematology ? tests.filter(isCbcTest) : [];
+                          const chemTests = isUrinalysis ? tests.filter(isUrineChemTest) : [];
+                          const microTests = isUrinalysis ? tests.filter(isUrineMicroTest) : [];
+                          const hcgTests = isUrinalysis ? tests.filter(isHcgTest) : [];
+                          const elecTests = isElecCat ? tests.filter(isSerumElectrolyteTest) : [];
+
+                          const otherTests = tests.filter(t => {
+                            if (isHematology && isCbcTest(t)) return false;
+                            if (isUrinalysis && (isUrineChemTest(t) || isUrineMicroTest(t) || isHcgTest(t))) return false;
+                            if (isElecCat && isSerumElectrolyteTest(t)) return false;
+                            if (isCbcTest(t) || isUrineChemTest(t) || isUrineMicroTest(t) || isHcgTest(t) || isSerumElectrolyteTest(t)) return false;
+                            if (t.billableIndividually === false || t.includedInBundle === true) return false;
+                            return true;
+                          });
+
+                          let billableCount = otherTests.length + hcgTests.length;
+                          if (cbcTests.length > 0) billableCount++;
+                          if (chemTests.length > 0) billableCount++;
+                          if (microTests.length > 0) billableCount++;
+                          if (elecTests.length > 0) billableCount++;
+
+                          return (
+                            <div key={catName} style={{ marginBottom: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: catTheme.accent }}></span>
+                                <span>{catName}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8' }}>{billableCount} item(s)</span>
+                              </div>
+
+                              {cbcTests.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '4px 6px', background: 'rgba(2, 132, 199, 0.15)', borderRadius: '4px', marginBottom: '3px' }}>
+                                  <span style={{ color: '#38bdf8', fontWeight: 600 }}>🩸 CBC Complete ({cbcTests.length} params)</span>
+                                  <strong style={{ color: '#38bdf8' }}>{formatETB(testSettings.cbcGroupPrice ?? 150)}</strong>
+                                </div>
+                              )}
+
+                              {chemTests.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '4px 6px', background: 'rgba(13, 148, 136, 0.15)', borderRadius: '4px', marginBottom: '3px' }}>
+                                  <span style={{ color: '#2dd4bf', fontWeight: 600 }}>🧪 Chemical Analysis ({chemTests.length} params)</span>
+                                  <strong style={{ color: '#2dd4bf' }}>{formatETB(Number(testSettings.urineChemicalPrice ?? 300))}</strong>
+                                </div>
+                              )}
+
+                              {microTests.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '4px 6px', background: 'rgba(13, 148, 136, 0.15)', borderRadius: '4px', marginBottom: '3px' }}>
+                                  <span style={{ color: '#2dd4bf', fontWeight: 600 }}>🔬 Urine Microscopy ({microTests.length} params)</span>
+                                  <strong style={{ color: '#2dd4bf' }}>{formatETB(Number(testSettings.urineMicroscopyPrice ?? 300))}</strong>
+                                </div>
+                              )}
+
+                              {elecTests.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '4px 6px', background: 'rgba(234, 88, 12, 0.15)', borderRadius: '4px', marginBottom: '3px' }}>
+                                  <span style={{ color: '#fb923c', fontWeight: 600 }}>⚡ Serum Electrolytes ({elecTests.length} params)</span>
+                                  <strong style={{ color: '#fb923c' }}>{formatETB(Number(testSettings.serumElectrolytePrice ?? 1000))}</strong>
+                                </div>
+                              )}
+
+                              {hcgTests.map(s => (
+                                <div key={s._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '3px 6px' }}>
+                                  <span style={{ color: '#cbd5e1' }}>{s.name}</span>
+                                  <strong>{formatETB(s.price || 200)}</strong>
+                                </div>
+                              ))}
+
+                              {otherTests.map(s => (
+                                <div key={s._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '3px 6px' }}>
+                                  <span style={{ color: '#cbd5e1' }}>{s.name}</span>
+                                  <strong>{formatETB(s.price)}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    {/* Breakdown totals */}
+                    <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.15)', paddingTop: '10px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#94a3b8' }}>Selected Tests:</span>
+                        <strong>{posSelectedTestIds.length}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#94a3b8' }}>Subtotal:</span>
+                        <strong>{formatETB(posBillSubtotal)}</strong>
+                      </div>
+                      {posDiscountAmount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4ade80' }}>
+                          <span>Discount ({posDiscountPercent}%):</span>
+                          <strong>− {formatETB(posDiscountAmount)}</strong>
+                        </div>
+                      )}
+                      {posServiceDiscountType === 'Counseling Only' && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                          <span>Counseling Fee:</span>
+                          <strong>{formatETB(testSettings.counselingPrice || 0)}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{
+                      borderTop: '1px solid rgba(148, 163, 184, 0.25)',
+                      marginTop: '10px',
+                      paddingTop: '10px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Grand Total:</span>
+                      <strong style={{ fontSize: '1.25rem', color: '#38bdf8' }}>{formatETB(posBillTotal)}</strong>
+                    </div>
+
+                    {/* Quick Step Advance Button */}
+                    {posWizardStep === 1 && (
+                      <button
+                        type="button"
+                        onClick={handleProceedToTestSelection}
+                        className="primary"
+                        style={{
+                          width: '100%',
+                          marginTop: '12px',
+                          padding: '9px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700
+                        }}
+                      >
+                        Proceed to Test Selection →
+                      </button>
+                    )}
+                    {posWizardStep === 2 && (
+                      <button
+                        type="button"
+                        onClick={handleProceedToPayment}
+                        className="primary"
+                        style={{
+                          width: '100%',
+                          marginTop: '12px',
+                          padding: '9px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                        }}
+                      >
+                        Proceed to Payment ({formatETB(posBillTotal)}) →
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -6260,6 +7387,20 @@ export default function AdminReportTransactionManagementPage() {
         <ClinicalInterpretationAdminModal
           token={token}
           onClose={() => setAdminInterpModalOpen(false)}
+        />
+      )}
+
+      {/* POS 80mm Continuous Thermal Receipt Modal Popup */}
+      {posReceiptModalPatient && (
+        <ThermalReceiptModal
+          patientData={posReceiptModalPatient}
+          onClose={() => setPosReceiptModalPatient(null)}
+          token={token}
+          testCategories={catalog || []}
+          cbcGroupPrice={testSettings?.cbcGroupPrice || 150}
+          urineChemicalPrice={testSettings?.urineChemicalPrice || 300}
+          urineMicroscopyPrice={testSettings?.urineMicroscopyPrice || 300}
+          serumElectrolytePrice={testSettings?.serumElectrolytePrice || 1000}
         />
       )}
     </section>
