@@ -1,4 +1,5 @@
-import mongoose from 'mongoose';import Patient from '../models/Patient.js';import SampleCollection from '../models/SampleCollection.js';import SampleTransfer from '../models/SampleTransfer.js';import StockItem from '../models/StockItem.js';import StockHistory from '../models/StockHistory.js';import LaboratoryTest from '../models/LaboratoryTest.js';import LaboratorySettings from '../models/LaboratorySettings.js';import ExtraStockRequest from '../models/ExtraStockRequest.js';import LabReport from '../models/LabReport.js';import CounsellingRecord from '../models/CounsellingRecord.js';import User from '../models/User.js';import Notification from '../models/Notification.js';import {AppError}from'../utils/appError.js';import {recordActivity}from'../services/activityService.js';import {notifyStockLevel}from'../services/stockService.js';import {emit}from'../services/sseService.js';import {equipmentPayload,calculateFlag}from'../constants/equipment.js';import {calculateSubtotalWithCbcGroup}from'../utils/cbcPricing.js';
+import mongoose from 'mongoose';import Patient from '../models/Patient.js';import SampleCollection from '../models/SampleCollection.js';import SampleTransfer from '../models/SampleTransfer.js';import StockItem from '../models/StockItem.js';import StockHistory from '../models/StockHistory.js';import LaboratoryTest from '../models/LaboratoryTest.js';import LaboratorySettings from '../models/LaboratorySettings.js';import ExtraStockRequest from '../models/ExtraStockRequest.js';import LabReport from '../models/LabReport.js';import PathologyCase from '../models/PathologyCase.js';import RadiologyCase from '../models/RadiologyCase.js';import CounsellingRecord from '../models/CounsellingRecord.js';import User from '../models/User.js';import Notification from '../models/Notification.js';import {AppError}from'../utils/appError.js';import {recordActivity}from'../services/activityService.js';import {notifyStockLevel}from'../services/stockService.js';import {emit}from'../services/sseService.js';import {equipmentPayload,calculateFlag}from'../constants/equipment.js';import {calculateSubtotalWithCbcGroup}from'../utils/cbcPricing.js';
+function isPathologyOrRadiologyTest(test){const catName=String(test?.category?.name||test?.categoryName||'').toUpperCase(),testName=String(test?.name||'').toUpperCase(),subcat=String(test?.subcategory||'').toUpperCase();const isPath=catName.includes('PATHOLOGY')||testName.includes('BIOPSY')||testName.includes('FNAC')||testName.includes('PERIPHERAL MORPHOLOGY')||testName.includes('HISTOPATHOLOGY')||testName.includes('CYTOPATHOLOGY')||subcat.includes('BIOPSY')||subcat.includes('FNAC')||subcat.includes('PERIPHERAL MORPHOLOGY')||subcat.includes('HISTOPATHOLOGY')||subcat.includes('CYTOPATHOLOGY');const isRad=catName.includes('RADIOLOGY')||testName.includes('CT SCAN')||testName.includes('X-RAY')||testName.includes('XRAY')||testName.includes('ULTRASOUND')||testName.includes('MRI')||subcat.includes('CT SCAN')||subcat.includes('X-RAY')||subcat.includes('XRAY')||subcat.includes('ULTRASOUND')||subcat.includes('MRI');return isPath||isRad;}
 const equipment={"Mindray BS120 Fully Automated Chemistry Analyzer":[['ALT','0–41 U/L'],['AST','0–40 U/L'],['ALP','44–147 U/L'],['Creatinine','53–115 µmol/L'],['Urea','2.5–7.8 mmol/L'],['Glucose','3.9–7.8 mmol/L'],['Cholesterol','<5.2 mmol/L'],['Triglycerides','<1.7 mmol/L'],['Bilirubin','5–21 µmol/L'],['Albumin','35–50 g/L'],['Total Protein','60–80 g/L']],"BC3000 Plus Hematology Analyzer":[['Hemoglobin','12–17 g/dL'],['WBC','4–11 ×10⁹/L'],['Platelets','150–450 ×10⁹/L'],['RBC','4.0–5.9 ×10¹²/L'],['Hematocrit','36–52%']],"K-Lite 8 Electrolyte Analyzer":[['Sodium','135–145 mmol/L'],['Potassium','3.5–5.1 mmol/L'],['Chloride','98–107 mmol/L']],"Finecare HbA1c Reader":[['HbA1c','4.0–5.6%']],"Semi Automatic 2-Part Coagulation Analyzer":[['PT','11–13.5 sec'],['INR','0.8–1.2'],['APTT','25–35 sec']]};
 async function notifyRoles(roles,type,message,entity){const users=await User.find({role:{$in:roles},status:'Active'}).select('_id');if(users.length)await Notification.insertMany(users.map(u=>({recipient:u._id,type,message,entity,entityType:'LabReport'})))}
 export async function dashboard(req,res,next){try{const start=new Date();start.setHours(0,0,0,0);const branch=req.user.role!=='Admin'?(req.user.branchName||'Main'):(req.query.branchName&&req.query.branchName!=='All'?req.query.branchName:null);const cFilter=status=>branch?{status,branchName:branch}:{status};const doneFilter=branch?{status:'Completed',completedAt:{$gte:start},branchName:branch}:{status:'Completed',completedAt:{$gte:start}};const reportMatch=branch?[{$match:{branchName:branch}},{$group:{_id:'$status',count:{$sum:1}}}]:[{$group:{_id:'$status',count:{$sum:1}}}];const [queued,progress,done,reports,critical,activities]=await Promise.all([SampleCollection.countDocuments(cFilter('Queued')),SampleCollection.countDocuments(cFilter('In Progress')),SampleCollection.countDocuments(doneFilter),LabReport.aggregate(reportMatch),StockItem.countDocuments({$expr:{$lte:[{$subtract:['$currentQuantity','$usedQuantity']},'$minimumThreshold']}}),SampleCollection.find(branch?{collector:req.user.id,branchName:branch}:{collector:req.user.id}).populate('patient','patientId name').sort({updatedDate:-1}).limit(8)]);const count=s=>reports.find(x=>x._id===s)?.count||0;res.json({summary:{todayCollections:done,pendingCollections:queued,completedCollections:done,inProgress:progress,pendingApprovals:count('Submitted')+count('Pending'),approved:count('Approved'),rejected:count('Rejected'),criticalStock:critical},activities})}catch(e){next(e)}}
@@ -75,7 +76,16 @@ export async function queue(req, res, next) {
       ]
     }).populate('sampleTypes', 'name');
 
-    const patientIds = patients.map(p => p.id);
+    // Sample Collector must NOT see patients who only have Pathology or Radiology tests (and 0 routine lab tests)
+    const filteredPatients = (req.user.role === 'Sample Collector')
+      ? patients.filter(p => {
+          const tests = p.laboratoryTests || [];
+          if (!tests.length) return true; // Self-aware awaiting investigation
+          return tests.some(t => !isPathologyOrRadiologyTest(t));
+        })
+      : patients;
+
+    const patientIds = filteredPatients.map(p => p.id);
     const [existing, history, transfers] = await Promise.all([
       SampleCollection.find({ patient: { $in: patientIds } }).populate('collector', 'fullName'),
       StockHistory.find({ patient: { $in: patientIds }, action: { $in: ['Automatic Deduction', 'Manual Deduction'] } }).populate('item', 'itemName unit'),
@@ -97,7 +107,7 @@ export async function queue(req, res, next) {
       transfersByPatient.get(pid).push(t);
     });
 
-    const rows = patients.map(p => {
+    const rows = filteredPatients.map(p => {
       const pHistory = historyByPatient.get(String(p.id)) || [];
       const pTransfers = transfersByPatient.get(String(p.id)) || [];
       const tests = p.laboratoryTests || [];
@@ -188,7 +198,93 @@ export async function queue(req, res, next) {
 }
 
 export async function history(req,res,next){try{const patient=await Patient.findById(req.params.patientId).populate({path:'laboratoryTests',select:'name category requiredSampleTypes',populate:[{path:'category',select:'name'},{path:'requiredSampleTypes',select:'name'}]}).populate('sampleTypes','name');if(!patient)throw new AppError('Patient not found.',404);const [visits,reports]=await Promise.all([Patient.find({phone:patient.phone}).select('patientId registrationDate referralHospital laboratoryTests sampleTypes branchName').populate({path:'laboratoryTests',select:'name category requiredSampleTypes',populate:[{path:'category',select:'name'},{path:'requiredSampleTypes',select:'name'}]}).populate('sampleTypes','name'),LabReport.find({patient:patient.id}).sort({createdDate:-1})]);res.json({patient,visits,reports})}catch(e){next(e)}}
-export async function reports(req,res,next){try{const isCrossBranch=req.user.role==='Admin'||req.user.branchName==='All'||(req.user.allowedBranches&&req.user.allowedBranches.length>1);const branch=!isCrossBranch?(req.user.branchName||'Main'):(req.query.branchName&&req.query.branchName!=='All'?req.query.branchName:null);const filter=['Admin','Sub Admin'].includes(req.user.role)?{}:{$or:[{technician:req.user.id},{submittedBy:req.user.id}]};if(branch)filter.branchName=branch;if(req.query.status){if(req.query.status==='Pending'){filter.status={$in:['Submitted','Pending']};}else if(req.query.status==='Approved'){filter.status={$in:['Approved','Ready for Printing']};}else{filter.status=req.query.status;}}const reports=await LabReport.find(filter).populate({path:'patient',select:'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy',populate:[{path:'laboratoryTests',select:'name category subcategory requiredSampleTypes',populate:[{path:'category',select:'name'},{path:'requiredSampleTypes',select:'name'}]},{path:'sampleTypes',select:'name'}]}).populate({path:'laboratoryTests',select:'name category subcategory',populate:{path:'category',select:'name'}}).populate('technician','fullName').populate('approvedBy','fullName').populate('rejectedBy','fullName').sort({updatedDate:-1});res.json({reports})}catch(e){next(e)}}
+export async function reports(req, res, next) {
+  try {
+    const isCrossBranch = req.user.role === 'Admin' || req.user.branchName === 'All' || (req.user.allowedBranches && req.user.allowedBranches.length > 1);
+    const branch = !isCrossBranch ? (req.user.branchName || 'Main') : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : null);
+    const filter = ['Admin', 'Sub Admin'].includes(req.user.role) ? {} : { $or: [{ technician: req.user.id }, { submittedBy: req.user.id }] };
+    if (branch) filter.branchName = branch;
+
+    const isApprovedQuery = req.query.status === 'Approved';
+    if (req.query.status) {
+      if (req.query.status === 'Pending') {
+        filter.status = { $in: ['Submitted', 'Pending'] };
+      } else if (req.query.status === 'Approved') {
+        if (req.user.role === 'Sample Collector') {
+          delete filter.$or;
+        }
+        filter.status = { $in: ['Approved', 'Ready for Printing'] };
+      } else {
+        filter.status = req.query.status;
+      }
+    }
+
+    const labQuery = LabReport.find(filter)
+      .populate({
+        path: 'patient',
+        select: 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy',
+        populate: [
+          { path: 'laboratoryTests', select: 'name category subcategory requiredSampleTypes', populate: [{ path: 'category', select: 'name' }, { path: 'requiredSampleTypes', select: 'name' }] },
+          { path: 'sampleTypes', select: 'name' }
+        ]
+      })
+      .populate({ path: 'laboratoryTests', select: 'name category subcategory', populate: { path: 'category', select: 'name' } })
+      .populate('technician', 'fullName')
+      .populate('approvedBy', 'fullName')
+      .populate('rejectedBy', 'fullName')
+      .sort({ approvedDate: -1, updatedDate: -1 });
+
+    const [labReports, pathCases, radCases] = await Promise.all([
+      labQuery.lean(),
+      isApprovedQuery
+        ? PathologyCase.find({ status: { $in: ['Approved', 'Ready for Printing'] }, ...(branch ? { branchName: branch } : {}) })
+            .populate('patient', 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy')
+            .populate('pathologist', 'fullName')
+            .populate('approvedBy', 'fullName')
+            .sort({ approvedAt: -1, updatedDate: -1 })
+            .lean()
+        : Promise.resolve([]),
+      isApprovedQuery
+        ? RadiologyCase.find({ status: { $in: ['Approved', 'Ready for Printing'] }, ...(branch ? { branchName: branch } : {}) })
+            .populate('patient', 'patientId barcode name age sex phone address nationality dateOfBirth passportNumber passportIssueDate maritalStatus jobTitle patientPhoto examinationFormType laboratoryTests sampleTypes branchName referralHospital registeredBy')
+            .populate('radiologist', 'fullName')
+            .populate('approvedBy', 'fullName')
+            .sort({ approvedAt: -1, updatedDate: -1 })
+            .lean()
+        : Promise.resolve([])
+    ]);
+
+    const formattedLab = (labReports || []).map(r => ({
+      ...r,
+      docType: 'LabReport',
+      department: r.isInternalMedicineForm ? 'Internal Medicine' : 'Laboratory'
+    }));
+
+    const formattedPath = (pathCases || []).filter(c => c.patient).map(c => ({
+      ...c,
+      docType: 'PathologyCase',
+      department: 'Pathology',
+      reportNumber: c.caseNumber,
+      approvedDate: c.approvedAt
+    }));
+
+    const formattedRad = (radCases || []).filter(c => c.patient).map(c => ({
+      ...c,
+      docType: 'RadiologyCase',
+      department: 'Radiology',
+      reportNumber: c.caseNumber,
+      approvedDate: c.approvedAt
+    }));
+
+    const combinedReports = isApprovedQuery
+      ? [...formattedLab, ...formattedPath, ...formattedRad].sort((a, b) => new Date(b.approvedDate || b.updatedDate || b.createdDate) - new Date(a.approvedDate || a.updatedDate || a.createdDate))
+      : formattedLab;
+
+    res.json({ reports: combinedReports });
+  } catch (e) {
+    next(e);
+  }
+}
 export async function deleteReport(req, res, next) {
   try {
     const isAdmin = ['Admin', 'Sub Admin'].includes(req.user.role);
@@ -199,6 +295,10 @@ export async function deleteReport(req, res, next) {
     const report = await LabReport.findOne(query).populate('patient');
     if (!report) {
       throw new AppError(isAdmin ? 'Report not found.' : 'Draft report not found or cannot be deleted.', 404);
+    }
+
+    if (!isAdmin && ['Approved', 'Ready for Printing'].includes(report.status)) {
+      throw new AppError('Approved reports are finalized and cannot be deleted.', 403);
     }
 
     // 1. Cascade update on transfers to prevent broken references
@@ -254,6 +354,10 @@ export async function updateReport(req, res, next) {
 
     const report = await LabReport.findById(req.params.id).populate('patient');
     if (!report) throw new AppError('Report not found.', 404);
+
+    if (!isAdmin && ['Approved', 'Ready for Printing'].includes(report.status)) {
+      throw new AppError('Approved reports are finalized and read-only.', 403);
+    }
 
     const { comments, equipment: eqList, priority, results, status, testPrices } = req.body;
 

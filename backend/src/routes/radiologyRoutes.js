@@ -9,8 +9,9 @@ router.use(requireAuth);
 
 // Work queue & examination case routes
 router.get('/templates', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST), c.getTemplates);
-router.get('/queue', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST, ROLES.RECEPTION), c.queue);
-router.get('/cases/:id', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST, ROLES.RECEPTION), c.getCase);
+router.get('/queue', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST), c.queue);
+router.get('/transactions', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), c.transactions);
+router.get('/cases/:id', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR), c.getCase);
 router.patch('/cases/:id/draft', allowRoles(ROLES.ADMIN, ROLES.RADIOLOGIST), c.saveDraft);
 router.post('/cases/:id/approve', allowRoles(ROLES.ADMIN, ROLES.RADIOLOGIST), c.approveCase);
 router.post('/cases/:id/clear', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.RADIOLOGIST), c.clearCase);

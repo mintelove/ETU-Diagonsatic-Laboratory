@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import PathologyCase from '../models/PathologyCase.js';
 import Patient from '../models/Patient.js';
+import Payment from '../models/Payment.js';
 import LaboratoryTest from '../models/LaboratoryTest.js';
 import LaboratoryTestCategory from '../models/LaboratoryTestCategory.js';
 import User from '../models/User.js';
@@ -44,15 +45,15 @@ async function checkOverdueDeadlines(cases) {
   }
 }
 
-// Helper: date range generator for queue filtering
-export function getDateRange(filterType) {
+// Helper: date range generator for queue and transaction filtering
+export function getDateRange(filterType, customStart, customEnd) {
   if (!filterType || filterType === 'all') return null;
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  switch (filterType.toLowerCase()) {
+  switch (String(filterType).toLowerCase()) {
     case 'today':
       return { $gte: startOfToday, $lte: endOfToday };
     case 'yesterday': {
@@ -82,8 +83,40 @@ export function getDateRange(filterType) {
       endOfLastWeek.setMilliseconds(-1);
       return { $gte: startOfLastWeek, $lte: endOfLastWeek };
     }
-    default:
+    case 'single':
+    case 'single_date': {
+      const dateVal = customStart || customEnd;
+      if (!dateVal) return null;
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return null;
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+      return { $gte: start, $lte: end };
+    }
+    case 'range':
+    case 'date_range':
+    case 'custom': {
+      if (!customStart && !customEnd) return null;
+      const startD = customStart ? new Date(customStart) : null;
+      const endD = customEnd ? new Date(customEnd) : null;
+      const range = {};
+      if (startD && !isNaN(startD.getTime())) {
+        range.$gte = new Date(startD.getFullYear(), startD.getMonth(), startD.getDate(), 0, 0, 0, 0);
+      }
+      if (endD && !isNaN(endD.getTime())) {
+        range.$lte = new Date(endD.getFullYear(), endD.getMonth(), endD.getDate(), 23, 59, 59, 999);
+      }
+      return Object.keys(range).length ? range : null;
+    }
+    default: {
+      const parsed = new Date(filterType);
+      if (!isNaN(parsed.getTime()) && String(filterType).includes('-')) {
+        const start = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+        const end = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+        return { $gte: start, $lte: end };
+      }
       return null;
+    }
   }
 }
 
@@ -203,10 +236,14 @@ export async function getCase(req, res, next) {
 
     if (!item) throw new AppError('Pathology case not found.', 404);
 
-    if (req.user.role === 'Reception') {
-      const regId = String(item.registeredBy?._id || item.registeredBy || item.patient?.registeredBy?._id || item.patient?.registeredBy || '');
-      if (regId !== String(req.user.id)) {
-        throw new AppError('You are not authorized to view pathology cases registered by another receptionist.', 403);
+    if (['Reception', 'Sample Collector'].includes(req.user.role)) {
+      if (!['Approved', 'Ready for Printing'].includes(item.status)) {
+        throw new AppError('Only approved pathology reports are accessible.', 403);
+      }
+      const userBranch = req.user.branchName || 'Main';
+      const caseBranch = item.branchName || item.patient?.branchName || 'Main';
+      if (req.user.branchName && req.user.branchName !== 'All' && caseBranch !== userBranch) {
+        throw new AppError('You are not authorized to view pathology cases from another branch.', 403);
       }
     }
 
@@ -670,6 +707,184 @@ export async function restoreCase(req, res, next) {
       success: true,
       message: 'Patient successfully restored to active queue.',
       case: item
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * GET /api/pathology/transactions
+ * Dedicated Pathology Transaction / Income Dashboard
+ * Monitors ONLY income generated from Pathology-related tests at the individual test level.
+ * Applies existing proportional discount logic without double counting.
+ */
+function isPathologyTest(test) {
+  const catName = String(test?.category?.name || test?.categoryName || '').toUpperCase();
+  const testName = String(test?.name || '').toUpperCase();
+  const subcat = String(test?.subcategory || '').toUpperCase();
+
+  return catName.includes('PATHOLOGY') ||
+    testName.includes('BIOPSY') || testName.includes('FNAC') || testName.includes('PERIPHERAL MORPHOLOGY') ||
+    testName.includes('HISTOPATHOLOGY') || testName.includes('CYTOPATHOLOGY') ||
+    subcat.includes('BIOPSY') || subcat.includes('FNAC') || subcat.includes('PERIPHERAL MORPHOLOGY') ||
+    subcat.includes('HISTOPATHOLOGY') || subcat.includes('CYTOPATHOLOGY');
+}
+
+export async function transactions(req, res, next) {
+  try {
+    const dateFilter = req.query.dateFilter || req.query.datePreset || 'today';
+    const singleDate = req.query.singleDate || req.query.date || null;
+    const startDate = req.query.startDate || null;
+    const endDate = req.query.endDate || null;
+    const branch = (req.user.role !== 'Admin' && req.user.branchName)
+      ? req.user.branchName
+      : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : null);
+
+    let dateRange = null;
+    if (dateFilter === 'single' || dateFilter === 'single_date' || (singleDate && !startDate && !endDate)) {
+      dateRange = getDateRange('single', singleDate || dateFilter);
+    } else if (dateFilter === 'range' || dateFilter === 'date_range' || dateFilter === 'custom' || startDate || endDate) {
+      dateRange = getDateRange('range', startDate, endDate);
+    } else {
+      dateRange = getDateRange(dateFilter);
+    }
+
+    const query = { paymentStatus: 'Paid' };
+    if (branch) query.branchName = branch;
+    if (dateRange) {
+      query.$or = [
+        { paymentDate: dateRange },
+        { registrationDate: dateRange }
+      ];
+    }
+
+    const patients = await Patient.find(query)
+      .populate({
+        path: 'laboratoryTests',
+        select: 'name price category subcategory',
+        populate: { path: 'category', select: 'name' }
+      })
+      .populate('registeredBy', 'fullName username role')
+      .populate('collectedBy', 'fullName username role')
+      .sort({ paymentDate: -1, registrationDate: -1 })
+      .lean();
+
+    const pendingQuery = { paymentStatus: { $in: ['Waiting for Payment', 'Unpaid'] } };
+    if (branch) pendingQuery.branchName = branch;
+    if (dateRange) pendingQuery.registrationDate = dateRange;
+    const pendingPatients = await Patient.find(pendingQuery)
+      .populate({
+        path: 'laboratoryTests',
+        select: 'name price category subcategory',
+        populate: { path: 'category', select: 'name' }
+      })
+      .lean();
+
+    let pendingAmount = 0;
+    pendingPatients.forEach(p => {
+      const pTests = (p.laboratoryTests || []).filter(isPathologyTest);
+      const discountPct = Number(p.discountPercent || 0);
+      pTests.forEach(t => {
+        const net = Number(t.price || 0) * (1 - discountPct / 100);
+        pendingAmount += net;
+      });
+    });
+
+    let totalIncome = 0;
+    let totalGross = 0;
+    let totalDiscount = 0;
+    const breakdown = {
+      biopsy: { count: 0, revenue: 0 },
+      fnac: { count: 0, revenue: 0 },
+      peripheralMorphology: { count: 0, revenue: 0 },
+      other: { count: 0, revenue: 0 }
+    };
+
+    const transactionRows = [];
+
+    patients.forEach(p => {
+      const tests = p.laboratoryTests || [];
+      const pathTests = tests.filter(isPathologyTest);
+      if (!pathTests.length) return;
+
+      const discountPct = Number(p.discountPercent || 0);
+      let txPathGross = 0;
+      let txPathNet = 0;
+      const testNames = [];
+
+      pathTests.forEach(t => {
+        const gross = Number(t.price || 0);
+        const net = gross * (1 - discountPct / 100);
+        txPathGross += gross;
+        txPathNet += net;
+        testNames.push(t.name);
+
+        const lowerName = (t.name || '').toLowerCase() + ' ' + (t.subcategory || '').toLowerCase();
+        if (/biopsy|histopath/i.test(lowerName)) {
+          breakdown.biopsy.count += 1;
+          breakdown.biopsy.revenue += net;
+        } else if (/fnac|cytopath/i.test(lowerName)) {
+          breakdown.fnac.count += 1;
+          breakdown.fnac.revenue += net;
+        } else if (/morphology|blood film/i.test(lowerName)) {
+          breakdown.peripheralMorphology.count += 1;
+          breakdown.peripheralMorphology.revenue += net;
+        } else {
+          breakdown.other.count += 1;
+          breakdown.other.revenue += net;
+        }
+      });
+
+      const txDiscount = txPathGross - txPathNet;
+      totalIncome += txPathNet;
+      totalGross += txPathGross;
+      totalDiscount += txDiscount;
+
+      transactionRows.push({
+        _id: p._id,
+        patientId: p.patientId,
+        patientName: p.name,
+        receiptNumber: p.receiptNumber || `RC-${p.patientId}`,
+        date: p.paymentDate || p.registrationDate,
+        branchName: p.branchName || 'Main',
+        paymentMethod: p.paymentMethod || 'Cash',
+        paymentStatus: p.paymentStatus,
+        discountPercent: discountPct,
+        pathologyTests: testNames,
+        tests: testNames.join(', '),
+        grossAmount: Math.round(txPathGross * 100) / 100,
+        discountAmount: Math.round(txDiscount * 100) / 100,
+        netAmount: Math.round(txPathNet * 100) / 100,
+        grandTotal: Math.round(txPathNet * 100) / 100,
+        registeredBy: p.registeredBy?.fullName || 'Receptionist',
+        receivedBy: p.collectedBy?.fullName || p.registeredBy?.fullName || 'Receptionist'
+      });
+    });
+
+    res.json({
+      success: true,
+      department: 'Pathology',
+      dateFilter,
+      singleDate: singleDate || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      branch: branch || 'All',
+      summary: {
+        totalIncome: Math.round(totalIncome * 100) / 100,
+        totalGross: Math.round(totalGross * 100) / 100,
+        totalDiscount: Math.round(totalDiscount * 100) / 100,
+        transactionCount: transactionRows.length,
+        paidAmount: Math.round(totalIncome * 100) / 100,
+        pendingAmount: Math.round(pendingAmount * 100) / 100,
+        breakdown: {
+          biopsy: { count: breakdown.biopsy.count, revenue: Math.round(breakdown.biopsy.revenue * 100) / 100 },
+          fnac: { count: breakdown.fnac.count, revenue: Math.round(breakdown.fnac.revenue * 100) / 100 },
+          peripheralMorphology: { count: breakdown.peripheralMorphology.count, revenue: Math.round(breakdown.peripheralMorphology.revenue * 100) / 100 },
+          other: { count: breakdown.other.count, revenue: Math.round(breakdown.other.revenue * 100) / 100 }
+        }
+      },
+      transactions: transactionRows
     });
   } catch (e) {
     next(e);

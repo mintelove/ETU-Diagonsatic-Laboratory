@@ -433,7 +433,7 @@ export default function AdminReportTransactionManagementPage() {
   const [isCompletingPayment, setIsCompletingPayment] = useState(false);
 
   // ── PATHOLOGY DEPARTMENT STATES ──────────────────────────────────
-  const [pathologySubTab, setPathologySubTab] = useState('queue'); // 'queue' | 'optionA' | 'optionB' | 'optionC'
+  const [pathologySubTab, setPathologySubTab] = useState('queue'); // 'queue' | 'approved' | 'transactions' | 'optionA' | 'optionB' | 'optionC'
   const [pathologyQueue, setPathologyQueue] = useState([]);
   const [pathologyActiveCount, setPathologyActiveCount] = useState(0);
   const [pathologyClearedCount, setPathologyClearedCount] = useState(0);
@@ -461,8 +461,30 @@ export default function AdminReportTransactionManagementPage() {
   const [pathologyPreviewOpen, setPathologyPreviewOpen] = useState(false);
   const pathologyEditorRef = useRef(null);
 
+  // Pathology Extended: Transactions & Approved Reports
+  const [pathologyTxData, setPathologyTxData] = useState({ summary: {}, transactions: [] });
+  const [pathologyTxLoading, setPathologyTxLoading] = useState(false);
+  const [pathologyTxDatePreset, setPathologyTxDatePreset] = useState('today');
+  const [pathologyTxBranch, setPathologyTxBranch] = useState('All');
+  const [pathologyTxSearch, setPathologyTxSearch] = useState('');
+  const [pathologyTxFilterMode, setPathologyTxFilterMode] = useState('quick'); // 'quick' | 'single' | 'range'
+  const [pathologyTxDraftSingleDate, setPathologyTxDraftSingleDate] = useState('');
+  const [pathologyTxDraftStartDate, setPathologyTxDraftStartDate] = useState('');
+  const [pathologyTxDraftEndDate, setPathologyTxDraftEndDate] = useState('');
+  const [pathologyTxAppliedFilter, setPathologyTxAppliedFilter] = useState({
+    type: 'quick',
+    preset: 'today',
+    singleDate: '',
+    startDate: '',
+    endDate: '',
+    label: 'Today'
+  });
+  const [pathologyApprovedDateFilter, setPathologyApprovedDateFilter] = useState('all');
+  const [pathologyApprovedBranchFilter, setPathologyApprovedBranchFilter] = useState('All');
+  const [pathologyApprovedSearch, setPathologyApprovedSearch] = useState('');
+
   // ── RADIOLOGY DEPARTMENT STATES ──────────────────────────────────
-  const [radiologySubTab, setRadiologySubTab] = useState('queue'); // 'queue' | 'optionA' | 'optionB' | 'optionC'
+  const [radiologySubTab, setRadiologySubTab] = useState('queue'); // 'queue' | 'approved' | 'transactions' | 'optionA' | 'optionB' | 'optionC'
   const [radiologyQueue, setRadiologyQueue] = useState([]);
   const [radiologyActiveCount, setRadiologyActiveCount] = useState(0);
   const [radiologyClearedCount, setRadiologyClearedCount] = useState(0);
@@ -490,6 +512,28 @@ export default function AdminReportTransactionManagementPage() {
   const [radiologyApproving, setRadiologyApproving] = useState(false);
   const [radiologyPreviewOpen, setRadiologyPreviewOpen] = useState(false);
   const radiologyEditorRef = useRef(null);
+
+  // Radiology Extended: Transactions & Approved Reports
+  const [radiologyTxData, setRadiologyTxData] = useState({ summary: {}, transactions: [] });
+  const [radiologyTxLoading, setRadiologyTxLoading] = useState(false);
+  const [radiologyTxDatePreset, setRadiologyTxDatePreset] = useState('today');
+  const [radiologyTxBranch, setRadiologyTxBranch] = useState('All');
+  const [radiologyTxSearch, setRadiologyTxSearch] = useState('');
+  const [radiologyTxFilterMode, setRadiologyTxFilterMode] = useState('quick'); // 'quick' | 'single' | 'range'
+  const [radiologyTxDraftSingleDate, setRadiologyTxDraftSingleDate] = useState('');
+  const [radiologyTxDraftStartDate, setRadiologyTxDraftStartDate] = useState('');
+  const [radiologyTxDraftEndDate, setRadiologyTxDraftEndDate] = useState('');
+  const [radiologyTxAppliedFilter, setRadiologyTxAppliedFilter] = useState({
+    type: 'quick',
+    preset: 'today',
+    singleDate: '',
+    startDate: '',
+    endDate: '',
+    label: 'Today'
+  });
+  const [radiologyApprovedDateFilter, setRadiologyApprovedDateFilter] = useState('all');
+  const [radiologyApprovedBranchFilter, setRadiologyApprovedBranchFilter] = useState('All');
+  const [radiologyApprovedSearch, setRadiologyApprovedSearch] = useState('');
 
   // Auto-select view based on URL query parameter (?view=approved, ?view=pending, or ?view=transactions)
   useEffect(() => {
@@ -830,6 +874,90 @@ export default function AdminReportTransactionManagementPage() {
     }
   }, [token, pathologyDateFilter, selectedBranch]);
 
+  // ── PATHOLOGY TRANSACTIONS LOADER ─────────────────────────────────
+  const loadPathologyTransactions = useCallback(async () => {
+    try {
+      setPathologyTxLoading(true);
+      const params = new URLSearchParams();
+      if (pathologyTxAppliedFilter.type === 'single') {
+        params.append('dateFilter', 'single');
+        if (pathologyTxAppliedFilter.singleDate) params.append('singleDate', pathologyTxAppliedFilter.singleDate);
+      } else if (pathologyTxAppliedFilter.type === 'range') {
+        params.append('dateFilter', 'range');
+        if (pathologyTxAppliedFilter.startDate) params.append('startDate', pathologyTxAppliedFilter.startDate);
+        if (pathologyTxAppliedFilter.endDate) params.append('endDate', pathologyTxAppliedFilter.endDate);
+      } else {
+        params.append('dateFilter', pathologyTxAppliedFilter.preset || pathologyTxDatePreset || 'today');
+      }
+      const activeBranch = pathologyTxBranch !== 'All' ? pathologyTxBranch : selectedBranch;
+      if (activeBranch && activeBranch !== 'All') params.append('branch', activeBranch);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const data = await api(`/pathology/transactions${qs}`, { token });
+      setPathologyTxData(data || { summary: {}, transactions: [] });
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load pathology transactions.');
+    } finally {
+      setPathologyTxLoading(false);
+    }
+  }, [token, pathologyTxAppliedFilter, pathologyTxDatePreset, pathologyTxBranch, selectedBranch]);
+
+  // Pathology Transaction Filter Handlers
+  const handlePathologyQuickFilter = useCallback((val) => {
+    const labels = { today: 'Today', yesterday: 'Yesterday', this_week: 'This Week', last_week: 'Last Week', all: 'All Records' };
+    setPathologyTxDatePreset(val);
+    setPathologyTxFilterMode('quick');
+    setPathologyTxAppliedFilter({
+      type: 'quick',
+      preset: val,
+      singleDate: '',
+      startDate: '',
+      endDate: '',
+      label: labels[val] || val
+    });
+  }, []);
+
+  const handlePathologyApplySingleDate = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (!pathologyTxDraftSingleDate) return;
+    setPathologyTxAppliedFilter({
+      type: 'single',
+      preset: 'single',
+      singleDate: pathologyTxDraftSingleDate,
+      startDate: '',
+      endDate: '',
+      label: `Single Date: ${pathologyTxDraftSingleDate}`
+    });
+  }, [pathologyTxDraftSingleDate]);
+
+  const handlePathologyApplyRange = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (!pathologyTxDraftStartDate && !pathologyTxDraftEndDate) return;
+    setPathologyTxAppliedFilter({
+      type: 'range',
+      preset: 'range',
+      singleDate: '',
+      startDate: pathologyTxDraftStartDate,
+      endDate: pathologyTxDraftEndDate,
+      label: `Range: ${pathologyTxDraftStartDate || 'Start'} → ${pathologyTxDraftEndDate || 'End'}`
+    });
+  }, [pathologyTxDraftStartDate, pathologyTxDraftEndDate]);
+
+  const handlePathologyResetFilter = useCallback(() => {
+    setPathologyTxFilterMode('quick');
+    setPathologyTxDatePreset('all');
+    setPathologyTxDraftSingleDate('');
+    setPathologyTxDraftStartDate('');
+    setPathologyTxDraftEndDate('');
+    setPathologyTxAppliedFilter({
+      type: 'quick',
+      preset: 'all',
+      singleDate: '',
+      startDate: '',
+      endDate: '',
+      label: 'All Records'
+    });
+  }, []);
+
   // ── RADIOLOGY DATA LOADER ─────────────────────────────────────────
   const loadRadiologyData = useCallback(async () => {
     try {
@@ -849,6 +977,90 @@ export default function AdminReportTransactionManagementPage() {
     }
   }, [token, radiologyDateFilter, selectedBranch]);
 
+  // ── RADIOLOGY TRANSACTIONS LOADER ─────────────────────────────────
+  const loadRadiologyTransactions = useCallback(async () => {
+    try {
+      setRadiologyTxLoading(true);
+      const params = new URLSearchParams();
+      if (radiologyTxAppliedFilter.type === 'single') {
+        params.append('dateFilter', 'single');
+        if (radiologyTxAppliedFilter.singleDate) params.append('singleDate', radiologyTxAppliedFilter.singleDate);
+      } else if (radiologyTxAppliedFilter.type === 'range') {
+        params.append('dateFilter', 'range');
+        if (radiologyTxAppliedFilter.startDate) params.append('startDate', radiologyTxAppliedFilter.startDate);
+        if (radiologyTxAppliedFilter.endDate) params.append('endDate', radiologyTxAppliedFilter.endDate);
+      } else {
+        params.append('dateFilter', radiologyTxAppliedFilter.preset || radiologyTxDatePreset || 'today');
+      }
+      const activeBranch = radiologyTxBranch !== 'All' ? radiologyTxBranch : selectedBranch;
+      if (activeBranch && activeBranch !== 'All') params.append('branch', activeBranch);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const data = await api(`/radiology/transactions${qs}`, { token });
+      setRadiologyTxData(data || { summary: {}, transactions: [] });
+    } catch (e) {
+      if (!isSilentNetworkError(e)) setError(e.message || 'Failed to load radiology transactions.');
+    } finally {
+      setRadiologyTxLoading(false);
+    }
+  }, [token, radiologyTxAppliedFilter, radiologyTxDatePreset, radiologyTxBranch, selectedBranch]);
+
+  // Radiology Transaction Filter Handlers
+  const handleRadiologyQuickFilter = useCallback((val) => {
+    const labels = { today: 'Today', yesterday: 'Yesterday', this_week: 'This Week', last_week: 'Last Week', all: 'All Records' };
+    setRadiologyTxDatePreset(val);
+    setRadiologyTxFilterMode('quick');
+    setRadiologyTxAppliedFilter({
+      type: 'quick',
+      preset: val,
+      singleDate: '',
+      startDate: '',
+      endDate: '',
+      label: labels[val] || val
+    });
+  }, []);
+
+  const handleRadiologyApplySingleDate = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (!radiologyTxDraftSingleDate) return;
+    setRadiologyTxAppliedFilter({
+      type: 'single',
+      preset: 'single',
+      singleDate: radiologyTxDraftSingleDate,
+      startDate: '',
+      endDate: '',
+      label: `Single Date: ${radiologyTxDraftSingleDate}`
+    });
+  }, [radiologyTxDraftSingleDate]);
+
+  const handleRadiologyApplyRange = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (!radiologyTxDraftStartDate && !radiologyTxDraftEndDate) return;
+    setRadiologyTxAppliedFilter({
+      type: 'range',
+      preset: 'range',
+      singleDate: '',
+      startDate: radiologyTxDraftStartDate,
+      endDate: radiologyTxDraftEndDate,
+      label: `Range: ${radiologyTxDraftStartDate || 'Start'} → ${radiologyTxDraftEndDate || 'End'}`
+    });
+  }, [radiologyTxDraftStartDate, radiologyTxDraftEndDate]);
+
+  const handleRadiologyResetFilter = useCallback(() => {
+    setRadiologyTxFilterMode('quick');
+    setRadiologyTxDatePreset('all');
+    setRadiologyTxDraftSingleDate('');
+    setRadiologyTxDraftStartDate('');
+    setRadiologyTxDraftEndDate('');
+    setRadiologyTxAppliedFilter({
+      type: 'quick',
+      preset: 'all',
+      singleDate: '',
+      startDate: '',
+      endDate: '',
+      label: 'All Records'
+    });
+  }, []);
+
   // Global load trigger
   const loadAll = useCallback(() => {
     loadQueue();
@@ -859,12 +1071,23 @@ export default function AdminReportTransactionManagementPage() {
     loadTransactions();
     loadReceptionData();
     loadPathologyData();
+    loadPathologyTransactions();
     loadRadiologyData();
-  }, [loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions, loadReceptionData, loadPathologyData, loadRadiologyData]);
+    loadRadiologyTransactions();
+  }, [loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions, loadReceptionData, loadPathologyData, loadPathologyTransactions, loadRadiologyData, loadRadiologyTransactions]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Reload department transactions when specific filters change
+  useEffect(() => {
+    loadPathologyTransactions();
+  }, [loadPathologyTransactions]);
+
+  useEffect(() => {
+    loadRadiologyTransactions();
+  }, [loadRadiologyTransactions]);
 
   // Real-time synchronization
   useEffect(() => {
@@ -885,12 +1108,16 @@ export default function AdminReportTransactionManagementPage() {
       loadQueue();
       loadTransactions();
       loadReceptionData();
+      loadPathologyTransactions();
+      loadRadiologyTransactions();
     };
     const handlePathologySync = () => {
       loadPathologyData();
+      loadPathologyTransactions();
     };
     const handleRadiologySync = () => {
       loadRadiologyData();
+      loadRadiologyTransactions();
     };
 
     subscribe('collection:change', handleCollectionSync);
@@ -908,14 +1135,19 @@ export default function AdminReportTransactionManagementPage() {
       unsubscribe('pathology:change', handlePathologySync);
       unsubscribe('radiology:change', handleRadiologySync);
     };
-  }, [subscribe, unsubscribe, loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions, loadReceptionData, loadPathologyData, loadRadiologyData]);
+  }, [subscribe, unsubscribe, loadQueue, loadTransfers, loadInvestigation, loadReports, loadCleared, loadTransactions, loadReceptionData, loadPathologyData, loadPathologyTransactions, loadRadiologyData, loadRadiologyTransactions]);
 
   // Switcher sync effect
   useEffect(() => {
     if (activeDepartment === 'reception') loadReceptionData();
-    else if (activeDepartment === 'pathology') loadPathologyData();
-    else if (activeDepartment === 'radiology') loadRadiologyData();
-  }, [activeDepartment, loadReceptionData, loadPathologyData, loadRadiologyData]);
+    else if (activeDepartment === 'pathology') {
+      loadPathologyData();
+      loadPathologyTransactions();
+    } else if (activeDepartment === 'radiology') {
+      loadRadiologyData();
+      loadRadiologyTransactions();
+    }
+  }, [activeDepartment, loadReceptionData, loadPathologyData, loadPathologyTransactions, loadRadiologyData, loadRadiologyTransactions]);
 
   // ── RECEPTION POS & WAITING HELPERS ────────────────────────────────
   const allAvailableTests = useMemo(() => {
@@ -1570,10 +1802,20 @@ export default function AdminReportTransactionManagementPage() {
     }
   };
 
-  // ── FILTERED CASES FOR PATHOLOGY & RADIOLOGY ─────────────────────
-  const filteredPathologyCases = useMemo(() => {
+  // ── FILTERED CASES & TRANSACTIONS FOR PATHOLOGY ─────────────────
+  const pathologyPendingCount = useMemo(() => {
+    return pathologyQueue.filter(c => ['Queued', 'In Progress'].includes(c.status)).length;
+  }, [pathologyQueue]);
+
+  const pathologyApprovedCount = useMemo(() => {
+    return pathologyQueue.filter(c => ['Approved', 'Ready for Printing'].includes(c.status)).length;
+  }, [pathologyQueue]);
+
+  // Current Queue strictly pending
+  const pendingPathologyCases = useMemo(() => {
     return pathologyQueue.filter(c => {
       if (!c) return false;
+      if (!['Queued', 'In Progress'].includes(c.status)) return false;
       if (pathologyStatusFilter !== 'all' && c.status !== pathologyStatusFilter) return false;
       if (pathologySearch.trim()) {
         const s = pathologySearch.trim().toLowerCase();
@@ -1590,9 +1832,59 @@ export default function AdminReportTransactionManagementPage() {
     });
   }, [pathologyQueue, pathologyStatusFilter, pathologySearch]);
 
-  const filteredRadiologyCases = useMemo(() => {
+  const filteredPathologyCases = pendingPathologyCases;
+
+  // Approved Reports
+  const approvedPathologyCases = useMemo(() => {
+    return pathologyQueue.filter(c => {
+      if (!c) return false;
+      if (!['Approved', 'Ready for Printing'].includes(c.status)) return false;
+      if (pathologyApprovedBranchFilter !== 'All' && c.branchName !== pathologyApprovedBranchFilter) return false;
+      if (pathologyApprovedSearch.trim()) {
+        const s = pathologyApprovedSearch.trim().toLowerCase();
+        const p = c.patient || {};
+        const match =
+          (p.name && p.name.toLowerCase().includes(s)) ||
+          (p.patientId && p.patientId.toLowerCase().includes(s)) ||
+          (c.caseNumber && c.caseNumber.toLowerCase().includes(s)) ||
+          (c.testType && c.testType.toLowerCase().includes(s)) ||
+          (c.branchName && c.branchName.toLowerCase().includes(s));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [pathologyQueue, pathologyApprovedBranchFilter, pathologyApprovedSearch]);
+
+  // Filtered Pathology Transactions
+  const filteredPathologyTx = useMemo(() => {
+    const list = pathologyTxData?.transactions || [];
+    if (!pathologyTxSearch.trim()) return list;
+    const s = pathologyTxSearch.trim().toLowerCase();
+    return list.filter(tx => {
+      return (
+        (tx.patientName && tx.patientName.toLowerCase().includes(s)) ||
+        (tx.patientId && tx.patientId.toLowerCase().includes(s)) ||
+        (tx.receiptNumber && tx.receiptNumber.toLowerCase().includes(s)) ||
+        (tx.tests && tx.tests.toLowerCase().includes(s)) ||
+        (tx.paymentMethod && tx.paymentMethod.toLowerCase().includes(s))
+      );
+    });
+  }, [pathologyTxData, pathologyTxSearch]);
+
+  // ── FILTERED CASES & TRANSACTIONS FOR RADIOLOGY ─────────────────
+  const radiologyPendingCount = useMemo(() => {
+    return radiologyQueue.filter(c => ['Queued', 'In Progress'].includes(c.status)).length;
+  }, [radiologyQueue]);
+
+  const radiologyApprovedCount = useMemo(() => {
+    return radiologyQueue.filter(c => ['Approved', 'Ready for Printing'].includes(c.status)).length;
+  }, [radiologyQueue]);
+
+  // Current Queue strictly pending
+  const pendingRadiologyCases = useMemo(() => {
     return radiologyQueue.filter(c => {
       if (!c) return false;
+      if (!['Queued', 'In Progress'].includes(c.status)) return false;
       if (radiologyStatusFilter !== 'all' && c.status !== radiologyStatusFilter) return false;
       if (radiologySearch.trim()) {
         const s = radiologySearch.trim().toLowerCase();
@@ -1609,6 +1901,83 @@ export default function AdminReportTransactionManagementPage() {
       return true;
     });
   }, [radiologyQueue, radiologyStatusFilter, radiologySearch]);
+
+  const filteredRadiologyCases = pendingRadiologyCases;
+
+  // Approved Reports
+  const approvedRadiologyCases = useMemo(() => {
+    return radiologyQueue.filter(c => {
+      if (!c) return false;
+      if (!['Approved', 'Ready for Printing'].includes(c.status)) return false;
+      if (radiologyApprovedBranchFilter !== 'All' && c.branchName !== radiologyApprovedBranchFilter) return false;
+      if (radiologyApprovedSearch.trim()) {
+        const s = radiologyApprovedSearch.trim().toLowerCase();
+        const p = c.patient || {};
+        const match =
+          (p.name && p.name.toLowerCase().includes(s)) ||
+          (p.patientId && p.patientId.toLowerCase().includes(s)) ||
+          (c.caseNumber && c.caseNumber.toLowerCase().includes(s)) ||
+          (c.examinationType && c.examinationType.toLowerCase().includes(s)) ||
+          (c.ultrasoundSubtype && c.ultrasoundSubtype.toLowerCase().includes(s)) ||
+          (c.branchName && c.branchName.toLowerCase().includes(s));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [radiologyQueue, radiologyApprovedBranchFilter, radiologyApprovedSearch]);
+
+  // Filtered Radiology Transactions
+  const filteredRadiologyTx = useMemo(() => {
+    const list = radiologyTxData?.transactions || [];
+    if (!radiologyTxSearch.trim()) return list;
+    const s = radiologyTxSearch.trim().toLowerCase();
+    return list.filter(tx => {
+      return (
+        (tx.patientName && tx.patientName.toLowerCase().includes(s)) ||
+        (tx.patientId && tx.patientId.toLowerCase().includes(s)) ||
+        (tx.receiptNumber && tx.receiptNumber.toLowerCase().includes(s)) ||
+        (tx.tests && tx.tests.toLowerCase().includes(s)) ||
+        (tx.paymentMethod && tx.paymentMethod.toLowerCase().includes(s))
+      );
+    });
+  }, [radiologyTxData, radiologyTxSearch]);
+
+  // Print & Preview Handlers for Approved Cases
+  const handlePreviewApprovedPathology = useCallback((c) => {
+    setSelectedPathologyCase(c);
+    setPathologyReportType(c.reportType || 'Option A');
+    setPathologyReportContent(c.reportContent || '');
+    if (c.structuredReport) setPathologyStructured(c.structuredReport);
+    if (c.templateReport) setPathologyTemplateReport(c.templateReport);
+    setPathologyPreviewOpen(true);
+  }, []);
+
+  const handlePrintApprovedPathology = useCallback((c) => {
+    printLabReport({
+      ...c,
+      pathologist: c.pathologist || c.approvedBy || user,
+      approvedBy: c.approvedBy || user,
+      approvedDate: c.approvedAt || c.updatedAt || new Date()
+    }, { showFooter: true, brandingLogo: labLogo });
+  }, [user]);
+
+  const handlePreviewApprovedRadiology = useCallback((c) => {
+    setSelectedRadiologyCase(c);
+    setRadiologyReportType(c.reportType || 'Option A');
+    setRadiologyReportContent(c.reportContent || '');
+    if (c.structuredReport) setRadiologyStructured(c.structuredReport);
+    if (c.templateReport) setRadiologyTemplateReport(c.templateReport);
+    setRadiologyPreviewOpen(true);
+  }, []);
+
+  const handlePrintApprovedRadiology = useCallback((c) => {
+    printLabReport({
+      ...c,
+      radiologist: c.radiologist || c.approvedBy || user,
+      approvedBy: c.approvedBy || user,
+      approvedDate: c.approvedAt || c.updatedAt || new Date()
+    }, { showFooter: true, brandingLogo: labLogo });
+  }, [user]);
 
   const filteredWaitingPayment = useMemo(() => {
     return receptionWaitingList.filter(p => {
@@ -4992,7 +5361,9 @@ export default function AdminReportTransactionManagementPage() {
           {/* Pathology Sub-Tabs Bar */}
           <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
             {[
-              ['queue', `📋 Patient Queue (${pathologyActiveCount})`],
+              ['queue', `📋 Current Queue (Pending: ${pathologyPendingCount})`],
+              ['approved', `📝 Approved Reports (${pathologyApprovedCount})`],
+              ['transactions', '💰 Transaction Dashboard'],
               ['optionA', '📝 Option A: Specialist Report (Paste / Word)'],
               ['optionB', '🧪 Option B: Structured Findings'],
               ['optionC', '📚 Option C: Standardized Templates']
@@ -5014,7 +5385,7 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>🔬</div>
               <div className="collector-metric-info">
                 <h3>Active Worklist</h3>
-                <p className="collector-metric-num">{pathologyActiveCount}</p>
+                <p className="collector-metric-num">{pathologyPendingCount}</p>
                 <small style={{ color: '#94a3b8' }}>Total pending cases</small>
               </div>
             </div>
@@ -5023,7 +5394,7 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>🧪</div>
               <div className="collector-metric-info">
                 <h3>Biopsy Cases</h3>
-                <p className="collector-metric-num">{pathologyQueue.filter(c => c.testType === 'Biopsy').length}</p>
+                <p className="collector-metric-num">{pathologyQueue.filter(c => c.testType === 'Biopsy' && ['Queued', 'In Progress'].includes(c.status)).length}</p>
                 <small style={{ color: '#94a3b8' }}>20-day turnaround target</small>
               </div>
             </div>
@@ -5032,7 +5403,7 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>💉</div>
               <div className="collector-metric-info">
                 <h3>FNAC Cases</h3>
-                <p className="collector-metric-num">{pathologyQueue.filter(c => c.testType === 'FNAC').length}</p>
+                <p className="collector-metric-num">{pathologyQueue.filter(c => c.testType === 'FNAC' && ['Queued', 'In Progress'].includes(c.status)).length}</p>
                 <small style={{ color: '#94a3b8' }}>Aspiration cytology</small>
               </div>
             </div>
@@ -5040,22 +5411,33 @@ export default function AdminReportTransactionManagementPage() {
             <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
               <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>✅</div>
               <div className="collector-metric-info">
-                <h3>Approved / Cleared</h3>
+                <h3>Approved Reports</h3>
                 <p className="collector-metric-num" style={{ color: '#10b981' }}>
-                  {pathologyQueue.filter(c => ['Approved', 'Ready for Printing'].includes(c.status)).length}
+                  {pathologyApprovedCount}
                 </p>
-                <small style={{ color: '#94a3b8' }}>Completed cases</small>
+                <small style={{ color: '#94a3b8' }}>Finalized cases</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>💰</div>
+              <div className="collector-metric-info">
+                <h3>Pathology Revenue</h3>
+                <p className="collector-metric-num" style={{ color: '#f59e0b' }}>
+                  {formatETB(pathologyTxData?.summary?.totalIncome || 0)}
+                </p>
+                <small style={{ color: '#94a3b8' }}>{pathologyTxData?.summary?.transactionCount || 0} transactions (net)</small>
               </div>
             </div>
           </div>
 
-          {/* Sub-tab 1: Patient Worklist Queue */}
+          {/* Sub-tab 1: Patient Worklist Queue (Strictly Pending) */}
           {pathologySubTab === 'queue' && (
             <section className="collector-queue" style={{ padding: '1.25rem' }}>
               <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
                 <div>
                   <p className="eyebrow" style={{ margin: 0 }}>Histopathology & Cytology Cases</p>
-                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Pathology Patient Worklist (Cross-Branch)</h2>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Pathology Current Pending Queue (Cross-Branch)</h2>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
@@ -5098,10 +5480,9 @@ export default function AdminReportTransactionManagementPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Status:</span>
                   {[
-                    ['all', 'All'],
+                    ['all', 'All Pending'],
                     ['Queued', 'Queued'],
-                    ['In Progress', 'In Progress'],
-                    ['Approved', 'Approved']
+                    ['In Progress', 'In Progress']
                   ].map(([val, label]) => (
                     <button
                       key={val}
@@ -5230,6 +5611,592 @@ export default function AdminReportTransactionManagementPage() {
                       );
                     })}
                   </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab: Approved Pathology Reports */}
+          {pathologySubTab === 'approved' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Finalized & Authorized Cases</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Approved Pathology Reports (Read-Only / Preview & Print)</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadPathologyData}
+                    disabled={pathologyLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh Approved
+                  </button>
+                </div>
+              </header>
+
+              {/* Filters Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.4)', padding: '10px', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>📍 Branch:</span>
+                  {['All', 'Main', 'Otona'].map(b => (
+                    <button
+                      key={b}
+                      type="button"
+                      className={pathologyApprovedBranchFilter === b ? 'primary' : 'secondary'}
+                      onClick={() => setPathologyApprovedBranchFilter(b)}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px' }}
+                    >
+                      {b === 'All' ? 'All Branches' : `${b} Branch`}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search approved reports by patient, ID, case #…"
+                    value={pathologyApprovedSearch}
+                    onChange={e => setPathologyApprovedSearch(e.target.value)}
+                    style={{ minWidth: '260px', padding: '6px 10px', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Approved Cards List */}
+              <div>
+                {pathologyLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading approved pathology reports…</strong>
+                  </div>
+                ) : approvedPathologyCases.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>📝</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Approved Pathology Reports Found</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      Finalized biopsy, FNAC, or peripheral morphology reports will appear here for preview and printing.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {approvedPathologyCases.map(c => {
+                      const isBiopsy = c.testType === 'Biopsy';
+                      const approverName = c.approvedBy?.fullName || c.pathologist?.fullName || 'Authorized Specialist';
+                      const approvedTime = c.approvedAt ? new Date(c.approvedAt).toLocaleString() : 'Recently';
+
+                      return (
+                        <div
+                          key={c._id}
+                          className="clinical-patient-case-card"
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '14px 18px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ minWidth: '220px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{c.patient?.name || 'Unknown Patient'}</strong>
+                              <span style={{ fontSize: '0.74rem', background: isBiopsy ? 'rgba(239, 68, 68, 0.2)' : 'rgba(139, 92, 246, 0.2)', color: isBiopsy ? '#f87171' : '#c084fc', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>
+                                {c.testType}
+                              </span>
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 6px', borderRadius: '8px', fontWeight: 700 }}>
+                                ✅ Finalized
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                              <span>{c.patient?.patientId}</span> · <span>{c.patient?.age} YRS / {c.patient?.sex}</span> · <span style={{ color: '#38bdf8' }}>📍 {c.branchName} Branch</span> · <span>Approved by: {approverName}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ minWidth: '140px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Report Format</small>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#e2e8f0' }}>{c.reportType || 'Option A'}</span>
+                          </div>
+
+                          <div style={{ minWidth: '160px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Approval Date</small>
+                            <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>📅 {approvedTime}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => handlePreviewApprovedPathology(c)}
+                              style={{ fontSize: '0.82rem', padding: '6px 12px', borderRadius: '8px' }}
+                              title="Preview Final Authorized Report"
+                            >
+                              👁️ Preview
+                            </button>
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => handlePrintApprovedPathology(c)}
+                              style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                              title="Print A4 Clinical Pathology Report"
+                            >
+                              🖨️ Print A4
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab: Pathology Transaction & Income Dashboard */}
+          {pathologySubTab === 'transactions' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1.25rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Revenue & Income Auditing</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Pathology Department Transaction Dashboard</h2>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                    Direct test-level revenue calculation for Biopsy, FNAC, and Morphology tests with proportional discount attribution.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadPathologyTransactions}
+                    disabled={pathologyTxLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh Transactions
+                  </button>
+                </div>
+              </header>
+
+              {/* Department Financial KPIs */}
+              <div className="collector-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>💵</div>
+                  <div className="collector-metric-info">
+                    <h3>Net Pathology Revenue</h3>
+                    <p className="collector-metric-num" style={{ color: '#10b981' }}>
+                      {formatETB(pathologyTxData?.summary?.totalIncome || 0)}
+                    </p>
+                    <small style={{ color: '#94a3b8' }}>Gross: {formatETB(pathologyTxData?.summary?.totalGross || 0)}</small>
+                  </div>
+                </div>
+
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #0284c7' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>🧾</div>
+                  <div className="collector-metric-info">
+                    <h3>Total Transactions</h3>
+                    <p className="collector-metric-num">{pathologyTxData?.summary?.transactionCount || 0}</p>
+                    <small style={{ color: '#94a3b8' }}>Discounts: {formatETB(pathologyTxData?.summary?.totalDiscount || 0)}</small>
+                  </div>
+                </div>
+
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>✅</div>
+                  <div className="collector-metric-info">
+                    <h3>Paid Amount</h3>
+                    <p className="collector-metric-num">{formatETB(pathologyTxData?.summary?.paidAmount || 0)}</p>
+                    <small style={{ color: '#94a3b8' }}>Cleared receipts</small>
+                  </div>
+                </div>
+
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>⏳</div>
+                  <div className="collector-metric-info">
+                    <h3>Pending Payment</h3>
+                    <p className="collector-metric-num" style={{ color: '#f59e0b' }}>
+                      {formatETB(pathologyTxData?.summary?.pendingAmount || 0)}
+                    </p>
+                    <small style={{ color: '#94a3b8' }}>Uncollected test fees</small>
+                  </div>
+                </div>
+              </div>
+
+              {/* Test Sub-Category Breakdown Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '1.25rem' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#f87171', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🧪 Biopsy / Histopathology</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(pathologyTxData?.summary?.breakdown?.biopsy?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {pathologyTxData?.summary?.breakdown?.biopsy?.count || 0} tests
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#c084fc', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>💉 FNAC / Cytopathology</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(pathologyTxData?.summary?.breakdown?.fnac?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {pathologyTxData?.summary?.breakdown?.fnac?.count || 0} tests
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🩸 Peripheral Blood Morphology</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(pathologyTxData?.summary?.breakdown?.peripheralMorphology?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {pathologyTxData?.summary?.breakdown?.peripheralMorphology?.count || 0} tests
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(148, 163, 184, 0.2)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🔬 Other Pathology Tests</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(pathologyTxData?.summary?.breakdown?.other?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {pathologyTxData?.summary?.breakdown?.other?.count || 0} tests
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Controls Bar */}
+              <div className="admin-tx-filter-bar" style={{
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.55) 100%)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '12px',
+                padding: '14px',
+                marginBottom: '16px',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)'
+              }}>
+                {/* Row 1: Mode Switcher, Active Filter Tag, and Reset Button */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  marginBottom: '12px',
+                  paddingBottom: '10px',
+                  borderBottom: '1px solid rgba(148, 163, 184, 0.15)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Filter By:
+                    </span>
+                    <div style={{ display: 'inline-flex', background: 'rgba(15, 23, 42, 0.6)', padding: '3px', borderRadius: '20px', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
+                      {[
+                        ['quick', '⚡ Quick Filter'],
+                        ['single', '📅 Single Date'],
+                        ['range', '🗓️ Date Range']
+                      ].map(([m, label]) => (
+                        <button
+                          key={m}
+                          type="button"
+                          className={pathologyTxFilterMode === m ? 'primary' : 'secondary'}
+                          onClick={() => setPathologyTxFilterMode(m)}
+                          style={{
+                            fontSize: '0.78rem',
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            fontWeight: pathologyTxFilterMode === m ? 700 : 500,
+                            cursor: 'pointer',
+                            border: 'none'
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{
+                      fontSize: '0.78rem',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}>
+                      <span>Showing:</span>
+                      <strong>{pathologyTxAppliedFilter.label}</strong>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={handlePathologyResetFilter}
+                      style={{
+                        fontSize: '0.78rem',
+                        padding: '5px 12px',
+                        borderRadius: '16px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: '#cbd5e1'
+                      }}
+                      title="Clear date restriction and show all records"
+                    >
+                      ↺ Reset to All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Row 2: Selected Filter Mode Controls */}
+                <div style={{ marginBottom: '12px' }}>
+                  {pathologyTxFilterMode === 'quick' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600 }}>Quick Filter:</span>
+                      {[
+                        ['today', 'Today'],
+                        ['yesterday', 'Yesterday'],
+                        ['this_week', 'This Week'],
+                        ['last_week', 'Last Week'],
+                        ['all', 'All']
+                      ].map(([val, label]) => {
+                        const isSelected = pathologyTxAppliedFilter.type === 'quick' && pathologyTxAppliedFilter.preset === val;
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            className={isSelected ? 'primary' : 'secondary'}
+                            onClick={() => handlePathologyQuickFilter(val)}
+                            style={{
+                              fontSize: '0.78rem',
+                              padding: '4px 14px',
+                              borderRadius: '14px',
+                              cursor: 'pointer',
+                              fontWeight: isSelected ? 700 : 500
+                            }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {pathologyTxFilterMode === 'single' && (
+                    <form
+                      onSubmit={handlePathologyApplySingleDate}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+                    >
+                      <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Select Date:</span>
+                        <input
+                          type="date"
+                          value={pathologyTxDraftSingleDate}
+                          onChange={e => setPathologyTxDraftSingleDate(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.82rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--input-border, #2d3e5b)',
+                            background: 'var(--input-bg, #0d1626)',
+                            color: 'var(--input-color, #ffffff)',
+                            outline: 'none'
+                          }}
+                          required
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        className="primary"
+                        style={{ fontSize: '0.8rem', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        ✓ Apply
+                      </button>
+                    </form>
+                  )}
+
+                  {pathologyTxFilterMode === 'range' && (
+                    <form
+                      onSubmit={handlePathologyApplyRange}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+                    >
+                      <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Start Date:</span>
+                        <input
+                          type="date"
+                          value={pathologyTxDraftStartDate}
+                          onChange={e => setPathologyTxDraftStartDate(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.82rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--input-border, #2d3e5b)',
+                            background: 'var(--input-bg, #0d1626)',
+                            color: 'var(--input-color, #ffffff)',
+                            outline: 'none'
+                          }}
+                          required
+                        />
+                      </label>
+                      <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>→</span>
+                      <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>End Date:</span>
+                        <input
+                          type="date"
+                          value={pathologyTxDraftEndDate}
+                          onChange={e => setPathologyTxDraftEndDate(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.82rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--input-border, #2d3e5b)',
+                            background: 'var(--input-bg, #0d1626)',
+                            color: 'var(--input-color, #ffffff)',
+                            outline: 'none'
+                          }}
+                          required
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        className="primary"
+                        style={{ fontSize: '0.8rem', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        ✓ Apply
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Row 3: Branch Selection & Search */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid rgba(148, 163, 184, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>📍 Branch:</span>
+                    {['All', 'Main', 'Otona'].map(b => (
+                      <button
+                        key={b}
+                        type="button"
+                        className={pathologyTxBranch === b ? 'primary' : 'secondary'}
+                        onClick={() => setPathologyTxBranch(b)}
+                        style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px', cursor: 'pointer' }}
+                      >
+                        {b === 'All' ? 'All Branches' : `${b} Branch`}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ flex: '1 1 240px', maxWidth: '380px' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Search transactions, patient, ID, receipt…"
+                      value={pathologyTxSearch}
+                      onChange={e => setPathologyTxSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        fontSize: '0.82rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--input-border, #2d3e5b)',
+                        background: 'var(--input-bg, #0d1626)',
+                        color: 'var(--input-color, #ffffff)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Data Table */}
+              <div style={{ overflowX: 'auto', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '10px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                {pathologyTxLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading pathology transactions…</strong>
+                  </div>
+                ) : filteredPathologyTx.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>💰</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Pathology Transactions Found</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      No pathology orders or payments match the selected date range and branch filters.
+                    </p>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(30, 41, 59, 0.8)', borderBottom: '1px solid rgba(148, 163, 184, 0.2)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 14px' }}>Date</th>
+                        <th style={{ padding: '10px 14px' }}>Patient</th>
+                        <th style={{ padding: '10px 14px' }}>Receipt #</th>
+                        <th style={{ padding: '10px 14px' }}>Pathology Tests</th>
+                        <th style={{ padding: '10px 14px' }}>Branch</th>
+                        <th style={{ padding: '10px 14px' }}>Fee (Gross)</th>
+                        <th style={{ padding: '10px 14px' }}>Discount</th>
+                        <th style={{ padding: '10px 14px' }}>Net Revenue</th>
+                        <th style={{ padding: '10px 14px' }}>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPathologyTx.map(tx => (
+                        <tr key={tx._id || tx.receiptNumber} style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#cbd5e1' }}>
+                            {tx.date ? new Date(tx.date).toLocaleDateString() : '—'}
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <strong style={{ color: '#f8fafc' }}>{tx.patientName}</strong>
+                            <div style={{ fontSize: '0.76rem', color: '#94a3b8' }}>{tx.patientId}</div>
+                          </td>
+                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#38bdf8' }}>
+                            {tx.receiptNumber}
+                          </td>
+                          <td style={{ padding: '10px 14px', maxWidth: '240px', color: '#e2e8f0' }}>
+                            {tx.tests}
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px' }}>
+                              📍 {tx.branchName}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#94a3b8' }}>
+                            {formatETB(tx.grossAmount || 0)}
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: tx.discountPercent > 0 ? '#f59e0b' : '#94a3b8' }}>
+                            {tx.discountPercent > 0 ? `${tx.discountPercent}% (-${formatETB(tx.discountAmount || 0)})` : '0%'}
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            <strong style={{ color: '#10b981' }}>{formatETB(tx.netAmount || 0)}</strong>
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '10px' }}>
+                              {tx.paymentMethod || 'Cash'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </section>
@@ -5678,7 +6645,9 @@ export default function AdminReportTransactionManagementPage() {
           {/* Radiology Sub-Tabs Bar */}
           <div className="reception-tabs" style={{ marginBottom: '1.25rem' }}>
             {[
-              ['queue', `📋 Patient Queue (${radiologyActiveCount})`],
+              ['queue', `📋 Current Queue (Pending: ${radiologyPendingCount})`],
+              ['approved', `📝 Approved Reports (${radiologyApprovedCount})`],
+              ['transactions', '💰 Transaction Dashboard'],
               ['optionA', '📝 Option A: Specialist Report (Paste / Word)'],
               ['optionB', '🫁 Option B: Structured Organ Findings'],
               ['optionC', '📚 Option C: Standardized Templates (MRI / CT / US)']
@@ -5700,7 +6669,7 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>🩻</div>
               <div className="collector-metric-info">
                 <h3>Active Worklist</h3>
-                <p className="collector-metric-num">{radiologyActiveCount}</p>
+                <p className="collector-metric-num">{radiologyPendingCount}</p>
                 <small style={{ color: '#94a3b8' }}>Total pending exams</small>
               </div>
             </div>
@@ -5709,7 +6678,7 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>🔊</div>
               <div className="collector-metric-info">
                 <h3>Ultrasound Cases</h3>
-                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'Ultrasound').length}</p>
+                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'Ultrasound' && ['Queued', 'In Progress'].includes(c.status)).length}</p>
                 <small style={{ color: '#94a3b8' }}>Abdominal, pelvic, obstetric</small>
               </div>
             </div>
@@ -5718,7 +6687,7 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>🍩</div>
               <div className="collector-metric-info">
                 <h3>CT Scan Cases</h3>
-                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'CT Scan').length}</p>
+                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'CT Scan' && ['Queued', 'In Progress'].includes(c.status)).length}</p>
                 <small style={{ color: '#94a3b8' }}>Brain, chest, abdomen</small>
               </div>
             </div>
@@ -5727,19 +6696,41 @@ export default function AdminReportTransactionManagementPage() {
               <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>🧲</div>
               <div className="collector-metric-info">
                 <h3>MRI Cases</h3>
-                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'MRI').length}</p>
+                <p className="collector-metric-num">{radiologyQueue.filter(c => c.examinationType === 'MRI' && ['Queued', 'In Progress'].includes(c.status)).length}</p>
                 <small style={{ color: '#94a3b8' }}>Magnetic resonance imaging</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>✅</div>
+              <div className="collector-metric-info">
+                <h3>Approved Reports</h3>
+                <p className="collector-metric-num" style={{ color: '#10b981' }}>
+                  {radiologyApprovedCount}
+                </p>
+                <small style={{ color: '#94a3b8' }}>Finalized cases</small>
+              </div>
+            </div>
+
+            <div className="collector-metric-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>💰</div>
+              <div className="collector-metric-info">
+                <h3>Radiology Revenue</h3>
+                <p className="collector-metric-num" style={{ color: '#f59e0b' }}>
+                  {formatETB(radiologyTxData?.summary?.totalIncome || 0)}
+                </p>
+                <small style={{ color: '#94a3b8' }}>{radiologyTxData?.summary?.transactionCount || 0} transactions (net)</small>
               </div>
             </div>
           </div>
 
-          {/* Sub-tab 1: Patient Worklist Queue */}
+          {/* Sub-tab 1: Patient Worklist Queue (Strictly Pending) */}
           {radiologySubTab === 'queue' && (
             <section className="collector-queue" style={{ padding: '1.25rem' }}>
               <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
                 <div>
                   <p className="eyebrow" style={{ margin: 0 }}>Diagnostic Imaging Cases</p>
-                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Radiology Patient Worklist (Cross-Branch)</h2>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Radiology Current Pending Queue (Cross-Branch)</h2>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
@@ -5780,10 +6771,9 @@ export default function AdminReportTransactionManagementPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Status:</span>
                   {[
-                    ['all', 'All'],
+                    ['all', 'All Pending'],
                     ['Queued', 'Queued'],
-                    ['In Progress', 'In Progress'],
-                    ['Approved', 'Approved']
+                    ['In Progress', 'In Progress']
                   ].map(([val, label]) => (
                     <button
                       key={val}
@@ -5911,6 +6901,603 @@ export default function AdminReportTransactionManagementPage() {
                       );
                     })}
                   </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab: Approved Radiology Reports */}
+          {radiologySubTab === 'approved' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Finalized & Authorized Cases</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Approved Radiology Reports (Read-Only / Preview & Print)</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadRadiologyData}
+                    disabled={radiologyLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh Approved
+                  </button>
+                </div>
+              </header>
+
+              {/* Filters Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.4)', padding: '10px', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>📍 Branch:</span>
+                  {['All', 'Main', 'Otona'].map(b => (
+                    <button
+                      key={b}
+                      type="button"
+                      className={radiologyApprovedBranchFilter === b ? 'primary' : 'secondary'}
+                      onClick={() => setRadiologyApprovedBranchFilter(b)}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px' }}
+                    >
+                      {b === 'All' ? 'All Branches' : `${b} Branch`}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search approved reports by patient, ID, exam…"
+                    value={radiologyApprovedSearch}
+                    onChange={e => setRadiologyApprovedSearch(e.target.value)}
+                    style={{ minWidth: '260px', padding: '6px 10px', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Approved Cards List */}
+              <div>
+                {radiologyLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading approved radiology reports…</strong>
+                  </div>
+                ) : approvedRadiologyCases.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>📝</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Approved Radiology Reports Found</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      Finalized Ultrasound, CT Scan, MRI, or X-Ray reports will appear here for preview and printing.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {approvedRadiologyCases.map(c => {
+                      const approverName = c.approvedBy?.fullName || c.radiologist?.fullName || 'Authorized Specialist';
+                      const approvedTime = c.approvedAt ? new Date(c.approvedAt).toLocaleString() : 'Recently';
+
+                      return (
+                        <div
+                          key={c._id}
+                          className="clinical-patient-case-card"
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '14px 18px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ minWidth: '220px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{c.patient?.name || 'Unknown Patient'}</strong>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>
+                                {c.customExaminationName || c.examinationType}
+                              </span>
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 6px', borderRadius: '8px', fontWeight: 700 }}>
+                                ✅ Finalized
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                              <span>{c.patient?.patientId}</span> · <span>{c.patient?.age} YRS / {c.patient?.sex}</span> · <span style={{ color: '#38bdf8' }}>📍 {c.branchName} Branch</span> · <span>Approved by: {approverName}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ minWidth: '140px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Report Format</small>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#e2e8f0' }}>{c.reportType || 'Option A'}</span>
+                          </div>
+
+                          <div style={{ minWidth: '160px' }}>
+                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Approval Date</small>
+                            <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>📅 {approvedTime}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => handlePreviewApprovedRadiology(c)}
+                              style={{ fontSize: '0.82rem', padding: '6px 12px', borderRadius: '8px' }}
+                              title="Preview Final Authorized Report"
+                            >
+                              👁️ Preview
+                            </button>
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => handlePrintApprovedRadiology(c)}
+                              style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                              title="Print A4 Clinical Radiology Report"
+                            >
+                              🖨️ Print A4
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab: Radiology Transaction & Income Dashboard */}
+          {radiologySubTab === 'transactions' && (
+            <section className="collector-queue" style={{ padding: '1.25rem' }}>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1.25rem' }}>
+                <div>
+                  <p className="eyebrow" style={{ margin: 0 }}>Revenue & Income Auditing</p>
+                  <h2 style={{ fontSize: '1.25rem', margin: '4px 0 0' }}>Radiology Department Transaction Dashboard</h2>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                    Direct exam-level revenue calculation for Ultrasound, CT Scan, MRI, and X-Ray exams with proportional discount attribution.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadRadiologyTransactions}
+                    disabled={radiologyTxLoading}
+                    style={{ fontSize: '0.85rem', padding: '7px 12px' }}
+                  >
+                    🔄 Refresh Transactions
+                  </button>
+                </div>
+              </header>
+
+              {/* Department Financial KPIs */}
+              <div className="collector-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #10b981' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>💵</div>
+                  <div className="collector-metric-info">
+                    <h3>Net Radiology Revenue</h3>
+                    <p className="collector-metric-num" style={{ color: '#10b981' }}>
+                      {formatETB(radiologyTxData?.summary?.totalIncome || 0)}
+                    </p>
+                    <small style={{ color: '#94a3b8' }}>Gross: {formatETB(radiologyTxData?.summary?.totalGross || 0)}</small>
+                  </div>
+                </div>
+
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #0284c7' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>🧾</div>
+                  <div className="collector-metric-info">
+                    <h3>Total Transactions</h3>
+                    <p className="collector-metric-num">{radiologyTxData?.summary?.transactionCount || 0}</p>
+                    <small style={{ color: '#94a3b8' }}>Discounts: {formatETB(radiologyTxData?.summary?.totalDiscount || 0)}</small>
+                  </div>
+                </div>
+
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>✅</div>
+                  <div className="collector-metric-info">
+                    <h3>Paid Amount</h3>
+                    <p className="collector-metric-num">{formatETB(radiologyTxData?.summary?.paidAmount || 0)}</p>
+                    <small style={{ color: '#94a3b8' }}>Cleared receipts</small>
+                  </div>
+                </div>
+
+                <div className="collector-metric-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+                  <div className="collector-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>⏳</div>
+                  <div className="collector-metric-info">
+                    <h3>Pending Payment</h3>
+                    <p className="collector-metric-num" style={{ color: '#f59e0b' }}>
+                      {formatETB(radiologyTxData?.summary?.pendingAmount || 0)}
+                    </p>
+                    <small style={{ color: '#94a3b8' }}>Uncollected exam fees</small>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modality Breakdown Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '1.25rem' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#34d399', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🔊 Ultrasound / Sonography</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(radiologyTxData?.summary?.breakdown?.ultrasound?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {radiologyTxData?.summary?.breakdown?.ultrasound?.count || 0} exams
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🍩 CT Scan</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(radiologyTxData?.summary?.breakdown?.ctScan?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {radiologyTxData?.summary?.breakdown?.ctScan?.count || 0} exams
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#c084fc', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🧲 MRI</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(radiologyTxData?.summary?.breakdown?.mri?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {radiologyTxData?.summary?.breakdown?.mri?.count || 0} exams
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>🩻 X-Ray / Radiography</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(radiologyTxData?.summary?.breakdown?.xRay?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {radiologyTxData?.summary?.breakdown?.xRay?.count || 0} exams
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(148, 163, 184, 0.2)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <small style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.72rem' }}>📋 Other Exams</small>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>
+                      {formatETB(radiologyTxData?.summary?.breakdown?.other?.revenue || 0)}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {radiologyTxData?.summary?.breakdown?.other?.count || 0} exams
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Controls Bar */}
+              <div className="admin-tx-filter-bar" style={{
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.55) 100%)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '12px',
+                padding: '14px',
+                marginBottom: '16px',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)'
+              }}>
+                {/* Row 1: Mode Switcher, Active Filter Tag, and Reset Button */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  marginBottom: '12px',
+                  paddingBottom: '10px',
+                  borderBottom: '1px solid rgba(148, 163, 184, 0.15)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Filter By:
+                    </span>
+                    <div style={{ display: 'inline-flex', background: 'rgba(15, 23, 42, 0.6)', padding: '3px', borderRadius: '20px', border: '1px solid rgba(148, 163, 184, 0.2)' }}>
+                      {[
+                        ['quick', '⚡ Quick Filter'],
+                        ['single', '📅 Single Date'],
+                        ['range', '🗓️ Date Range']
+                      ].map(([m, label]) => (
+                        <button
+                          key={m}
+                          type="button"
+                          className={radiologyTxFilterMode === m ? 'primary' : 'secondary'}
+                          onClick={() => setRadiologyTxFilterMode(m)}
+                          style={{
+                            fontSize: '0.78rem',
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            fontWeight: radiologyTxFilterMode === m ? 700 : 500,
+                            cursor: 'pointer',
+                            border: 'none'
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{
+                      fontSize: '0.78rem',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}>
+                      <span>Showing:</span>
+                      <strong>{radiologyTxAppliedFilter.label}</strong>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={handleRadiologyResetFilter}
+                      style={{
+                        fontSize: '0.78rem',
+                        padding: '5px 12px',
+                        borderRadius: '16px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: '#cbd5e1'
+                      }}
+                      title="Clear date restriction and show all records"
+                    >
+                      ↺ Reset to All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Row 2: Selected Filter Mode Controls */}
+                <div style={{ marginBottom: '12px' }}>
+                  {radiologyTxFilterMode === 'quick' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600 }}>Quick Filter:</span>
+                      {[
+                        ['today', 'Today'],
+                        ['yesterday', 'Yesterday'],
+                        ['this_week', 'This Week'],
+                        ['last_week', 'Last Week'],
+                        ['all', 'All']
+                      ].map(([val, label]) => {
+                        const isSelected = radiologyTxAppliedFilter.type === 'quick' && radiologyTxAppliedFilter.preset === val;
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            className={isSelected ? 'primary' : 'secondary'}
+                            onClick={() => handleRadiologyQuickFilter(val)}
+                            style={{
+                              fontSize: '0.78rem',
+                              padding: '4px 14px',
+                              borderRadius: '14px',
+                              cursor: 'pointer',
+                              fontWeight: isSelected ? 700 : 500
+                            }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {radiologyTxFilterMode === 'single' && (
+                    <form
+                      onSubmit={handleRadiologyApplySingleDate}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+                    >
+                      <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Select Date:</span>
+                        <input
+                          type="date"
+                          value={radiologyTxDraftSingleDate}
+                          onChange={e => setRadiologyTxDraftSingleDate(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.82rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--input-border, #2d3e5b)',
+                            background: 'var(--input-bg, #0d1626)',
+                            color: 'var(--input-color, #ffffff)',
+                            outline: 'none'
+                          }}
+                          required
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        className="primary"
+                        style={{ fontSize: '0.8rem', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        ✓ Apply
+                      </button>
+                    </form>
+                  )}
+
+                  {radiologyTxFilterMode === 'range' && (
+                    <form
+                      onSubmit={handleRadiologyApplyRange}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+                    >
+                      <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Start Date:</span>
+                        <input
+                          type="date"
+                          value={radiologyTxDraftStartDate}
+                          onChange={e => setRadiologyTxDraftStartDate(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.82rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--input-border, #2d3e5b)',
+                            background: 'var(--input-bg, #0d1626)',
+                            color: 'var(--input-color, #ffffff)',
+                            outline: 'none'
+                          }}
+                          required
+                        />
+                      </label>
+                      <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>→</span>
+                      <label style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>End Date:</span>
+                        <input
+                          type="date"
+                          value={radiologyTxDraftEndDate}
+                          onChange={e => setRadiologyTxDraftEndDate(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.82rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--input-border, #2d3e5b)',
+                            background: 'var(--input-bg, #0d1626)',
+                            color: 'var(--input-color, #ffffff)',
+                            outline: 'none'
+                          }}
+                          required
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        className="primary"
+                        style={{ fontSize: '0.8rem', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        ✓ Apply
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Row 3: Branch Selection & Search */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid rgba(148, 163, 184, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>📍 Branch:</span>
+                    {['All', 'Main', 'Otona'].map(b => (
+                      <button
+                        key={b}
+                        type="button"
+                        className={radiologyTxBranch === b ? 'primary' : 'secondary'}
+                        onClick={() => setRadiologyTxBranch(b)}
+                        style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '14px', cursor: 'pointer' }}
+                      >
+                        {b === 'All' ? 'All Branches' : `${b} Branch`}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ flex: '1 1 240px', maxWidth: '380px' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Search transactions, patient, ID, receipt…"
+                      value={radiologyTxSearch}
+                      onChange={e => setRadiologyTxSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        fontSize: '0.82rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--input-border, #2d3e5b)',
+                        background: 'var(--input-bg, #0d1626)',
+                        color: 'var(--input-color, #ffffff)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Data Table */}
+              <div style={{ overflowX: 'auto', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '10px', border: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                {radiologyTxLoading ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
+                    <strong>Loading radiology transactions…</strong>
+                  </div>
+                ) : filteredRadiologyTx.length === 0 ? (
+                  <div className="clinical-empty-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>💰</div>
+                    <h3 style={{ margin: '0 0 4px', color: '#f8fafc' }}>No Radiology Transactions Found</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                      No radiology orders or payments match the selected date range and branch filters.
+                    </p>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(30, 41, 59, 0.8)', borderBottom: '1px solid rgba(148, 163, 184, 0.2)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 14px' }}>Date</th>
+                        <th style={{ padding: '10px 14px' }}>Patient</th>
+                        <th style={{ padding: '10px 14px' }}>Receipt #</th>
+                        <th style={{ padding: '10px 14px' }}>Radiology Exams</th>
+                        <th style={{ padding: '10px 14px' }}>Branch</th>
+                        <th style={{ padding: '10px 14px' }}>Fee (Gross)</th>
+                        <th style={{ padding: '10px 14px' }}>Discount</th>
+                        <th style={{ padding: '10px 14px' }}>Net Revenue</th>
+                        <th style={{ padding: '10px 14px' }}>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRadiologyTx.map(tx => (
+                        <tr key={tx._id || tx.receiptNumber} style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#cbd5e1' }}>
+                            {tx.date ? new Date(tx.date).toLocaleDateString() : '—'}
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <strong style={{ color: '#f8fafc' }}>{tx.patientName}</strong>
+                            <div style={{ fontSize: '0.76rem', color: '#94a3b8' }}>{tx.patientId}</div>
+                          </td>
+                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#38bdf8' }}>
+                            {tx.receiptNumber}
+                          </td>
+                          <td style={{ padding: '10px 14px', maxWidth: '240px', color: '#e2e8f0' }}>
+                            {tx.tests}
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px' }}>
+                              📍 {tx.branchName}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#94a3b8' }}>
+                            {formatETB(tx.grossAmount || 0)}
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: tx.discountPercent > 0 ? '#f59e0b' : '#94a3b8' }}>
+                            {tx.discountPercent > 0 ? `${tx.discountPercent}% (-${formatETB(tx.discountAmount || 0)})` : '0%'}
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            <strong style={{ color: '#10b981' }}>{formatETB(tx.netAmount || 0)}</strong>
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '10px' }}>
+                              {tx.paymentMethod || 'Cash'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </section>

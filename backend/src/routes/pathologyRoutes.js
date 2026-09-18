@@ -9,8 +9,9 @@ router.use(requireAuth);
 
 // Work queue & case examination routes
 router.get('/templates', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST), c.getTemplates);
-router.get('/queue', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST, ROLES.RECEPTION), c.queue);
-router.get('/cases/:id', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST, ROLES.RECEPTION), c.getCase);
+router.get('/queue', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST), c.queue);
+router.get('/transactions', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN), c.transactions);
+router.get('/cases/:id', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST, ROLES.RECEPTION, ROLES.SAMPLE_COLLECTOR), c.getCase);
 router.patch('/cases/:id/draft', allowRoles(ROLES.ADMIN, ROLES.PATHOLOGIST), c.saveDraft);
 router.post('/cases/:id/approve', allowRoles(ROLES.ADMIN, ROLES.PATHOLOGIST), c.approveCase);
 router.post('/cases/:id/clear', allowRoles(ROLES.ADMIN, ROLES.SUB_ADMIN, ROLES.PATHOLOGIST), c.clearCase);

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import RadiologyCase from '../models/RadiologyCase.js';
 import Patient from '../models/Patient.js';
+import Payment from '../models/Payment.js';
 import LaboratoryTest from '../models/LaboratoryTest.js';
 import LaboratoryTestCategory from '../models/LaboratoryTestCategory.js';
 import User from '../models/User.js';
@@ -11,14 +12,15 @@ import { emit } from '../services/sseService.js';
 import { RADIOLOGY_TEMPLATES } from '../constants/radiologyTemplates.js';
 
 // Helper: date range generator for queue filtering
-export function getDateRange(filterType) {
+// Helper: date range generator for queue and transaction filtering
+export function getDateRange(filterType, customStart, customEnd) {
   if (!filterType || filterType === 'all') return null;
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  switch (filterType.toLowerCase()) {
+  switch (String(filterType).toLowerCase()) {
     case 'today':
       return { $gte: startOfToday, $lte: endOfToday };
     case 'yesterday': {
@@ -48,8 +50,40 @@ export function getDateRange(filterType) {
       endOfLastWeek.setMilliseconds(-1);
       return { $gte: startOfLastWeek, $lte: endOfLastWeek };
     }
-    default:
+    case 'single':
+    case 'single_date': {
+      const dateVal = customStart || customEnd;
+      if (!dateVal) return null;
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return null;
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+      return { $gte: start, $lte: end };
+    }
+    case 'range':
+    case 'date_range':
+    case 'custom': {
+      if (!customStart && !customEnd) return null;
+      const startD = customStart ? new Date(customStart) : null;
+      const endD = customEnd ? new Date(customEnd) : null;
+      const range = {};
+      if (startD && !isNaN(startD.getTime())) {
+        range.$gte = new Date(startD.getFullYear(), startD.getMonth(), startD.getDate(), 0, 0, 0, 0);
+      }
+      if (endD && !isNaN(endD.getTime())) {
+        range.$lte = new Date(endD.getFullYear(), endD.getMonth(), endD.getDate(), 23, 59, 59, 999);
+      }
+      return Object.keys(range).length ? range : null;
+    }
+    default: {
+      const parsed = new Date(filterType);
+      if (!isNaN(parsed.getTime()) && String(filterType).includes('-')) {
+        const start = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+        const end = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+        return { $gte: start, $lte: end };
+      }
       return null;
+    }
   }
 }
 
@@ -166,10 +200,14 @@ export async function getCase(req, res, next) {
 
     if (!item) throw new AppError('Radiology case not found.', 404);
 
-    if (req.user.role === 'Reception') {
-      const regId = String(item.registeredBy?._id || item.registeredBy || item.patient?.registeredBy?._id || item.patient?.registeredBy || '');
-      if (regId !== String(req.user.id)) {
-        throw new AppError('You are not authorized to view radiology cases registered by another receptionist.', 403);
+    if (['Reception', 'Sample Collector'].includes(req.user.role)) {
+      if (!['Approved', 'Ready for Printing'].includes(item.status)) {
+        throw new AppError('Only approved radiology reports are accessible.', 403);
+      }
+      const userBranch = req.user.branchName || 'Main';
+      const caseBranch = item.branchName || item.patient?.branchName || 'Main';
+      if (req.user.branchName && req.user.branchName !== 'All' && caseBranch !== userBranch) {
+        throw new AppError('You are not authorized to view radiology cases from another branch.', 403);
       }
     }
 
@@ -638,6 +676,189 @@ export async function restoreCase(req, res, next) {
       success: true,
       message: 'Patient successfully restored to active queue.',
       case: item
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * GET /api/radiology/transactions
+ * Dedicated Radiology Transaction / Income Dashboard
+ * Monitors ONLY income generated from Radiology-related tests at the individual test level.
+ * Applies existing proportional discount logic without double counting.
+ */
+function isRadiologyTest(test) {
+  const catName = String(test?.category?.name || test?.categoryName || '').toUpperCase();
+  const testName = String(test?.name || '').toUpperCase();
+  const subcat = String(test?.subcategory || '').toUpperCase();
+
+  return catName.includes('RADIOLOGY') ||
+    testName.includes('CT SCAN') || testName.includes('X-RAY') || testName.includes('XRAY') || testName.includes('ULTRASOUND') ||
+    testName.includes('MRI') ||
+    subcat.includes('CT SCAN') || subcat.includes('X-RAY') || subcat.includes('XRAY') || subcat.includes('ULTRASOUND') ||
+    subcat.includes('MRI');
+}
+
+export async function transactions(req, res, next) {
+  try {
+    const dateFilter = req.query.dateFilter || req.query.datePreset || 'today';
+    const singleDate = req.query.singleDate || req.query.date || null;
+    const startDate = req.query.startDate || null;
+    const endDate = req.query.endDate || null;
+    const branch = (req.user.role !== 'Admin' && req.user.branchName)
+      ? req.user.branchName
+      : (req.query.branchName && req.query.branchName !== 'All' ? req.query.branchName : null);
+
+    let dateRange = null;
+    if (dateFilter === 'single' || dateFilter === 'single_date' || (singleDate && !startDate && !endDate)) {
+      dateRange = getDateRange('single', singleDate || dateFilter);
+    } else if (dateFilter === 'range' || dateFilter === 'date_range' || dateFilter === 'custom' || startDate || endDate) {
+      dateRange = getDateRange('range', startDate, endDate);
+    } else {
+      dateRange = getDateRange(dateFilter);
+    }
+
+    const query = { paymentStatus: 'Paid' };
+    if (branch) query.branchName = branch;
+    if (dateRange) {
+      query.$or = [
+        { paymentDate: dateRange },
+        { registrationDate: dateRange }
+      ];
+    }
+
+    const patients = await Patient.find(query)
+      .populate({
+        path: 'laboratoryTests',
+        select: 'name price category subcategory',
+        populate: { path: 'category', select: 'name' }
+      })
+      .populate('registeredBy', 'fullName username role')
+      .populate('collectedBy', 'fullName username role')
+      .sort({ paymentDate: -1, registrationDate: -1 })
+      .lean();
+
+    const pendingQuery = { paymentStatus: { $in: ['Waiting for Payment', 'Unpaid'] } };
+    if (branch) pendingQuery.branchName = branch;
+    if (dateRange) pendingQuery.registrationDate = dateRange;
+    const pendingPatients = await Patient.find(pendingQuery)
+      .populate({
+        path: 'laboratoryTests',
+        select: 'name price category subcategory',
+        populate: { path: 'category', select: 'name' }
+      })
+      .lean();
+
+    let pendingAmount = 0;
+    pendingPatients.forEach(p => {
+      const pTests = (p.laboratoryTests || []).filter(isRadiologyTest);
+      const discountPct = Number(p.discountPercent || 0);
+      pTests.forEach(t => {
+        const net = Number(t.price || 0) * (1 - discountPct / 100);
+        pendingAmount += net;
+      });
+    });
+
+    let totalIncome = 0;
+    let totalGross = 0;
+    let totalDiscount = 0;
+    const breakdown = {
+      ultrasound: { count: 0, revenue: 0 },
+      ctScan: { count: 0, revenue: 0 },
+      mri: { count: 0, revenue: 0 },
+      xRay: { count: 0, revenue: 0 },
+      other: { count: 0, revenue: 0 }
+    };
+
+    const transactionRows = [];
+
+    patients.forEach(p => {
+      const tests = p.laboratoryTests || [];
+      const radTests = tests.filter(isRadiologyTest);
+      if (!radTests.length) return;
+
+      const discountPct = Number(p.discountPercent || 0);
+      let txRadGross = 0;
+      let txRadNet = 0;
+      const testNames = [];
+
+      radTests.forEach(t => {
+        const gross = Number(t.price || 0);
+        const net = gross * (1 - discountPct / 100);
+        txRadGross += gross;
+        txRadNet += net;
+        testNames.push(t.name);
+
+        const lowerName = (t.name || '').toLowerCase() + ' ' + (t.subcategory || '').toLowerCase();
+        if (/ultrasound|sonograph/i.test(lowerName)) {
+          breakdown.ultrasound.count += 1;
+          breakdown.ultrasound.revenue += net;
+        } else if (/ct scan|computed tomo/i.test(lowerName)) {
+          breakdown.ctScan.count += 1;
+          breakdown.ctScan.revenue += net;
+        } else if (/mri|magnetic res/i.test(lowerName)) {
+          breakdown.mri.count += 1;
+          breakdown.mri.revenue += net;
+        } else if (/x-ray|xray|radiograph/i.test(lowerName)) {
+          breakdown.xRay.count += 1;
+          breakdown.xRay.revenue += net;
+        } else {
+          breakdown.other.count += 1;
+          breakdown.other.revenue += net;
+        }
+      });
+
+      const txDiscount = txRadGross - txRadNet;
+      totalIncome += txRadNet;
+      totalGross += txRadGross;
+      totalDiscount += txDiscount;
+
+      transactionRows.push({
+        _id: p._id,
+        patientId: p.patientId,
+        patientName: p.name,
+        receiptNumber: p.receiptNumber || `RC-${p.patientId}`,
+        date: p.paymentDate || p.registrationDate,
+        branchName: p.branchName || 'Main',
+        paymentMethod: p.paymentMethod || 'Cash',
+        paymentStatus: p.paymentStatus,
+        discountPercent: discountPct,
+        radiologyExams: testNames,
+        tests: testNames.join(', '),
+        grossAmount: Math.round(txRadGross * 100) / 100,
+        discountAmount: Math.round(txDiscount * 100) / 100,
+        netAmount: Math.round(txRadNet * 100) / 100,
+        grandTotal: Math.round(txRadNet * 100) / 100,
+        registeredBy: p.registeredBy?.fullName || 'Receptionist',
+        receivedBy: p.collectedBy?.fullName || p.registeredBy?.fullName || 'Receptionist'
+      });
+    });
+
+    res.json({
+      success: true,
+      department: 'Radiology',
+      dateFilter,
+      singleDate: singleDate || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      branch: branch || 'All',
+      summary: {
+        totalIncome: Math.round(totalIncome * 100) / 100,
+        totalGross: Math.round(totalGross * 100) / 100,
+        totalDiscount: Math.round(totalDiscount * 100) / 100,
+        transactionCount: transactionRows.length,
+        paidAmount: Math.round(totalIncome * 100) / 100,
+        pendingAmount: Math.round(pendingAmount * 100) / 100,
+        breakdown: {
+          ultrasound: { count: breakdown.ultrasound.count, revenue: Math.round(breakdown.ultrasound.revenue * 100) / 100 },
+          ctScan: { count: breakdown.ctScan.count, revenue: Math.round(breakdown.ctScan.revenue * 100) / 100 },
+          mri: { count: breakdown.mri.count, revenue: Math.round(breakdown.mri.revenue * 100) / 100 },
+          xRay: { count: breakdown.xRay.count, revenue: Math.round(breakdown.xRay.revenue * 100) / 100 },
+          other: { count: breakdown.other.count, revenue: Math.round(breakdown.other.revenue * 100) / 100 }
+        }
+      },
+      transactions: transactionRows
     });
   } catch (e) {
     next(e);

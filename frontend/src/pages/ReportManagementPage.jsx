@@ -41,6 +41,7 @@ export default function ReportManagementPage() {
   const [q, setQ] = useState('');
   const [range, setRange] = useState('Today');
   const [selected, setSelected] = useState(null);
+  const [deptFilter, setDeptFilter] = useState('All');
   const [showReportLogo, setShowReportLogo] = useState(true);
   const [showReportFooter, setShowReportFooter] = useState(true);
   const [reportStampType, setReportStampType] = useState(null);
@@ -100,8 +101,26 @@ export default function ReportManagementPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api('/collection/reports', { token });
-      setReports(data.reports || []);
+      const [colData, recData] = await Promise.all([
+        api('/collection/reports', { token }).catch(() => ({ reports: [] })),
+        api('/reception/reports?dateFilter=all', { token }).catch(() => ({ reports: [] }))
+      ]);
+
+      const colList = Array.isArray(colData?.reports) ? colData.reports : [];
+      const recList = Array.isArray(recData?.reports) ? recData.reports : [];
+
+      const reportMap = new Map();
+      colList.forEach(r => {
+        if (r?._id) reportMap.set(String(r._id), r);
+      });
+      recList.forEach(r => {
+        if (r?._id) {
+          const existing = reportMap.get(String(r._id));
+          reportMap.set(String(r._id), existing ? { ...existing, ...r } : r);
+        }
+      });
+
+      setReports(Array.from(reportMap.values()));
     } catch (e) {
       if (!isSilentNetworkError(e)) setError(e.message);
     }
@@ -190,10 +209,16 @@ export default function ReportManagementPage() {
       : tab === 'Approved'
         ? ['Approved', 'Ready for Printing'].includes(r.status)
         : r.status === tab;
-    if (!bucket) return false;
+    if (tab === 'Approved' && deptFilter !== 'All') {
+      const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
+      if (dept !== deptFilter && !(deptFilter === 'Laboratory' && dept === 'Internal Medicine')) {
+        return false;
+      }
+    }
     const tests = (r.patient?.laboratoryTests || []).map(x => x?.name).filter(Boolean);
     const samples = (r.patient?.sampleTypes || []).map(x => x?.name).filter(Boolean);
-    const text = `${r.patient?.name || ''} ${r.patient?.patientId || ''} ${r.patient?.barcode || ''} ${tests.join(' ')} ${samples.join(' ')}`.toLowerCase();
+    const examName = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || '';
+    const text = `${r.patient?.name || ''} ${r.patient?.patientId || ''} ${r.patient?.barcode || ''} ${r.reportNumber || ''} ${r.caseNumber || ''} ${examName} ${tests.join(' ')} ${samples.join(' ')}`.toLowerCase();
     if (q && !text.includes(q.toLowerCase())) return false;
     if (!range || String(range).toLowerCase() === 'all') return true;
     const d = new Date(r.approvedDate || r.submittedAt || r.createdDate);
@@ -219,7 +244,7 @@ export default function ReportManagementPage() {
       return d >= startOfLastWeek && d < startOfThisWeek;
     }
     return true;
-  }), [reports, tab, q, range]);
+  }), [reports, tab, q, range, deptFilter]);
 
   const filteredCleared = useMemo(() => clearedTransfers.filter(t => {
     if (!q) return true;
@@ -858,7 +883,33 @@ export default function ReportManagementPage() {
         <div>
           <div className="table-title">
             <h2>{tab === 'Cleared' ? 'Cleared Transferred Test Information' : `${tab} reports`}</h2>
-            <div className="form-actions">
+            <div className="form-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {tab === 'Approved' && (
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginRight: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Dept:</span>
+                  {['All', 'Laboratory', 'Pathology', 'Radiology'].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`filter-chip ${deptFilter === d ? 'active' : ''}`}
+                      onClick={() => setDeptFilter(d)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.78rem',
+                        borderRadius: '16px',
+                        border: '1px solid',
+                        borderColor: deptFilter === d ? '#0284c7' : 'var(--card-border, #cbd5e1)',
+                        background: deptFilter === d ? '#e0f2fe' : 'transparent',
+                        color: deptFilter === d ? '#0369a1' : 'var(--text-primary)',
+                        fontWeight: deptFilter === d ? 700 : 500,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {d === 'Pathology' ? '🔬 ' : d === 'Radiology' ? '🩻 ' : d === 'Laboratory' ? '🧪 ' : ''}{d}
+                    </button>
+                  ))}
+                </div>
+              )}
               <input
                 value={q}
                 onChange={e => setQ(e.target.value)}
@@ -936,7 +987,7 @@ export default function ReportManagementPage() {
                 <thead>
                   <tr>
                     <th>Patient</th>
-                    <th>Barcode / Tests</th>
+                    <th>{tab === 'Approved' ? 'Department & Examination' : 'Barcode / Tests'}</th>
                     <th>Status</th>
                     <th>
                       {tab === 'Draft' ? 'Progress' : tab === 'Approved' ? 'Approved by' : tab === 'Rejected' ? 'Rejection reason' : 'Submitted'}
@@ -948,6 +999,11 @@ export default function ReportManagementPage() {
                 <tbody>
                   {filtered.map(r => {
                     const desc = getReportTestTypes(r).formattedNames;
+                    const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
+                    const isPath = dept === 'Pathology';
+                    const isRad = dept === 'Radiology';
+                    const examName = r.testType || r.customExaminationName || r.ultrasoundSubtype || r.examinationType || desc;
+
                     return (
                       <tr key={r._id}>
                         <td>
@@ -955,20 +1011,42 @@ export default function ReportManagementPage() {
                           <span>{r.patient?.patientId}</span>
                         </td>
                         <td>
-                          {r.patient?.barcode || '—'}
-                          <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span>
+                          {isPath || isRad ? (
+                            <div>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                background: isPath ? '#fef3c7' : '#e0f2fe',
+                                color: isPath ? '#92400e' : '#0369a1',
+                                marginBottom: '2px'
+                              }}>
+                                {isPath ? '🔬 Pathology' : '🩻 Radiology'}
+                              </span>
+                              <div style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.88rem' }}>
+                                {examName}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {r.patient?.barcode || '—'}
+                              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{desc}</span>
+                            </>
+                          )}
                         </td>
                         <td>{statusOf(r)}</td>
                         <td>
                           {tab === 'Draft'
                             ? progress(r)
                             : tab === 'Approved'
-                              ? r.approvedBy?.fullName || '—'
+                              ? (r.approvedBy?.fullName ? `Dr. ${r.approvedBy.fullName}` : (r.pathologist?.fullName ? `Dr. ${r.pathologist.fullName}` : (r.radiologist?.fullName ? `Dr. ${r.radiologist.fullName}` : '—')))
                               : tab === 'Rejected'
                                 ? <strong className="danger">{r.rejectionReason}</strong>
                                 : date(r.submittedAt || r.submittedDate)}
                         </td>
-                        <td>{date(r.lastSavedAt || r.updatedDate)}</td>
+                        <td>{date(r.lastSavedAt || r.updatedDate || r.approvedDate)}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button
@@ -976,8 +1054,19 @@ export default function ReportManagementPage() {
                               className="secondary"
                               onClick={() => { setSelected(r); setReportStampType(r.stampType || null); }}
                             >
-                              {tab === 'Draft' ? 'View Draft' : 'View Report'}
+                              {tab === 'Draft' ? 'View Draft' : '👁️ View Report'}
                             </button>
+                            {tab === 'Approved' && (
+                              <button
+                                type="button"
+                                className="secondary"
+                                style={{ color: '#059669', borderColor: '#34d399', fontWeight: 600 }}
+                                onClick={() => printLabReport(r, { showLogo: showReportLogo, showFooter: showReportFooter, stampType: reportStampType, token, user })}
+                                title="Print Approved A4 Report"
+                              >
+                                🖨️ Print
+                              </button>
+                            )}
                             {tab === 'Draft' && (
                               <button type="button" className="primary" onClick={() => resume(r)}>
                                 ▶ Continue

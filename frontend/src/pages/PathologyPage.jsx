@@ -451,40 +451,80 @@ export default function PathologyPage() {
 
       {/* ── 2. FOUR SUMMARY KPI CARDS ───────────────────────────────────── */}
       <div className="clinical-kpi-grid">
-        <article className="clinical-kpi-card blue">
+        <article
+          className={`clinical-kpi-card blue ${statusFilter === 'all' ? 'is-active' : ''}`}
+          onClick={() => setStatusFilter('all')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && setStatusFilter('all')}
+          title="Click to view all cross-branch pathology cases"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">TOTAL CASES</h3>
             <div className="clinical-kpi-icon-pill">📊</div>
           </div>
           <div className="clinical-kpi-number">{stats.total}</div>
-          <p className="clinical-kpi-desc">All cross-branch cases</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">All cross-branch cases</p>
+            <span className="clinical-kpi-tag blue">View All</span>
+          </div>
         </article>
 
-        <article className="clinical-kpi-card orange">
+        <article
+          className={`clinical-kpi-card orange ${statusFilter === 'Queued' ? 'is-active' : ''}`}
+          onClick={() => setStatusFilter('Queued')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && setStatusFilter('Queued')}
+          title="Click to filter by waiting examination cases"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">WAITING EXAMINATION</h3>
             <div className="clinical-kpi-icon-pill">⏳</div>
           </div>
           <div className="clinical-kpi-number">{stats.queued}</div>
-          <p className="clinical-kpi-desc">Awaiting pathology review</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">Awaiting pathology review</p>
+            <span className="clinical-kpi-tag orange">Queued</span>
+          </div>
         </article>
 
-        <article className="clinical-kpi-card purple">
+        <article
+          className={`clinical-kpi-card purple ${statusFilter === 'In Progress' ? 'is-active' : ''}`}
+          onClick={() => setStatusFilter('In Progress')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && setStatusFilter('In Progress')}
+          title="Click to filter by active in-progress analyses"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">IN PROGRESS</h3>
             <div className="clinical-kpi-icon-pill">🔬</div>
           </div>
           <div className="clinical-kpi-number">{stats.inProgress}</div>
-          <p className="clinical-kpi-desc">Laboratory analysis active</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">Laboratory analysis active</p>
+            <span className="clinical-kpi-tag purple">In Lab</span>
+          </div>
         </article>
 
-        <article className="clinical-kpi-card green">
+        <article
+          className={`clinical-kpi-card green ${statusFilter === 'Approved' ? 'is-active' : ''}`}
+          onClick={() => setStatusFilter('Approved')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && setStatusFilter('Approved')}
+          title="Click to filter by approved & released reports"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">APPROVED REPORTS</h3>
             <div className="clinical-kpi-icon-pill">✅</div>
           </div>
           <div className="clinical-kpi-number">{stats.approved}</div>
-          <p className="clinical-kpi-desc">Ready for printing / released</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">Ready for printing / released</p>
+            <span className="clinical-kpi-tag green">Finalized</span>
+          </div>
         </article>
       </div>
 

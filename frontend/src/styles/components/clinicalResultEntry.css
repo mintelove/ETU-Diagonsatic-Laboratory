@@ -149,38 +149,98 @@
 @media (max-width: 1024px) {
   .clinical-kpi-grid {
     grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
+  .clinical-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+}
+
+@media (max-width: 400px) {
   .clinical-kpi-grid {
     grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
   }
 }
 
 .clinical-kpi-card {
   background: #FFFFFF !important;
   border: 1px solid #E2E8F0 !important;
-  border-radius: 14px !important;
+  border-radius: 16px !important;
   padding: 1.25rem 1.35rem !important;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.03) !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
   position: relative !important;
   overflow: hidden !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease !important;
 }
 
 :root[data-theme='dark'] .clinical-kpi-card {
-  background: #131E32 !important;
+  background: linear-gradient(180deg, #131E32 0%, #0D1626 100%) !important;
   border-color: #24344D !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.03) inset !important;
 }
 
 .clinical-kpi-card:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+  transform: translateY(-3px) !important;
+}
+
+.clinical-kpi-card:active {
+  transform: translateY(-1px) scale(0.99) !important;
+}
+
+.clinical-kpi-card:focus-visible {
+  outline: 2px solid #0284C7 !important;
+  outline-offset: 2px !important;
+}
+
+.clinical-kpi-card.blue:hover {
+  border-color: #38BDF8 !important;
+  box-shadow: 0 10px 24px -4px rgba(2, 132, 199, 0.2) !important;
+}
+
+.clinical-kpi-card.orange:hover {
+  border-color: #FB923C !important;
+  box-shadow: 0 10px 24px -4px rgba(234, 88, 12, 0.2) !important;
+}
+
+.clinical-kpi-card.purple:hover {
+  border-color: #C084FC !important;
+  box-shadow: 0 10px 24px -4px rgba(139, 92, 246, 0.2) !important;
+}
+
+.clinical-kpi-card.green:hover {
+  border-color: #4ADE80 !important;
+  box-shadow: 0 10px 24px -4px rgba(22, 163, 74, 0.2) !important;
+}
+
+/* Active Selected Indicator */
+.clinical-kpi-card.is-active {
+  box-shadow: 0 0 0 2px #0284C7, 0 8px 24px rgba(2, 132, 199, 0.25) !important;
+}
+.clinical-kpi-card.blue.is-active {
+  border-color: #0284C7 !important;
+  box-shadow: 0 0 0 2px #0284C7, 0 8px 24px rgba(2, 132, 199, 0.25) !important;
+}
+.clinical-kpi-card.orange.is-active {
+  border-color: #EA580C !important;
+  box-shadow: 0 0 0 2px #EA580C, 0 8px 24px rgba(234, 88, 12, 0.25) !important;
+}
+.clinical-kpi-card.purple.is-active {
+  border-color: #8B5CF6 !important;
+  box-shadow: 0 0 0 2px #8B5CF6, 0 8px 24px rgba(139, 92, 246, 0.25) !important;
+}
+.clinical-kpi-card.green.is-active {
+  border-color: #16A34A !important;
+  box-shadow: 0 0 0 2px #16A34A, 0 8px 24px rgba(22, 163, 74, 0.25) !important;
 }
 
 .clinical-kpi-card::before {
@@ -190,19 +250,20 @@
   left: 0 !important;
   right: 0 !important;
   height: 4px !important;
+  border-radius: 16px 16px 0 0 !important;
 }
 
-.clinical-kpi-card.blue::before { background: #0284C7 !important; }
-.clinical-kpi-card.orange::before { background: #EA580C !important; }
-.clinical-kpi-card.purple::before { background: #8B5CF6 !important; }
-.clinical-kpi-card.green::before { background: #16A34A !important; }
-.clinical-kpi-card.red::before { background: #DC2626 !important; }
+.clinical-kpi-card.blue::before { background: linear-gradient(90deg, #0284C7 0%, #38BDF8 100%) !important; }
+.clinical-kpi-card.orange::before { background: linear-gradient(90deg, #EA580C 0%, #FB923C 100%) !important; }
+.clinical-kpi-card.purple::before { background: linear-gradient(90deg, #7C3AED 0%, #C084FC 100%) !important; }
+.clinical-kpi-card.green::before { background: linear-gradient(90deg, #16A34A 0%, #4ADE80 100%) !important; }
+.clinical-kpi-card.red::before { background: linear-gradient(90deg, #DC2626 0%, #F87171 100%) !important; }
 
 .clinical-kpi-header {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  margin-bottom: 0.75rem !important;
+  margin-bottom: 0.85rem !important;
 }
 
 .clinical-kpi-title {
@@ -219,47 +280,104 @@
 }
 
 .clinical-kpi-icon-pill {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 8px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 1.1rem !important;
+  font-size: 1.15rem !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+  transition: transform 0.2s ease !important;
 }
 
-.clinical-kpi-card.blue .clinical-kpi-icon-pill { background: #EFF6FF !important; color: #0284C7 !important; }
-.clinical-kpi-card.orange .clinical-kpi-icon-pill { background: #FFF7ED !important; color: #EA580C !important; }
-.clinical-kpi-card.purple .clinical-kpi-icon-pill { background: #F5F3FF !important; color: #8B5CF6 !important; }
-.clinical-kpi-card.green .clinical-kpi-icon-pill { background: #F0FDF4 !important; color: #16A34A !important; }
-.clinical-kpi-card.red .clinical-kpi-icon-pill { background: #FEF2F2 !important; color: #DC2626 !important; }
+.clinical-kpi-card:hover .clinical-kpi-icon-pill {
+  transform: scale(1.08) !important;
+}
 
-:root[data-theme='dark'] .clinical-kpi-card.blue .clinical-kpi-icon-pill { background: #1E293B !important; color: #38BDF8 !important; }
-:root[data-theme='dark'] .clinical-kpi-card.orange .clinical-kpi-icon-pill { background: #1E293B !important; color: #FB923C !important; }
-:root[data-theme='dark'] .clinical-kpi-card.purple .clinical-kpi-icon-pill { background: #1E293B !important; color: #C084FC !important; }
-:root[data-theme='dark'] .clinical-kpi-card.green .clinical-kpi-icon-pill { background: #1E293B !important; color: #4ADE80 !important; }
+.clinical-kpi-card.blue .clinical-kpi-icon-pill { background: #EFF6FF !important; color: #0284C7 !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+.clinical-kpi-card.orange .clinical-kpi-icon-pill { background: #FFF7ED !important; color: #EA580C !important; border: 1px solid rgba(234, 88, 12, 0.2) !important; }
+.clinical-kpi-card.purple .clinical-kpi-icon-pill { background: #F5F3FF !important; color: #8B5CF6 !important; border: 1px solid rgba(139, 92, 246, 0.2) !important; }
+.clinical-kpi-card.green .clinical-kpi-icon-pill { background: #F0FDF4 !important; color: #16A34A !important; border: 1px solid rgba(22, 163, 74, 0.2) !important; }
+.clinical-kpi-card.red .clinical-kpi-icon-pill { background: #FEF2F2 !important; color: #DC2626 !important; border: 1px solid rgba(220, 38, 38, 0.2) !important; }
+
+:root[data-theme='dark'] .clinical-kpi-card.blue .clinical-kpi-icon-pill { background: rgba(2, 132, 199, 0.18) !important; color: #38BDF8 !important; border-color: rgba(56, 189, 248, 0.3) !important; }
+:root[data-theme='dark'] .clinical-kpi-card.orange .clinical-kpi-icon-pill { background: rgba(234, 88, 12, 0.18) !important; color: #FB923C !important; border-color: rgba(251, 146, 60, 0.3) !important; }
+:root[data-theme='dark'] .clinical-kpi-card.purple .clinical-kpi-icon-pill { background: rgba(139, 92, 246, 0.18) !important; color: #C084FC !important; border-color: rgba(192, 132, 252, 0.3) !important; }
+:root[data-theme='dark'] .clinical-kpi-card.green .clinical-kpi-icon-pill { background: rgba(22, 163, 74, 0.18) !important; color: #4ADE80 !important; border-color: rgba(74, 222, 128, 0.3) !important; }
 
 .clinical-kpi-number {
-  font-size: 2.2rem !important;
+  font-size: 2.35rem !important;
   font-weight: 800 !important;
   color: #0A1E34 !important;
   line-height: 1 !important;
-  margin: 0 0 0.4rem 0 !important;
+  margin: 0 0 0.5rem 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -0.02em !important;
 }
 
 :root[data-theme='dark'] .clinical-kpi-number {
   color: #F8FAFC !important;
 }
 
+.clinical-kpi-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  margin-top: 0.25rem !important;
+}
+
 .clinical-kpi-desc {
   font-size: 0.8rem !important;
   font-weight: 600 !important;
-  color: #475569 !important;
+  color: #64748B !important;
   margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 :root[data-theme='dark'] .clinical-kpi-desc {
   color: #94A3B8 !important;
+}
+
+.clinical-kpi-tag {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  white-space: nowrap !important;
+  line-height: 1.3 !important;
+}
+
+.clinical-kpi-tag.blue { background: rgba(2, 132, 199, 0.12) !important; color: #0284C7 !important; }
+.clinical-kpi-tag.orange { background: rgba(234, 88, 12, 0.12) !important; color: #EA580C !important; }
+.clinical-kpi-tag.purple { background: rgba(139, 92, 246, 0.12) !important; color: #8B5CF6 !important; }
+.clinical-kpi-tag.green { background: rgba(22, 163, 74, 0.12) !important; color: #16A34A !important; }
+
+:root[data-theme='dark'] .clinical-kpi-tag.blue { background: rgba(2, 132, 199, 0.22) !important; color: #38BDF8 !important; }
+:root[data-theme='dark'] .clinical-kpi-tag.orange { background: rgba(234, 88, 12, 0.22) !important; color: #FB923C !important; }
+:root[data-theme='dark'] .clinical-kpi-tag.purple { background: rgba(139, 92, 246, 0.22) !important; color: #C084FC !important; }
+:root[data-theme='dark'] .clinical-kpi-tag.green { background: rgba(22, 163, 74, 0.22) !important; color: #4ADE80 !important; }
+
+@media (max-width: 480px) {
+  .clinical-kpi-card {
+    padding: 1rem 1.1rem !important;
+    border-radius: 14px !important;
+  }
+  .clinical-kpi-number {
+    font-size: 1.95rem !important;
+  }
+  .clinical-kpi-title {
+    font-size: 0.72rem !important;
+  }
+  .clinical-kpi-desc {
+    font-size: 0.74rem !important;
+  }
+  .clinical-kpi-tag {
+    display: none !important;
+  }
 }
 
 /* ── 4. WORKLIST CARD & CONTROLS ────────────────────────────────────────── */

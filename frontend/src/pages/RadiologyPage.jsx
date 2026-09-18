@@ -428,40 +428,80 @@ export default function RadiologyPage() {
 
       {/* ── 2. FOUR SUMMARY KPI CARDS ───────────────────────────────────── */}
       <div className="clinical-kpi-grid">
-        <article className="clinical-kpi-card blue">
+        <article
+          className={`clinical-kpi-card blue ${queueTab === 'active' && statusFilter === 'all' ? 'is-active' : ''}`}
+          onClick={() => { setQueueTab('active'); setStatusFilter('all'); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter') { setQueueTab('active'); setStatusFilter('all'); } }}
+          title="Click to view all examinations"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">TOTAL EXAMINATIONS</h3>
             <div className="clinical-kpi-icon-pill">📊</div>
           </div>
           <div className="clinical-kpi-number">{stats.total}</div>
-          <p className="clinical-kpi-desc">All cross-branch examinations</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">All cross-branch examinations</p>
+            <span className="clinical-kpi-tag blue">View All</span>
+          </div>
         </article>
 
-        <article className="clinical-kpi-card orange">
+        <article
+          className={`clinical-kpi-card orange ${queueTab === 'active' && statusFilter === 'Queued' ? 'is-active' : ''}`}
+          onClick={() => { setQueueTab('active'); setStatusFilter('Queued'); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter') { setQueueTab('active'); setStatusFilter('Queued'); } }}
+          title="Click to filter by awaiting radiology scan/review"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">WAITING EXAMINATION</h3>
             <div className="clinical-kpi-icon-pill">⏳</div>
           </div>
           <div className="clinical-kpi-number">{stats.queued}</div>
-          <p className="clinical-kpi-desc">Awaiting radiology scan/review</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">Awaiting radiology scan/review</p>
+            <span className="clinical-kpi-tag orange">Queued</span>
+          </div>
         </article>
 
-        <article className="clinical-kpi-card purple">
+        <article
+          className={`clinical-kpi-card purple ${queueTab === 'active' && statusFilter === 'In Progress' ? 'is-active' : ''}`}
+          onClick={() => { setQueueTab('active'); setStatusFilter('In Progress'); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter') { setQueueTab('active'); setStatusFilter('In Progress'); } }}
+          title="Click to filter by active image analysis & drafting"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">IN PROGRESS</h3>
             <div className="clinical-kpi-icon-pill">🩻</div>
           </div>
           <div className="clinical-kpi-number">{stats.inProgress}</div>
-          <p className="clinical-kpi-desc">Image analysis &amp; drafting</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">Image analysis &amp; drafting</p>
+            <span className="clinical-kpi-tag purple">In Progress</span>
+          </div>
         </article>
 
-        <article className="clinical-kpi-card green">
+        <article
+          className={`clinical-kpi-card green ${queueTab === 'cleared' || statusFilter === 'Approved' ? 'is-active' : ''}`}
+          onClick={() => { setQueueTab('cleared'); setStatusFilter('all'); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter') { setQueueTab('cleared'); setStatusFilter('all'); } }}
+          title="Click to view approved & released reports"
+        >
           <div className="clinical-kpi-header">
             <h3 className="clinical-kpi-title">APPROVED REPORTS</h3>
             <div className="clinical-kpi-icon-pill">✅</div>
           </div>
           <div className="clinical-kpi-number">{stats.approved}</div>
-          <p className="clinical-kpi-desc">Ready for printing / released</p>
+          <div className="clinical-kpi-footer">
+            <p className="clinical-kpi-desc">Ready for printing / released</p>
+            <span className="clinical-kpi-tag green">Released</span>
+          </div>
         </article>
       </div>
 

@@ -479,11 +479,22 @@ export default function ReceptionPage() {
   const [reportStampType, setReportStampType] = useState(null);
   const [selectedReportForPreview, setSelectedReportForPreview] = useState(null);
   const [reportsDateFilter, setReportsDateFilter] = useState('today');
+  const [reportsDeptFilter, setReportsDeptFilter] = useState('All');
   const [reportsSearch, setReportsSearch] = useState('');
   const [debouncedReportsSearch, setDebouncedReportsSearch] = useState('');
   const [transactionDateFilter, setTransactionDateFilter] = useState('today');
   const [receptionTxList, setReceptionTxList] = useState([]);
   const [txSummary, setTxSummary] = useState({ count: 0, totalRevenue: 0 });
+
+  const displayedReports = useMemo(() => {
+    if (!reportsDeptFilter || reportsDeptFilter === 'All') return reports;
+    return reports.filter(r => {
+      const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
+      if (dept === reportsDeptFilter) return true;
+      if (reportsDeptFilter === 'Laboratory' && dept === 'Internal Medicine') return true;
+      return false;
+    });
+  }, [reports, reportsDeptFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1411,9 +1422,32 @@ export default function ReceptionPage() {
                 </button>
               ))}
             </div>
+
+            <div
+              className="reports-date-filter-bar"
+              role="group"
+              aria-label="Approved Reports Department Filter"
+            >
+              <span className="reports-date-label">🔬 Dept:</span>
+              {[
+                { id: 'All', label: 'All' },
+                { id: 'Laboratory', label: 'Laboratory' },
+                { id: 'Pathology', label: 'Pathology' },
+                { id: 'Radiology', label: 'Radiology' }
+              ].map(df => (
+                <button
+                  key={df.id}
+                  type="button"
+                  className={`filter-pill-btn ${reportsDeptFilter === df.id ? 'active' : ''}`}
+                  onClick={() => setReportsDeptFilter(df.id)}
+                >
+                  {df.id === 'Pathology' ? '🔬 ' : df.id === 'Radiology' ? '🩻 ' : df.id === 'Laboratory' ? '🧪 ' : ''}{df.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {reports.length ? (
+          {displayedReports.length ? (
             <div className="sample-types-table-wrapper">
               <table className="sample-types-table">
                 <thead>
@@ -1427,7 +1461,7 @@ export default function ReceptionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {reports.map(r => {
+                  {displayedReports.map(r => {
                     const dept = r.department || (r.testType ? 'Pathology' : r.examinationType ? 'Radiology' : 'Laboratory');
                     const isPath = dept === 'Pathology';
                     const isRad = dept === 'Radiology';
